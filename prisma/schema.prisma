@@ -1,0 +1,69 @@
+// Prisma schema for Portfolio Insights
+// Stores only imported financial facts — no derived data
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../data/portfolio.db"
+}
+
+model Asset {
+  id         Int      @id @default(autoincrement())
+  isin       String   @unique
+  ticker     String
+  name       String
+  currency   String
+  assetType  String   @default("UNKNOWN")
+  exchange   String?
+  directaCode String?
+
+  orders        MarketOrder[]
+  cashMovements CashMovement[]
+}
+
+model MarketOrder {
+  id             Int      @id @default(autoincrement())
+  operationDate  DateTime
+  valueDate      DateTime
+  type           String   // BUY | SELL
+  quantity       Float
+  euroAmount     Float
+  currency       String
+  currencyAmount Float?
+  orderReference String?
+
+  assetId Int
+  asset   Asset @relation(fields: [assetId], references: [id])
+}
+
+model CashMovement {
+  id             Int      @id @default(autoincrement())
+  operationDate  DateTime
+  valueDate      DateTime
+  movementType   String   // DIVIDEND | COMMISSION | TAX | COUPON | FEE | OTHER
+  euroAmount     Float
+  currency       String
+  currencyAmount Float?
+  orderReference String?
+
+  assetId Int?
+  asset   Asset? @relation(fields: [assetId], references: [id])
+}
+
+model DailyPortfolioSnapshot {
+  id         Int      @id @default(autoincrement())
+  date       DateTime @unique
+  totalValue Float
+}
+
+model ImportSession {
+  id             Int      @id @default(autoincrement())
+  filename       String
+  importDate     DateTime
+  status         String   // SUCCESS | PARTIAL | FAILED
+  recordsImported Int
+  errors         Int
+}
