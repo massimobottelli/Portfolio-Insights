@@ -1,73 +1,245 @@
-# Technical Design Document  
-**Project:** Personal Finance Portfolio Manager  
+# Portfolio Insights
+
+> Technical Design Document
 
 ---
 
-## 1. Introduction
+# 1. Vision
 
+## Project Overview
 
----
+Portfolio Insights is a self-hostable web application that analyzes a single investment portfolio exported from the Directa broker.
 
-## 2. Goals & Scope
-
-### 2.1 MVP1 Goals
-
----
-
-## 3. User Persona
-
+The application focuses on long-term investments (ETFs, ETCs, ETNs and Stocks) and provides advanced insights into portfolio composition, historical evolution and investment performance.
 
 ---
 
-## 4. Functional Requirements
+## Problem Statement
 
-### 4.1 Data Entry
+Although Directa provides portfolio information, long-term investors often need richer analytics and a clearer overview of their investments.
 
-
-### 4.2 Portfolio Display
-
-
-### 4.3 Portfolio Visualizer
-
-### 4.4 Portfolio History
-
-### 4.5 Performance & Trend
+Portfolio Insights consolidates Directa exports into a normalized local database and generates meaningful analytics through an internal Analytics Engine.
 
 ---
 
-## 5. Data Model
+# 2. Goals & Scope
 
-### 5.1 Conceptual Entities
+## MVP1 Goals
 
-### 5.2 Key Design Decisions
+The first release focuses on providing a complete overview of the current portfolio.
 
----
+### Supported Pages
 
-## 6. Integration Points & Plug-in Architecture
+- Dashboard
+- Portfolio
+- Import Manager
+- Settings
 
----
+### Features
 
-## 7. Edge Cases & Risks
-
-
----
-
-## 8. Non-Functional Requirements
-
-
----
-
-## 9. Tech Stack
-
-Given the project's needs (single-page web app, moderate backend complexity, file parsing), the following stack is used:
-
-- **Frontend:**   
-- **Backend:**   
-- **Database:** 
+- Import Directa reports
+- Normalize imported data
+- Persist normalized data
+- Display portfolio overview
+- Portfolio allocation
+- Portfolio KPIs
+- Basic charts
+- Safe re-import without duplicates
 
 ---
 
-## 10. Next Steps & Open Questions
+## MVP2
 
+### Pages
+
+- Asset Detail
+- Portfolio History
+
+### Features
+
+- Historical portfolio evolution
+- Asset analytics
+- Advanced charts
+- Historical comparisons
+
+---
+
+# 3. User Workflow
+
+## Initial Setup
+
+The user imports Directa export files.
+
+Supported reports:
+
+- Current Portfolio
+- Portfolio Value History
+- Order History
+
+The application parses, validates and normalizes imported data before storing it in the local database.
+
+No manual data entry is required.
+
+---
+
+# 4. Architecture Principles
+
+## Simplicity First
+
+Introduce new technologies only when they provide a measurable benefit.
+
+Avoid unnecessary infrastructure.
+
+---
+
+## Self Hostable
+
+The application must run on any machine without depending on cloud services.
+
+---
+
+## Offline Capable
+
+After importing Directa reports, the application must continue working without Internet access.
+
+---
+
+## AI-Friendly
+
+The project should be optimized for AI-assisted development.
+
+Characteristics include:
+
+- Explicit modules
+- Strong typing
+- Predictable folder structure
+- Low coupling
+- High cohesion
+- Small services
+
+---
+
+# 5. Data Source Strategy
+
+Directa reports are the single source of truth.
+
+No external APIs are required for the MVP.
+
+Supported reports:
+
+- Current Portfolio
+- Portfolio Value History
+- Order History
+
+The internal database stores only normalized domain entities.
+
+---
+
+# 6. Analytics Engine
+
+The Analytics Engine generates every derived model used by the application.
+
+No analytical result is permanently stored.
+
+### MVP1 KPIs
+
+- Total Portfolio Value
+- Invested Capital
+- Available Cash
+- Total Profit / Loss
+- Total Profit / Loss %
+- Year-To-Date (YTD)
+
+---
+
+# 7. User Interface
+
+## MVP1
+
+- Dashboard
+- Portfolio
+- Import Manager
+- Settings
+
+## MVP2
+
+- Asset Detail
+- Portfolio History
+
+---
+
+# 8. Technical Stack
+
+## Frontend
+
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- shadcn/ui
+- Recharts
+
+## Backend
+
+- Node.js
+- Fastify
+
+## Database
+
+- SQLite
+- Prisma ORM
+
+## Validation
+
+- Zod
+
+---
+
+# 9. Project Structure
+
+The project follows a monorepo architecture.
+
+```text
+apps/
+    web/
+    api/
+
+packages/
+    analytics/
+    domain/
+    importer/
+    infrastructure/
+    shared/
+
+prisma/
+
+docs/
+```
+
+---
+
+# 10. Development Rules
+
+- Never access the database from the UI.
+- Business logic belongs to the Analytics package.
+- Importers never perform business calculations.
+- Domain models are independent from Directa exports.
+- Prefer composition over inheritance.
+- Prefer pure functions.
+- One responsibility per module.
+- Avoid circular dependencies.
+- Keep modules small and explicit.
+
+---
+
+# 11. Future Roadmap
+
+- Docker deployment
+- Automated backups
+- Additional broker importers
+- Advanced analytics
+- Performance benchmarking
+
+---
 
 **End of Document**
