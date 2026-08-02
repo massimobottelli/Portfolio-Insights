@@ -1,0 +1,33 @@
+# .clinerules
+
+## Project Overview
+- **Name:** Personal Finance Portfolio Manager
+- **Goal:** Single-user web app to manage investment portfolio.
+- **Core stack:** 
+
+## Coding Guidelines
+- **Backend:** 
+- **Frontend:** 
+- **Database interactions:** 
+- **CSV import:** 
+- **Error handling:** 
+- **Security:** 
+- **Testing:** 
+
+## Data Model Rules
+
+## Feature Implementation Rules
+
+## Design Patterns
+
+## Things to Avoid
+
+## When the User Changes Mind
+- Always respect the most recent user instruction, even if it contradicts these rules. Update this file accordingly when foundational decisions change.
+
+## Project Structure
+
+
+## Communication
+- When generating code, add concise comments explaining "why" for complex logic (especially financial calculations).
+- If the AI is unsure about any concept, ask for clarification rather than assuming.
