@@ -1,36 +1,66 @@
 {
-  "name": "Portfolio Insights Dev Environment",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  
-  // Funzionalità aggiuntive (Features) utili per lo sviluppo
-  "features": {
-    // Permette di usare Git all'interno del container con le credenziali del tuo Mac ospite
-    "ghcr.io/devcontainers/features/git:1": {}
-  },
+  "name": "Portfolio Insights",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm",
 
-  // Configura le impostazioni di VS Code all'interno del container
-  "customizations": {
-    "vscode": {
-      "settings": {
-        "files.autoSave": "onFocusChange",
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
-      },
-      // Estensioni installate automaticamente nel container all'avvio
-      "extensions": [
-        "dbaeumer.vscode-eslint",      // Linter
-        "esbenp.prettier-vscode",      // Formattatore di codice
-        "Prisma.prisma",               // Supporto per database Prisma
-        "coenraets.bracket-pair-colorizer-2"
-      ]
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers-community/features/pnpm:2": {
+      "version": "9"
     }
   },
 
-  // Esegue l'installazione delle dipendenze e la preparazione del database dopo la creazione del container
-  "postCreateCommand": "pnpm install && pnpm db:generate && pnpm db:push",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "Prisma.prisma",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next",
+        "VisualStudioExptTeam.vscodeintellicode",
+        "github.vscode-github-actions",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "typescript.enablePromptUseWorkspaceTsdk": true,
+        "files.exclude": {
+          "**/.git": true,
+          "**/node_modules": true,
+          "**/dist": true
+        },
+        "[prisma]": {
+          "editor.defaultFormatter": "Prisma.prisma"
+        }
+      }
+    }
+  },
 
-  // Evita di far girare il container come root, usa l'utente 'node' creato nel Dockerfile
-  "remoteUser": "node"
+  "forwardPorts": [5173, 3000],
+
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "notify"
+    },
+    "3000": {
+      "label": "API Server",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "postCreateCommand": "pnpm install && pnpm db:generate",
+
+  "remoteUser": "node",
+
+  "mounts": [
+    "source=${localWorkspaceFolder}/data,target=${containerWorkspaceFolder}/data,type=bind"
+  ]
 }
