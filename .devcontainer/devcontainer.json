@@ -55,9 +55,5 @@
 
   "postCreateCommand": "corepack enable && corepack prepare pnpm@9.0.0 --activate && pnpm install && pnpm db:generate",
 
-  "remoteUser": "node",
-
-  "mounts": [
-    "source=${localWorkspaceFolder}/data,target=${containerWorkspaceFolder}/data,type=bind"
-  ]
+  "remoteUser": "node"
 }

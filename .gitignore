@@ -3,6 +3,6 @@ dist/
 .vite/
 pnpm-lock.yaml
 *.db
-data/
+data/*.db
 .env
 .DS_Store
