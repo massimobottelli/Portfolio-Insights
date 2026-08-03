@@ -5,10 +5,6 @@
 #
 # Installs all required tooling and project dependencies.
 # Safe to run multiple times (idempotent where possible).
-#
-# Usage:
-#   chmod +x scripts/setup.sh
-#   ./scripts/setup.sh
 
 set -euo pipefail
 
@@ -38,16 +34,14 @@ echo -e "${NC}"
 
 # ── Step 1: Homebrew ────────────────────────────────────────
 step "Checking Homebrew..."
-
 if cmd_exists brew; then
   ok "Homebrew found: $(brew --version | head -1)"
 else
   log "Homebrew not found. Installing..."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || fail "Homebrew install failed"
-
+  
   # Homebrew path on Apple Silicon
   eval "$(/opt/homebrew/bin/brew shellenv)"
-
   if cmd_exists brew; then
     ok "Homebrew installed successfully"
   else
@@ -57,16 +51,16 @@ fi
 
 # ── Step 2: Node.js 20 LTS ──────────────────────────────────
 step "Checking Node.js..."
-
 if cmd_exists node; then
   NODE_VERSION=$(node --version)
   log "Node.js found: $NODE_VERSION"
+  
   # Check if it's at least v18 (minimum for the project)
   NODE_MAJOR=$(echo "$NODE_VERSION" | sed 's/v//' | cut -d. -f1)
   if [ "$NODE_MAJOR" -ge 18 ]; then
     ok "Node.js version is compatible"
   else
-    warn "Node.js $NODE_VERSION is too old (need >=18). Installing Node.js 20..."
+    warn "Node.js $NODE_VERSION is too old (need >=18). Installing Node.js 20 LTS..."
     brew install node@20
     brew link --overwrite node@20
     ok "Node.js 20 installed"
@@ -75,7 +69,6 @@ else
   log "Node.js not found. Installing Node.js 20 LTS..."
   brew install node@20
   brew link --overwrite node@20
-
   if cmd_exists node; then
     ok "Node.js installed: $(node --version)"
   else
@@ -87,20 +80,19 @@ fi
 ARCH=$(node -e "console.log(process.arch)")
 log "Node.js architecture: $ARCH"
 if [ "$ARCH" != "arm64" ]; then
-  warn "Expected arm64 (Apple Silicon) but running $ARCH. This may cause issues."
+  warn "Expected arm64 (Apple Silicon) but running $ARCH. This may cause performance issues."
 fi
 
 # ── Step 3: pnpm ────────────────────────────────────────────
 step "Setting up pnpm..."
-
-# Corepack is bundled with Node.js 16+
 if cmd_exists corepack; then
   log "Corepack found, enabling pnpm..."
   corepack enable pnpm
-  corepack prepare pnpm@9.0.0 --activate
+  # Attiva la versione di pnpm configurata nel package.json, altrimenti usa la 9
+  corepack prepare pnpm@latest --activate 2>/dev/null || corepack prepare pnpm@9.0.0 --activate
 else
-  log "Corepack not found. Installing pnpm via npm..."
-  npm install -g pnpm@9.0.0
+  log "Corepack not found. Installing latest pnpm via npm..."
+  npm install -g pnpm
 fi
 
 if cmd_exists pnpm; then
@@ -111,24 +103,17 @@ fi
 
 # ── Step 4: Project dependencies ────────────────────────────
 step "Installing project dependencies..."
-
-# Move to project root (where this script is expected to live under scripts/)
+# Spostati nella root del progetto (lo script si assume essere dentro la cartella /scripts)
 cd "$(dirname "$0")/.."
-
-pnpm install
-
-if [ $? -eq 0 ]; then
-  ok "Dependencies installed"
+if pnpm install; then
+  ok "Dependencies installed successfully"
 else
   fail "pnpm install failed"
 fi
 
 # ── Step 5: Prisma setup ────────────────────────────────────
 step "Setting up database (Prisma + SQLite)..."
-
-pnpm db:generate
-
-if [ $? -eq 0 ]; then
+if pnpm db:generate; then
   ok "Prisma client generated"
 else
   fail "Prisma client generation failed"
@@ -137,9 +122,7 @@ fi
 # Create data directory if it doesn't exist
 mkdir -p data
 
-pnpm db:push
-
-if [ $? -eq 0 ]; then
+if pnpm db:push; then
   ok "Database created (SQLite)"
 else
   fail "Database push failed"
@@ -147,10 +130,11 @@ fi
 
 # ── Step 6: Type check ──────────────────────────────────────
 step "Running TypeScript type check..."
-
-pnpm typecheck 2>&1 || warn "TypeScript check produced warnings (this is expected for placeholder code)"
-
-ok "TypeScript compilation OK"
+if pnpm typecheck 2>/dev/null; then
+  ok "TypeScript compilation OK"
+else
+  warn "TypeScript check produced warnings or errors (this might be expected for placeholder code)"
+fi
 
 # ── Done ────────────────────────────────────────────────────
 echo -e "\n${BOLD}${GREEN}╔═══════════════════════════════════════╗"
