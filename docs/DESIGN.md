@@ -184,13 +184,21 @@ La filosofia di questo stack è il **minimalismo tecnologico assoluto**. L'appli
 The project follows a monorepo architecture.
 
 portfolio-insights/
+
 ├── routes/
+
 │   ├── assets.js          # Rotte per la gestione degli strumenti (Asset)
+
 │   ├── analytics.js       # Rotte per i calcoli della Dashboard e KPI
+
 │   └── imports.js         # Rotte per l'upload e importazione dei file Directa
+
 ├── router.js              # Il micro-router nativo (il "motore" delle rotte)
+
 ├── database.js            # Connessione a SQLite nativo
+
 ├── server.js              # Entry point del server HTTP nativo
+
 └── public/                # Frontend React (build statica)
 
 ---
