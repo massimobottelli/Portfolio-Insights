@@ -166,29 +166,16 @@ No analytical result is permanently stored.
 ---
 
 # 8. Technical Stack
+La filosofia di questo stack è il **minimalismo tecnologico assoluto**. L'applicazione riduce a zero le dipendenze di terze parti a runtime sul backend, sfruttando esclusivamente le potenti API native introdotte nelle versioni moderne di Node.js (Node 22+).
 
-## Frontend
-
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- shadcn/ui
-- Recharts
-
-## Backend
-
-- Node.js
-- Fastify
-
-## Database
-
-- SQLite
-- Prisma ORM
-
-## Validation
-
-- Zod
+| Livello | Tecnologia | Scelta & Ruolo nel Progetto |
+|---|---|---|
+| **Frontend** | **React + TypeScript + Vite** | Interfaccia veloce e tipizzata, compilata in file statici pronti per essere serviti dal backend. |
+| **Interfaccia Web** | **Tailwind CSS + shadcn/ui** | Stile grafico moderno e pulito con componenti altamente personalizzabili e AI-friendly. |
+| **Grafici** | **Recharts** | Visualizzazione interattiva dell'allocazione del portafoglio e dell'evoluzione storica. |
+| **Backend** | **Node.js (Nativo)** | Nessun framework esterno (No Express, No Fastify). Routing delle API e dei file statici gestito tramite il modulo nativo `node:http`. |
+| **Database** | **SQLite (Nativo)** | Gestione dei dati tramite il modulo nativo `node:sqlite` (Node 22+). Nessun ORM (No Prisma); le query SQL sono scritte in codice nativo. |
+| **Validazione** | **JavaScript Nativo** | Validazione dei tipi e parsing dei file CSV di Directa eseguiti tramite funzioni pure e moduli nativi di pulizia stringhe. |
 
 ---
 
@@ -196,22 +183,15 @@ No analytical result is permanently stored.
 
 The project follows a monorepo architecture.
 
-```text
-apps/
-    web/
-    api/
-
-packages/
-    analytics/
-    domain/
-    importer/
-    infrastructure/
-    shared/
-
-prisma/
-
-docs/
-```
+portfolio-insights/
+├── routes/
+│   ├── assets.js          # Rotte per la gestione degli strumenti (Asset)
+│   ├── analytics.js       # Rotte per i calcoli della Dashboard e KPI
+│   └── imports.js         # Rotte per l'upload e importazione dei file Directa
+├── router.js              # Il micro-router nativo (il "motore" delle rotte)
+├── database.js            # Connessione a SQLite nativo
+├── server.js              # Entry point del server HTTP nativo
+└── public/                # Frontend React (build statica)
 
 ---
 
