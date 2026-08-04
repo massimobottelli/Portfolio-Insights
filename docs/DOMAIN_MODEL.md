@@ -542,3 +542,29 @@ Database
 ```
 
 Business logic belongs inside the domain and analytics layers.
+
+
+# 9. Directa Mapping & Normalization Rules
+
+Il modulo importer utilizza la seguente tabella di mappatura deterministica per tradurre le causali in lingua italiana esportate dai report Directa nei modelli del core domain.
+
+| Causale Directa (IT) | Entità Target | Enum Target | Segno Atteso | Descrizione Operativa |
+|---|---|---|---|---|
+| Acquisto | `MarketOrder` | `OrderType.BUY` | Negativo (`-`) | Riduce la liquidità, aumenta la quantità dell'asset. |
+| Vendita | `MarketOrder` | `OrderType.SELL` | Positivo (`+`) | Aumenta la liquidità, riduce la quantità dell'asset. |
+| Cedola obb. | `CashMovement` | `MovementType.INTEREST` | Positivo (`+`) | Interessi generati da obbligazioni (BTP, ecc.). |
+| Rit.cedola obb. | `CashMovement` | `MovementType.TAX` | Negativo (`-`) | Ritenuta fiscale del 12.5% o 26% sulle cedole. |
+| Rit. etf | `CashMovement` | `MovementType.TAX` | Negativo (`-`) | Ritenuta fiscale su dividendi ETF o capital gain. |
+| Commissioni | `CashMovement` | `MovementType.COMMISSION`| Negativo (`-`) | Costo di transazione trattenuto da Directa. |
+| Bollo portafoglio titoli\* | `CashMovement` | `MovementType.STAMP_DUTY` | Negativo (`-`) | Imposta di bollo dello 0.20% annuo. **Attenzione all'asterisco (\*) finale.** |
+| Conferimento con bonifico | `CashMovement` | `MovementType.DEPOSIT` | Positivo (`+`) | Ingresso di nuova liquidità dall'esterno. |
+
+---
+
+## Regole di Sanificazione
+
+Prima di applicare la mappatura, l'importer deve eseguire le seguenti operazioni di pulizia sui dati grezzi:
+1. **Rimozione degli spazi bianchi:** Applicare `.trim()` su tutte le stringhe di testo.
+2. **Gestione dell'asterisco (\*):** Preservare l'asterisco per la causale del Bollo poichè fa parte della stringa ufficiale esportata da Directa.
+3. **Conversione Numerica:** Sostituire la virgola (`,`) con il punto (`.`) per i valori decimali e rimuovere i simboli di valuta (es. `€`) prima del parsing numerico.
+
