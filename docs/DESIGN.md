@@ -153,7 +153,7 @@ La filosofia di questo stack unisce il **minimalismo tecnologico** sul database 
 
 L'adozione di Express si sposa perfettamente con il pattern **Model-View-Controller (MVC)**, semplificando la separazione dei ruoli grazie ai router Express e ai middleware di parsing:
 
-```mermaid
+```text
 [Client / React View]  <--->  [Express Router]  <--->  [Controllers]  <--->  [Models / SQLite]
 ```
 
