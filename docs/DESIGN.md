@@ -136,38 +136,39 @@ The Analytics Engine generates every derived model used by the application. **No
 
 ## 🛠️ 8. Technical Stack
 
-La filosofia di questo stack è il **minimalismo tecnologico assoluto**. L'applicazione riduce a zero le dipendenze di terze parti a runtime sul backend, sfruttando esclusivamente le potenti API native introdotte nelle versioni moderne di Node.js (Node 22+).
+La filosofia di questo stack unisce il **minimalismo tecnologico** sul database e sulle logiche di parsing con la **produttività e stabilità** di Express per la gestione del server web.
 
 | Livello | Tecnologia | Scelta & Ruolo nel Progetto |
 |---|---|---|
 | **Frontend** | **React + TypeScript + Vite** | Interfaccia veloce e tipizzata, compilata in file statici pronti per essere serviti dal backend. |
 | **Interfaccia Web** | **Tailwind CSS + shadcn/ui** | Stile grafico moderno e pulito con componenti altamente personalizzabili e AI-friendly. |
 | **Grafici** | **Recharts** | Visualizzazione interattiva dell'allocazione del portafoglio e dell'evoluzione storica. |
-| **Backend** | **Node.js (Nativo)** | Nessun framework esterno (No Express, No Fastify). Routing delle API e dei file statici gestito tramite il modulo nativo `node:http`. |
+| **Backend** | **Node.js + Express.js** | Express gestisce in modo robusto il routing delle API, il parsing automatico dei body JSON/Multipart e serve i file statici di React tramite middleware integrati. |
 | **Database** | **SQLite (Nativo)** | Gestione dei dati tramite il modulo nativo `node:sqlite` (Node 22+). Nessun ORM (No Prisma); le query SQL sono scritte in codice nativo. |
 | **Validazione** | **JavaScript Nativo** | Validazione dei tipi e parsing dei file CSV di Directa eseguiti tramite funzioni pure e moduli nativi di pulizia stringhe. |
 
 ---
 
-## 🧱 9. MVC Architecture Pattern
+## 🧱 9. Express MVC Architecture Pattern
 
-Per mantenere il codice backend organizzato, scalabile e AI-friendly senza l'uso di framework pesanti, l'applicazione adotta rigorosamente il pattern **Model-View-Controller (MVC)**:
+L'adozione di Express si sposa perfettamente con il pattern **Model-View-Controller (MVC)**, semplificando la separazione dei ruoli grazie ai router Express e ai middleware di parsing:
 
-[Client / React View]  <--->  [Routes]  <--->  [Controllers]  <--->  [Models / SQLite]
-
+```mermaid
+[Client / React View]  <--->  [Express Router]  <--->  [Controllers]  <--->  [Models / SQLite]
+```
 
 ### Componenti del Pattern
 
 *   **Model:** Gestisce l'accesso diretto ai dati e la persistenza. Sfrutta il modulo nativo `node:sqlite` per eseguire query SQL dirette e restituire oggetti JavaScript tipizzati. Non contiene logica di presentazione o di routing.
-*   **View:** Rappresentata dall'applicazione frontend in React. Consuma le API JSON esposte dal backend e si occupa esclusivamente della presentazione visiva e dell'interazione utente.
-*   **Controller:** Contiene la logica applicativa e di business. Riceve i dati dalle richieste HTTP passati dalle rotte, interroga o aggiorna i Model, elabora i risultati (es. calcoli dell'Analytics Engine) e restituisce la risposta HTTP al client.
-*   **Route:** Mappa gli endpoint URL (es. `/api/assets`) e i metodi HTTP (GET, POST) verso lo specifico metodo del Controller. È gestita dal micro-router nativo.
+*   **View:** Rappresentata dall'applicazione frontend in React. Consuma le API JSON esposte dal backend Express e si occupa esclusivamente della presentazione visiva.
+*   **Controller:** Contiene la logica applicativa e di business. Riceve i dati dalle richieste HTTP (già parsati in `req.body` o `req.params`), interroga o aggiorna i Model, elabora i risultati e restituisce la risposta JSON tramite `res.json()`.
+*   **Route:** Mappa gli endpoint URL (es. `/api/assets`) e i metodi HTTP (GET, POST) verso lo specifico metodo del Controller utilizzando `express.Router()`.
 
 ---
 
 ## 📂 10. Project Structure
 
-Il progetto segue un'architettura monorepo chiara basata sul pattern MVC:
+Il progetto segue un'architettura monorepo chiara basata sull'utilizzo di Express e del pattern MVC:
 
 ```text
 portfolio-insights/
@@ -180,12 +181,12 @@ portfolio-insights/
 │   ├── analyticsController.js # Calcoli KPI, allocazione e orchestrazione della Dashboard
 │   └── importController.js    # Gestione dell'upload, validazione e salvataggio dei CSV
 ├── routes/
-│   ├── assets.js              # Mappatura endpoint per la gestione degli strumenti (Asset)
-│   ├── analytics.js           # Mappatura endpoint per la Dashboard e KPI
-│   └── imports.js             # Mappatura endpoint per l'importazione dei file Directa
-├── router.js                  # Il micro-router nativo (smista le richieste HTTP ai controller)
+│   ├── assetRoutes.js         # Definizione endpoint Express per gli strumenti (Asset)
+│   ├── analyticsRoutes.js      # Definizione endpoint Express per la Dashboard e KPI
+│   └── importRoutes.js        # Definizione endpoint Express per l'importazione dei file Directa
 ├── database.js                # Inizializzazione della connessione a SQLite nativo
-├── server.js                  # Entry point del server HTTP nativo (modulo node:http)
+├── app.js                     # Configurazione di Express (middleware, routes, static files)
+├── server.js                  # Entry point del server HTTP (avvio di app.listen)
 └── public/                    # Frontend React (build statica dell'interfaccia utente)
 ```
 
@@ -193,12 +194,21 @@ portfolio-insights/
 
 ## 📜 11. Development Rules
 
-- **Strict MVC Separation:** Le rotte non devono contenere logica di business; devono solo delegare ai Controller. I Controller non devono scrivere query SQL direttamente; devono richiamare i Model.
+- **Strict MVC Separation:** Le rotte Express definiscono solo gli endpoint e chiamano i Controller. I Controller non contengono query SQL dirette, ma delegano ai Model.
+- **Express Middleware Usage:** Sfruttare i middleware nativi di Express come `express.json()` per il parsing dei dati in ingresso, ed evitare configurazioni custom ridondanti.
 - **Never access the database from the UI:** Il frontend comunica con il database esclusivamente tramite le API esposte dai Controller.
 - **Business logic belongs to the Analytics package:** I calcoli complessi non vengono salvati nel DB ma generati a runtime dai controller preposti.
 - **Importers never perform business calculations:** L'importatore si occupa solo di ripulire, validare e salvare i dati grezzi in modo idempotente.
-- **Domain models are independent from Directa exports:** I modelli del database devono essere generici; il parsing specifico di Directa deve essere isolato nei controller di importazione.
 - **Keep modules small and explicit:** Preferire funzioni pure, composizione rispetto all'ereditarietà ed evitare dipendenze circolari.
+
+---
+
+## 🗺️ 12. Future Roadmap
+
+- Docker deployment per un self-hosting immediato in un solo comando.
+- Backup automatici del file SQLite locale.
+- Supporto per l'importazione da altri broker (es. Degiro, Fineco).
+- Benchmark avanzati delle performance di portafoglio rispetto ad indici globali (es. MSCI World).
 
 ---
 
