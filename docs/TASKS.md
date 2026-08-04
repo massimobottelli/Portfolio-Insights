@@ -1,148 +1,61 @@
-# Development Tasks
+# 📋 Portfolio Insights - Tabella di Marcia MVP1
 
-## EPIC 1 - Project Foundation
-
-### TASK-001
-Initialize monorepo.
-
-Status:
-TODO
-
-
-### TASK-002
-Configure:
-
-- pnpm
-- TypeScript
-- ESLint
-- Prettier
-
-
-### TASK-003
-Create package structure:
-
-- domain
-- analytics
-- importer
-- infrastructure
-- shared
-
+Questo documento traccia l'avanzamento dello sviluppo del progetto **Portfolio Insights**.
+La filosofia di sviluppo prevede la creazione di componenti minimali, nativi e a basso accoppiamento.
 
 ---
 
-# EPIC 2 - Domain
+## 🛠️ Fase 1: Setup & Infrastruttura di Base
 
-### TASK-010
-
-Implement Asset entity.
-
-Requirements:
-
-- ISIN immutable
-- metadata update allowed
-- no infrastructure dependency
-
-
-### TASK-011
-
-Implement MarketOrder entity.
-
-
-### TASK-012
-
-Implement CashMovement entity.
-
-
-### TASK-013
-
-Implement ImportSession entity.
-
-
-### TASK-014
-
-Create domain unit tests.
-
+| ID | Task | Descrizione | Stato | Priorità |
+|---|---|---|---|---|
+| T1.1 | Definizione Schema SQL | Progettazione tabelle SQLite con indici e vincoli di unicità | **Completato** | Alta |
+| T1.2 | Inizializzazione DB | Creazione automatica di cartelle, file `.db` e tabelle in `database.js` | **Completato** | Alta |
+| T1.3 | Micro-Router Nativo | Sviluppo del motore di routing a zero dipendenze in `router.js` | **Completato** | Alta |
+| T1.4 | Server HTTP Nativo | Setup del server `node:http` con supporto CORS e gestione statici in `server.js` | **Completato** | Alta |
 
 ---
 
-# EPIC 3 - Persistence
+## 📥 Fase 2: Importer Engine & Parser CSV
 
-### TASK-020
-
-Create Prisma schema.
-
-
-### TASK-021
-
-Create repositories.
-
+| ID | Task | Descrizione | Stato | Priorità |
+|---|---|---|---|---|
+| T2.1 | Lettura File CSV | Implementazione del parser di stringhe CSV nativo (senza librerie esterne) | Da fare | Alta |
+| T2.2 | Sanificazione & Normalizzazione | Implementazione regole di pulizia (trim, virgola -> punto, gestione asterisco `*`) | Da fare | Alta |
+| T2.3 | Mapping Causali | Traduzione deterministica delle causali Directa in entità di dominio | Da fare | Alta |
+| T2.4 | Gestione Idempotenza | Logica di inserimento sicuro a prova di duplicati (re-import dello stesso file) | Da fare | Alta |
+| T2.5 | Tracciamento Sessioni | Salvataggio dei log di successo/errore nella tabella `import_sessions` | Da fare | Media |
 
 ---
 
-# EPIC 4 - Import
+## 🧮 Fase 3: Analytics Engine (Calcoli in Memoria)
 
-### TASK-030
-
-Create Directa importer.
-
-
-### TASK-031
-
-Implement validation with Zod.
-
-
-### TASK-032
-
-Implement import workflow.
-
+| ID | Task | Descrizione | Stato | Priorità |
+|---|---|---|---|---|
+| T3.1 | Calcolo Posizioni | Algoritmo per ricostruire le quantità correnti degli Asset dagli ordini storici | Da fare | Alta |
+| T3.2 | Calcolo Liquidità | Calcolo del saldo di cassa corrente aggregando i `CashMovement` | Da fare | Alta |
+| T3.3 | Calcolo Capitale Investito | Somma dei conferimenti (depositi) per determinare il capitale immesso | Da fare | Alta |
+| T3.4 | Calcolo Profit & Loss | Calcolo delle performance totali (assolute e percentuali) | Da fare | Media |
+| T3.5 | Calcolo Allocazione | Aggregazione pesi percentuali degli asset nel portafoglio attuale | Da fare | Media |
 
 ---
 
-# EPIC 5 - Analytics
+## 🔌 Fase 4: Sviluppo Rotte API (Backend)
 
-### TASK-040
-
-Calculate current positions.
-
-
-### TASK-041
-
-Calculate portfolio value.
-
-
-### TASK-042
-
-Calculate KPIs.
-
+| ID | Task | Descrizione | Stato | Priorità |
+|---|---|---|---|---|
+| T4.1 | Endpoint Importazione | Controller POST `/api/import` per ricevere ed elaborare i file di Directa | Da fare | Alta |
+| T4.2 | Endpoint Dashboard | Controller GET `/api/dashboard` per restituire KPI aggregati | Da fare | Alta |
+| T4.3 | Endpoint Portafoglio | Controller GET `/api/portfolio` con la lista delle posizioni attive | Da fare | Alta |
+| T4.4 | Endpoint Impostazioni | Controller per la gestione/pulizia del database | Da fare | Bassa |
 
 ---
 
-# EPIC 6 - API
+## 🎨 Fase 5: Interfaccia Utente (React Frontend)
 
-### TASK-050
-
-Create portfolio endpoints.
-
-
-### TASK-051
-
-Create dashboard endpoint.
-
-
----
-
-# EPIC 7 - Frontend
-
-### TASK-060
-
-Create application shell.
-
-
-### TASK-061
-
-Create dashboard.
-
-
-### TASK-062
-
-Create portfolio page.
+| ID | Task | Descrizione | Stato | Priorità |
+|---|---|---|---|---|
+| T5.1 | Setup Client & Tailwind | Configurazione del compilato statico di React nella cartella `public/` | Da fare | Alta |
+| T5.2 | Pagina Importazione | UI per caricare i file CSV con feedback sullo stato dell'import | Da fare | Alta |
+| T5.3 | Pagina Dashboard | Visualizzazione KPI principali e grafico di allocazione (Recharts) | Da fare | Media |
+| T5.4 | Tabella Portafoglio | Vista dettagliata delle posizioni attuali (ISIN, ticker, valore, P&L) | Da fare | Media |
