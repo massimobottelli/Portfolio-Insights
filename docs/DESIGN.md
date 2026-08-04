@@ -4,39 +4,34 @@
 
 ---
 
-# 1. Vision
+## 👁️ 1. Vision
 
-## Project Overview
-
+### Project Overview
 Portfolio Insights is a self-hostable web application that analyzes a single investment portfolio exported from the Directa broker.
 
 The application focuses on long-term investments (ETFs, ETCs, ETNs and Stocks) and provides advanced insights into portfolio composition, historical evolution and investment performance.
 
 ---
 
-## Problem Statement
-
+### Problem Statement
 Although Directa provides portfolio information, long-term investors often need richer analytics and a clearer overview of their investments.
 
 Portfolio Insights consolidates Directa exports into a normalized local database and generates meaningful analytics through an internal Analytics Engine.
 
 ---
 
-# 2. Goals & Scope
+## 🎯 2. Goals & Scope
 
-## MVP1 Goals
-
+### MVP1 Goals
 The first release focuses on providing a complete overview of the current portfolio.
 
-### Supported Pages
-
+#### Supported Pages
 - Dashboard
 - Portfolio
 - Import Manager
 - Settings
 
-### Features
-
+#### Features
 - Import Directa reports
 - Normalize imported data
 - Persist normalized data
@@ -48,15 +43,13 @@ The first release focuses on providing a complete overview of the current portfo
 
 ---
 
-## MVP2
+### MVP2
 
-### Pages
-
+#### Pages
 - Asset Detail
 - Portfolio History
 
-### Features
-
+#### Features
 - Historical portfolio evolution
 - Asset analytics
 - Advanced charts
@@ -64,52 +57,33 @@ The first release focuses on providing a complete overview of the current portfo
 
 ---
 
-# 3. User Workflow
+## 🔄 3. User Workflow
 
-## Initial Setup
-
+### Initial Setup
 The user imports Directa export files.
 
 Supported reports:
+1. Current Portfolio
+2. Portfolio Value History
+3. Order History
 
-- Current Portfolio
-- Portfolio Value History
-- Order History
-
-The application parses, validates and normalizes imported data before storing it in the local database.
-
-No manual data entry is required.
+The application parses, validates and normalizes imported data before storing it in the local database. **No manual data entry** is required.
 
 ---
 
-# 4. Architecture Principles
+## 💡 4. Architecture Principles
 
-## Simplicity First
+### Simplicity First
+Introduce new technologies only when they provide a measurable benefit. Avoid unnecessary infrastructure.
 
-Introduce new technologies only when they provide a measurable benefit.
-
-Avoid unnecessary infrastructure.
-
----
-
-## Self Hostable
-
+### Self Hostable
 The application must run on any machine without depending on cloud services.
 
----
-
-## Offline Capable
-
+### Offline Capable
 After importing Directa reports, the application must continue working without Internet access.
 
----
-
-## AI-Friendly
-
-The project should be optimized for AI-assisted development.
-
-Characteristics include:
-
+### AI-Friendly
+The project should be optimized for AI-assisted development. Characteristics include:
 - Explicit modules
 - Strong typing
 - Predictable folder structure
@@ -119,53 +93,49 @@ Characteristics include:
 
 ---
 
-# 5. Data Source Strategy
+## 📊 5. Data Source Strategy
 
-Directa reports are the single source of truth.
-No external APIs are required for the MVP.
+Directa reports are the **single source of truth**. No external APIs are required for the MVP.
+
 The application parses three distinct export files to reconstruct the portfolio:
-1. **Current Portfolio:** Used for real-time asset alignment and checking the "Valore attuale" and "Valore di carico".
-2. **Portfolio Value History (Movimenti Patrimonio):** Daily balance snapshot containing Liquidità, Portafoglio, and Patrimonio.
-3. **Order & Movement History (Storico Ordini/Movimenti):** The ledger of all financial transactions (BUY, SELL, Cedole, Bolli, Ritenute, Commissioni).
 
-To guarantee idempotent imports, the importer must leverage Directa's natural transaction identifiers (`Riferimento ordine` and `Protocollo`).
+| Report Tipo | Scopo Principale | Identificatori di Idempotenza |
+|---|---|---|
+| **Current Portfolio** | Allineamento asset in tempo reale, controllo "Valore attuale" e "Valore di carico". | ID Asset / ISIN |
+| **Portfolio Value History** | Snapshot del saldo giornaliero (Liquidità, Portafoglio, Patrimonio). | Data Snapshot |
+| **Order History** | Registro delle transazioni finanziarie (BUY, SELL, Cedole, Bolli, Ritenute, Commissioni). | `Riferimento ordine` e `Protocollo` |
 
 ---
 
-# 6. Analytics Engine
+## ⚙️ 6. Analytics Engine
 
-The Analytics Engine generates every derived model used by the application.
-
-No analytical result is permanently stored.
+The Analytics Engine generates every derived model used by the application. **No analytical result is permanently stored** in the database.
 
 ### MVP1 KPIs
-
 - Total Portfolio Value
 - Invested Capital
 - Available Cash
-- Total Profit / Loss
-- Total Profit / Loss %
-- Year-To-Date (YTD)
+- Total Profit / Loss (Assoluto e %)
+- Year-To-Date (YTD) Performance
 
 ---
 
-# 7. User Interface
+## 🎨 7. User Interface
 
-## MVP1
+### MVP1
+- Dashboard (KPI, Allocazione)
+- Portfolio (Dettaglio posizioni)
+- Import Manager (Upload CSV)
+- Settings (Configurazioni generali)
 
-- Dashboard
-- Portfolio
-- Import Manager
-- Settings
-
-## MVP2
-
-- Asset Detail
-- Portfolio History
+### MVP2
+- Asset Detail (Analisi singolo strumento)
+- Portfolio History (Evoluzione temporale del patrimonio)
 
 ---
 
-# 8. Technical Stack
+## 🛠️ 8. Technical Stack
+
 La filosofia di questo stack è il **minimalismo tecnologico assoluto**. L'applicazione riduce a zero le dipendenze di terze parti a runtime sul backend, sfruttando esclusivamente le potenti API native introdotte nelle versioni moderne di Node.js (Node 22+).
 
 | Livello | Tecnologia | Scelta & Ruolo nel Progetto |
@@ -179,51 +149,56 @@ La filosofia di questo stack è il **minimalismo tecnologico assoluto**. L'appli
 
 ---
 
-# 9. Project Structure
+## 🧱 9. MVC Architecture Pattern
 
-The project follows a monorepo architecture.
+Per mantenere il codice backend organizzato, scalabile e AI-friendly senza l'uso di framework pesanti, l'applicazione adotta rigorosamente il pattern **Model-View-Controller (MVC)**:
 
+[Client / React View]  <--->  [Routes]  <--->  [Controllers]  <--->  [Models / SQLite]
+
+
+### Componenti del Pattern
+
+*   **Model:** Gestisce l'accesso diretto ai dati e la persistenza. Sfrutta il modulo nativo `node:sqlite` per eseguire query SQL dirette e restituire oggetti JavaScript tipizzati. Non contiene logica di presentazione o di routing.
+*   **View:** Rappresentata dall'applicazione frontend in React. Consuma le API JSON esposte dal backend e si occupa esclusivamente della presentazione visiva e dell'interazione utente.
+*   **Controller:** Contiene la logica applicativa e di business. Riceve i dati dalle richieste HTTP passati dalle rotte, interroga o aggiorna i Model, elabora i risultati (es. calcoli dell'Analytics Engine) e restituisce la risposta HTTP al client.
+*   **Route:** Mappa gli endpoint URL (es. `/api/assets`) e i metodi HTTP (GET, POST) verso lo specifico metodo del Controller. È gestita dal micro-router nativo.
+
+---
+
+## 📂 10. Project Structure
+
+Il progetto segue un'architettura monorepo chiara basata sul pattern MVC:
+
+```text
 portfolio-insights/
-
+├── models/
+│   ├── assetModel.js          # Query SQLite per la gestione degli asset
+│   ├── analyticsModel.js      # Query SQLite per i dati storici e i calcoli delle metriche
+│   └── importModel.js         # Query SQLite per l'inserimento delle transazioni e log di import
+├── controllers/
+│   ├── assetController.js     # Logica per recuperare e formattare i dati degli asset
+│   ├── analyticsController.js # Calcoli KPI, allocazione e orchestrazione della Dashboard
+│   └── importController.js    # Gestione dell'upload, validazione e salvataggio dei CSV
 ├── routes/
-
-│   ├── assets.js          # Rotte per la gestione degli strumenti (Asset)
-
-│   ├── analytics.js       # Rotte per i calcoli della Dashboard e KPI
-
-│   └── imports.js         # Rotte per l'upload e importazione dei file Directa
-
-├── router.js              # Il micro-router nativo (il "motore" delle rotte)
-
-├── database.js            # Connessione a SQLite nativo
-
-├── server.js              # Entry point del server HTTP nativo
-
-└── public/                # Frontend React (build statica)
+│   ├── assets.js              # Mappatura endpoint per la gestione degli strumenti (Asset)
+│   ├── analytics.js           # Mappatura endpoint per la Dashboard e KPI
+│   └── imports.js             # Mappatura endpoint per l'importazione dei file Directa
+├── router.js                  # Il micro-router nativo (smista le richieste HTTP ai controller)
+├── database.js                # Inizializzazione della connessione a SQLite nativo
+├── server.js                  # Entry point del server HTTP nativo (modulo node:http)
+└── public/                    # Frontend React (build statica dell'interfaccia utente)
+```
 
 ---
 
-# 10. Development Rules
+## 📜 11. Development Rules
 
-- Never access the database from the UI.
-- Business logic belongs to the Analytics package.
-- Importers never perform business calculations.
-- Domain models are independent from Directa exports.
-- Prefer composition over inheritance.
-- Prefer pure functions.
-- One responsibility per module.
-- Avoid circular dependencies.
-- Keep modules small and explicit.
-
----
-
-# 11. Future Roadmap
-
-- Docker deployment
-- Automated backups
-- Additional broker importers
-- Advanced analytics
-- Performance benchmarking
+- **Strict MVC Separation:** Le rotte non devono contenere logica di business; devono solo delegare ai Controller. I Controller non devono scrivere query SQL direttamente; devono richiamare i Model.
+- **Never access the database from the UI:** Il frontend comunica con il database esclusivamente tramite le API esposte dai Controller.
+- **Business logic belongs to the Analytics package:** I calcoli complessi non vengono salvati nel DB ma generati a runtime dai controller preposti.
+- **Importers never perform business calculations:** L'importatore si occupa solo di ripulire, validare e salvare i dati grezzi in modo idempotente.
+- **Domain models are independent from Directa exports:** I modelli del database devono essere generici; il parsing specifico di Directa deve essere isolato nei controller di importazione.
+- **Keep modules small and explicit:** Preferire funzioni pure, composizione rispetto all'ereditarietà ed evitare dipendenze circolari.
 
 ---
 
