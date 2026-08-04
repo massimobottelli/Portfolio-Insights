@@ -122,16 +122,13 @@ Characteristics include:
 # 5. Data Source Strategy
 
 Directa reports are the single source of truth.
-
 No external APIs are required for the MVP.
+The application parses three distinct export files to reconstruct the portfolio:
+1. **Current Portfolio:** Used for real-time asset alignment and checking the "Valore attuale" and "Valore di carico".
+2. **Portfolio Value History (Movimenti Patrimonio):** Daily balance snapshot containing Liquidità, Portafoglio, and Patrimonio.
+3. **Order & Movement History (Storico Ordini/Movimenti):** The ledger of all financial transactions (BUY, SELL, Cedole, Bolli, Ritenute, Commissioni).
 
-Supported reports:
-
-- Current Portfolio
-- Portfolio Value History
-- Order History
-
-The internal database stores only normalized domain entities.
+To guarantee idempotent imports, the importer must leverage Directa's natural transaction identifiers (`Riferimento ordine` and `Protocollo`).
 
 ---
 
