@@ -23,11 +23,11 @@ const formatPrice = (price: number | null) => {
 };
 
 /**
- * Formatta un importo in euro.
+ * Formatta un importo numerico (senza simbolo di valuta).
  */
-const formatEur = (value: number | null) => {
+const formatAmount = (value: number | null) => {
   if (value === null || value === undefined) return '—';
-  return `€ ${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 /**
@@ -104,17 +104,26 @@ export default function Portfolio() {
   const visiblePositions = useMemo(
     () =>
       positions
-        .map(pos => ({
-          ...pos,
-          quantity: displayQuantity(pos),
-          // Campi calcolati per ordinamento
-          total_value: calcTotalValue(pos),
-          gain_eur: calcGainEur(pos),
-          gain_percent: calcGainPercent(pos),
-        }))
+        .map(pos => {
+          // Applica la trasformazione BTP alla quantità PRIMA di calcolare i derivati
+          // così ordinamento e display coincidono (es. BTP: 70 invece di 7000)
+          const transformed = { ...pos, quantity: displayQuantity(pos) };
+          return {
+            ...transformed,
+            // Campi calcolati per ordinamento (usano la quantity già trasformata)
+            total_value: calcTotalValue(transformed),
+            gain_eur: calcGainEur(transformed),
+            gain_percent: calcGainPercent(transformed),
+          };
+        })
         .filter(pos => pos.quantity !== 0),
     [positions]
   );
+
+  // Chiavi che rappresentano valori numerici (per ordinamento numerico, non testuale)
+  const numericSortKeys = new Set<SortKey>([
+    'quantity', 'current_price', 'average_price', 'total_value', 'gain_eur', 'gain_percent',
+  ]);
 
   const sortedPositions = useMemo(() => {
     if (!sortKey) return visiblePositions;
@@ -125,8 +134,8 @@ export default function Portfolio() {
       if (aVal === null && bVal === null) return 0;
       if (aVal === null) return 1;
       if (bVal === null) return -1;
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return (aVal - bVal) * dir;
+      if (numericSortKeys.has(sortKey)) {
+        return ((aVal as number) - (bVal as number)) * dir;
       }
       return String(aVal).localeCompare(String(bVal)) * dir;
     });
@@ -233,10 +242,10 @@ export default function Portfolio() {
                       {formatPrice(pos.average_price)}
                     </td>
                     <td className="px-4 py-3 text-sm text-right text-white font-medium">
-                      {formatEur(totalValue)}
+                      {formatAmount(totalValue)}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainEur)}`}>
-                      {formatEur(gainEur)}
+                      {formatAmount(gainEur)}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainPercent)}`}>
                       {formatPercent(gainPercent)}
