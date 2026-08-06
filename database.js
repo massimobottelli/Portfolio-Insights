@@ -102,7 +102,7 @@ export function initializeDatabase() {
 
     console.log('✅ Database pronto e tabelle/indici verificati con successo!');
   } catch (error) {
-    console.error('❌ Errore durante l''inizializzazione del database:', error);
+    console.error("❌ Errore durante l'inizializzazione del database:", error);
     throw error;
   }
 }
