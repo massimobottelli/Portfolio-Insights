@@ -56,8 +56,7 @@ export function initializeDatabase() {
         order_reference TEXT NOT NULL,
         import_session_id TEXT NOT NULL,
         FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE RESTRICT,
-        FOREIGN KEY (import_session_id) REFERENCES import_sessions(id) ON DELETE CASCADE,
-        UNIQUE(order_reference, asset_id, type, quantity)
+        FOREIGN KEY (import_session_id) REFERENCES import_sessions(id) ON DELETE CASCADE
       );
 
       CREATE TABLE IF NOT EXISTS cash_movements (

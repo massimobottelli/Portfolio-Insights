@@ -40,21 +40,17 @@ export function getImportSessions() {
 }
 
 /**
- * Inserisce un MarketOrder nel database in modo idempotente.
- * Il vincolo UNIQUE(order_reference, asset_id, type, quantity) previene i duplicati.
+ * Inserisce un MarketOrder nel database.
+ * I duplicati non vengono filtrati per permettere esecuzioni parziali
+ * identiche (stesso ordine, stessa quantità, stesso importo) che
+ * Directa può generare come righe CSV distinte.
+ * La protezione dai duplicati su re-import è gestita tramite clearDatabase().
  * @param {Object} orderData - Dati dell'ordine
- * @returns {Object} Ordine inserito o esistente
+ * @returns {Object} Ordine inserito
  */
 export function insertMarketOrder(orderData) {
   const id = randomUUID();
   const { assetId, operationDate, valueDate, type, quantity, euroAmount, currencyAmount, currency, orderReference, importSessionId } = orderData;
-
-  // Verifica se esiste già un ordine identico (idempotenza)
-  const existing = db
-    .prepare('SELECT * FROM market_orders WHERE order_reference = ? AND asset_id = ? AND type = ? AND quantity = ?')
-    .get(orderReference, assetId, type, quantity);
-
-  if (existing) return existing;
 
   db.prepare(`
     INSERT INTO market_orders (id, asset_id, operation_date, value_date, type, quantity, euro_amount, currency_amount, currency, order_reference, import_session_id)
