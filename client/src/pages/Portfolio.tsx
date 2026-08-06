@@ -172,12 +172,9 @@ export default function Portfolio() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white">Portfolio</h2>
-        <p className="text-slate-400 text-sm mt-1">
-          {sortedPositions.length} posizioni attive
-        </p>
         {priceDate && (
-          <p className="text-emerald-400 text-xs mt-1">
-            Prezzi attuali aggiornati al {formatDate(priceDate)}
+          <p className="text-slate-400 text-sm mt-1">
+            Ultimo aggiornamento: {formatDate(priceDate)}
           </p>
         )}
       </div>

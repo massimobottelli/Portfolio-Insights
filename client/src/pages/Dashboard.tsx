@@ -57,17 +57,17 @@ export default function Dashboard() {
         <KpiCard
           title="Valore Portafoglio"
           value={formatEUR(dashboard.portfolioValue)}
-          color="text-blue-400"
+          color="text-emerald-400"
         />
         <KpiCard
           title="Capitale Investito"
           value={formatEUR(dashboard.investedCapital)}
-          color="text-purple-400"
+          color="text-blue-400"
         />
         <KpiCard
           title="Liquidità"
           value={formatEUR(dashboard.availableCash)}
-          color="text-emerald-400"
+          color="text-blue-400"
         />
         <KpiCard
           title="Profit / Loss"
@@ -114,31 +114,10 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Position Summary */}
+        {/* Position Summary - MVP2 */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Riepilogo Posizioni</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center py-2 border-b border-slate-700">
-              <span className="text-slate-400">Posizioni attive</span>
-              <span className="text-white font-semibold">{dashboard.totalPositions}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-slate-700">
-              <span className="text-slate-400">Valore medio</span>
-              <span className="text-white font-semibold">
-                {dashboard.totalPositions > 0
-                  ? formatEUR(dashboard.portfolioValue / dashboard.totalPositions)
-                  : '-'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-slate-400">Rapporto Liquidità/Patrimonio</span>
-              <span className="text-white font-semibold">
-                {dashboard.portfolioValue > 0
-                  ? `${((dashboard.availableCash / dashboard.portfolioValue) * 100).toFixed(1)}%`
-                  : '-'}
-              </span>
-            </div>
-          </div>
+          <p className="text-slate-500 text-center py-8">Disponibile in MVP2</p>
         </div>
       </div>
     </div>

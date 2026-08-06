@@ -1,10 +1,9 @@
 import { Outlet, NavLink } from 'react-router-dom';
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { to: '/portfolio', label: 'Portfolio', icon: '💼' },
-  { to: '/import', label: 'Import', icon: '📥' },
-  { to: '/settings', label: 'Settings', icon: '⚙️' },
+  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/portfolio', label: 'Portfolio' },
+  { to: '/import', label: 'Import' },
 ];
 
 export default function Layout() {
@@ -15,7 +14,7 @@ export default function Layout() {
         <div className="p-6 border-b border-slate-700">
           <h1 className="text-xl font-bold text-white">
             <span className="text-blue-400">Portfolio</span>
-            <span className="text-purple-400">Insights</span>
+            <span className="text-green-400">Insights</span>
           </h1>
         </div>
         <nav className="flex-1 p-4 space-y-1">
@@ -31,7 +30,6 @@ export default function Layout() {
                 }`
               }
             >
-              <span className="text-lg">{item.icon}</span>
               {item.label}
             </NavLink>
           ))}

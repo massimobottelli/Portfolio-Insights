@@ -1,15 +1,15 @@
 import { db } from '../database.js';
 
 /**
- * Calcola la liquidità corrente aggregando tutti i CashMovement.
- * Positive = saldo in entrata, negative = saldo in uscita.
+ * Calcola la liquidità corrente leggendo il campo available_cash
+ * dall'ultimo snapshot Directa (daily_portfolio_snapshots).
  * @returns {number} Saldo di cassa corrente
  */
 export function calculateCashBalance() {
   const result = db
-    .prepare('SELECT COALESCE(SUM(euro_amount), 0) AS balance FROM cash_movements')
+    .prepare('SELECT available_cash FROM daily_portfolio_snapshots ORDER BY snapshot_date DESC LIMIT 1')
     .get();
-  return result.balance;
+  return result ? result.available_cash : 0;
 }
 
 /**
