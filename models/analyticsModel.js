@@ -73,20 +73,42 @@ export function getLatestPriceDate() {
 }
 
 /**
+ * Verifica se l'asset è un BTP, che richiede la divisione della quantità per 100
+ * perché Directa quota i BTP in percentuale (es. 102.50 invece di 1.0250).
+ * @param {Object} pos Posizione
+ * @returns {boolean} true se è un BTP
+ */
+const isBtp = (pos) =>
+  pos.name.toLowerCase().includes('btp') || pos.ticker.toLowerCase().includes('btp');
+
+/**
  * Calcola l'allocazione percentuale del portafoglio.
- * Per ogni posizione attiva, calcola il peso percentuale.
- * Nota: in MVP1 il valore è basato sulla quantità, non sul prezzo di mercato.
+ * Per ogni posizione attiva, calcola il peso percentuale basato sul valore di mercato
+ * (quantità × prezzo corrente), con la correzione BTP (quantità / 100).
  * @returns {Array} Posizioni con percentuale di allocazione
  */
 export function calculateAllocation() {
   const positions = calculatePositions();
-  const totalQuantity = positions.reduce((sum, p) => sum + p.quantity, 0);
 
-  if (totalQuantity === 0) return [];
+  // Trasforma le quantità (BTP / 100) e calcola il valore di mercato
+  // Esclude gli asset senza prezzo corrente (current_price null)
+  const enriched = positions
+    .filter(p => p.current_price !== null)
+    .map(p => {
+      const quantity = isBtp(p) ? p.quantity / 100 : p.quantity;
+      const marketValue = quantity * p.current_price;
+      return { ...p, quantity, marketValue };
+    })
+    // Ordina per valore di mercato decrescente
+    .sort((a, b) => b.marketValue - a.marketValue);
 
-  return positions.map(p => ({
+  const totalMarketValue = enriched.reduce((sum, p) => sum + p.marketValue, 0);
+
+  if (totalMarketValue === 0) return [];
+
+  return enriched.map(p => ({
     ...p,
-    allocationPercent: parseFloat(((p.quantity / totalQuantity) * 100).toFixed(2))
+    allocationPercent: parseFloat(((p.marketValue / totalMarketValue) * 100).toFixed(2))
   }));
 }
 

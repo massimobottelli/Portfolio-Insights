@@ -16,6 +16,10 @@ export interface AllocationItem {
   currency: string;
   asset_type: string;
   quantity: number;
+  current_price: number;
+  average_price: number;
+  price_date: string;
+  marketValue: number;
   allocationPercent: number;
 }
 

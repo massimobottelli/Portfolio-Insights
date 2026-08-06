@@ -2,7 +2,38 @@ import { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import type { DashboardData, AllocationItem } from '../types';
 
-const COLORS = ['#60a5fa', '#a78bfa', '#f472b6', '#34d399', '#fbbf24', '#f87171', '#818cf8', '#2dd4bf', '#fb923c', '#e879f9'];
+const COLORS = [
+  '#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed',
+  '#0891b2', '#db2777', '#65a30d', '#ca8a04', '#9333ea',
+  '#0d9488', '#be123c', '#4f46e5', '#16a34a', '#f59e0b',
+  '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16',
+  '#eab308', '#a855f7', '#14b8a6', '#e11d48', '#6366f1',
+  '#22c55e', '#f97316',
+];
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload: AllocationItem;
+  }>;
+}
+
+function CustomTooltip({ active, payload }: CustomTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+
+  const item = payload[0].payload;
+  return (
+    <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
+      <p className="font-semibold text-white text-sm">{item.name}</p>
+      <p className="text-slate-300 text-sm mt-1">
+        Valore: €{item.marketValue.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </p>
+      <p className="text-slate-300 text-sm">
+        Peso: {item.allocationPercent.toFixed(2)}%
+      </p>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -82,31 +113,37 @@ export default function Dashboard() {
           <h3 className="text-lg font-semibold text-white mb-4">Allocazione Portafoglio</h3>
           {allocation.length > 0 ? (
             <div className="flex flex-col items-center">
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={400}>
                 <PieChart>
                   <Pie
-                    data={allocation.slice(0, 10)}
+                    data={allocation}
                     dataKey="allocationPercent"
-                    nameKey="name"
+                    nameKey="ticker"
                     cx="50%"
                     cy="50%"
-                    outerRadius={100}
-                    innerRadius={50}
-                    label={({ name, allocationPercent }) => `${name} (${allocationPercent}%)`}
-                    labelLine={true}
+                    outerRadius={140}
+                    innerRadius={70}
+                    paddingAngle={1}
                   >
-                    {allocation.slice(0, 10).map((_, index) => (
+                    {allocation.map((_, index) => (
                       <Cell key={index} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    formatter={(value: number) => `${value}%`}
-                    contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
-                  />
+                  <Tooltip content={<CustomTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="text-xs text-slate-500 mt-2">
-                {allocation.length > 10 && `+${allocation.length - 10} asset minori`}
+              {/* Legend */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 mt-4 w-full max-w-2xl">
+                {allocation.map((item, index) => (
+                  <div key={item.asset_id} className="flex items-center gap-2 text-sm">
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    />
+                    <span className="text-slate-300 truncate">{item.ticker}</span>
+                    <span className="text-slate-500 ml-auto">{item.allocationPercent.toFixed(1)}%</span>
+                  </div>
+                ))}
               </div>
             </div>
           ) : (
