@@ -1,9 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PositionItem } from '../types';
+
+type SortKey = 'ticker' | 'isin' | 'name' | 'quantity' | 'currency' | 'asset_type';
+type SortDirection = 'asc' | 'desc';
+
+// I BTP (Buoni del Tesoro Poliennali) sono quotati in percentuale (es. 102.50),
+// quindi la quantità importata da Directa va divisa per 100 per riflettere il valore nominale effettivo.
+const isBtp = (pos: PositionItem) =>
+  pos.name.toLowerCase().includes('btp') || pos.ticker.toLowerCase().includes('btp');
+
+const displayQuantity = (pos: PositionItem) => (isBtp(pos) ? pos.quantity / 100 : pos.quantity);
 
 export default function Portfolio() {
   const [positions, setPositions] = useState<PositionItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   useEffect(() => {
     fetch('/api/analytics/portfolio')
@@ -12,6 +24,47 @@ export default function Portfolio() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Trasforma le quantità BTP (/100) e nasconde gli asset con quantità zero.
+  const visiblePositions = useMemo(
+    () =>
+      positions
+        .map(pos => ({ ...pos, quantity: displayQuantity(pos) }))
+        .filter(pos => pos.quantity !== 0),
+    [positions]
+  );
+
+  const sortedPositions = useMemo(() => {
+    if (!sortKey) return visiblePositions;
+    const dir = sortDirection === 'asc' ? 1 : -1;
+    return [...visiblePositions].sort((a, b) => {
+      const aVal = a[sortKey];
+      const bVal = b[sortKey];
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return (aVal - bVal) * dir;
+      }
+      return String(aVal).localeCompare(String(bVal)) * dir;
+    });
+  }, [visiblePositions, sortKey, sortDirection]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortArrow = (key: SortKey) => {
+    if (sortKey !== key) return ' ⇅';
+    return sortDirection === 'asc' ? ' ↑' : ' ↓';
+  };
+
+  const thClass = (key: SortKey, align: 'left' | 'right' = 'left') =>
+    `cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors ${
+      align === 'right' ? 'text-right' : 'text-left'
+    } ${sortKey === key ? 'text-white' : 'text-slate-400'} hover:text-white`;
 
   if (loading) {
     return (
@@ -26,7 +79,7 @@ export default function Portfolio() {
       <div>
         <h2 className="text-2xl font-bold text-white">Portfolio</h2>
         <p className="text-slate-400 text-sm mt-1">
-          {positions.length} posizioni attive
+          {sortedPositions.length} posizioni attive
         </p>
       </div>
 
@@ -35,16 +88,28 @@ export default function Portfolio() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-700 bg-slate-800/50">
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Ticker</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">ISIN</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Nome</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Quantità</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Valuta</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Tipo</th>
+                <th className={thClass('ticker')} onClick={() => handleSort('ticker')}>
+                  Ticker{sortArrow('ticker')}
+                </th>
+                <th className={thClass('isin')} onClick={() => handleSort('isin')}>
+                  ISIN{sortArrow('isin')}
+                </th>
+                <th className={thClass('name')} onClick={() => handleSort('name')}>
+                  Nome{sortArrow('name')}
+                </th>
+                <th className={thClass('quantity', 'right')} onClick={() => handleSort('quantity')}>
+                  Quantità{sortArrow('quantity')}
+                </th>
+                <th className={thClass('currency')} onClick={() => handleSort('currency')}>
+                  Valuta{sortArrow('currency')}
+                </th>
+                <th className={thClass('asset_type')} onClick={() => handleSort('asset_type')}>
+                  Tipo{sortArrow('asset_type')}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
-              {positions.map((pos) => (
+              {sortedPositions.map((pos) => (
                 <tr key={pos.asset_id} className="hover:bg-slate-700/30 transition-colors">
                   <td className="px-4 py-3 text-sm font-medium text-white">{pos.ticker}</td>
                   <td className="px-4 py-3 text-sm text-slate-400 font-mono">{pos.isin}</td>
@@ -60,7 +125,7 @@ export default function Portfolio() {
                   </td>
                 </tr>
               ))}
-              {positions.length === 0 && (
+              {sortedPositions.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                     Nessuna posizione attiva
