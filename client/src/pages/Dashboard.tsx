@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
-import type { DashboardData, AllocationItem, SnapshotItem } from '../types';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Line } from 'recharts';
+import type { DashboardData, AllocationItem, SnapshotItem, TWRData } from '../types';
 
 const COLORS = [
   '#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed',
@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [allocation, setAllocation] = useState<AllocationItem[]>([]);
   const [history, setHistory] = useState<SnapshotItem[]>([]);
+  const [twr, setTwr] = useState<TWRData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,11 +47,13 @@ export default function Dashboard() {
       fetch('/api/analytics/dashboard').then(r => r.json()),
       fetch('/api/analytics/allocation').then(r => r.json()),
       fetch('/api/analytics/history').then(r => r.json()),
+      fetch('/api/analytics/twr').then(r => r.json()),
     ])
-      .then(([dashData, allocData, histData]) => {
+      .then(([dashData, allocData, histData, twrData]) => {
         setDashboard(dashData);
         setAllocation(allocData);
         setHistory(histData);
+        setTwr(twrData);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -77,6 +80,21 @@ export default function Dashboard() {
   const formatEUR = (value: number) =>
     new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
 
+  const formatPercent = (value: number) =>
+    `${value >= 0 ? '+' : ''}${(value * 100).toFixed(2)}%`;
+
+  // Merge history + TWR per il grafico combinato
+  const twrMap = new Map<string, number>();
+  if (twr) {
+    for (const item of twr.twrHistory) {
+      twrMap.set(item.snapshot_date, item.twr);
+    }
+  }
+  const chartData = history.map(s => ({
+    ...s,
+    twr: twrMap.get(s.snapshot_date) ?? null,
+  }));
+
   return (
     <div className="space-y-8">
       <div>
@@ -87,7 +105,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
           title="Valore Portafoglio"
           value={formatEUR(dashboard.portfolioValue)}
@@ -108,6 +126,13 @@ export default function Dashboard() {
           value={`${isPositive ? '+' : ''}${formatEUR(dashboard.totalProfitLoss)} (${dashboard.totalProfitLossPercent}%)`}
           color={isPositive ? 'text-emerald-400' : 'text-red-400'}
         />
+        {twr && (
+          <KpiCard
+            title="TWR"
+            value={formatPercent(twr.twrTotal)}
+            color={twr.twrTotal >= 0 ? 'text-emerald-400' : 'text-red-400'}
+          />
+        )}
       </div>
 
       {/* Allocation Chart */}
@@ -154,12 +179,12 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Portfolio Value History Chart */}
+        {/* Portfolio Value & TWR History Chart */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Andamento Patrimonio</h3>
-          {history.length > 0 ? (
+          <h3 className="text-lg font-semibold text-white mb-4">Andamento Patrimonio & TWR</h3>
+          {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
-              <AreaChart data={history} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -181,16 +206,26 @@ export default function Dashboard() {
                   interval="preserveStartEnd"
                 />
                 <YAxis
+                  yAxisId="left"
                   tick={{ fill: '#94a3b8', fontSize: 12 }}
                   tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+                  domain={['auto', 'auto']}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
                   domain={['auto', 'auto']}
                 />
                 <Tooltip
                   content={({ active, payload }) => {
                     if (!active || !payload || payload.length === 0) return null;
-                    const item = payload[0].payload as SnapshotItem;
+                    const item = payload[0].payload as SnapshotItem & { twr: number | null };
                     const formatEUR = (v: number) =>
                       new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(v);
+                    const formatPct = (v: number | null) =>
+                      v !== null ? `${(v * 100).toFixed(2)}%` : 'N/D';
                     return (
                       <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
                         <p className="text-slate-300 text-sm">
@@ -207,11 +242,15 @@ export default function Dashboard() {
                         <p className="text-blue-400 text-xs mt-1">
                           Versato: {formatEUR(item.cumulative_deposits)}
                         </p>
+                        <p className={`text-xs mt-1 ${item.twr !== null && item.twr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          TWR: {formatPct(item.twr)}
+                        </p>
                       </div>
                     );
                   }}
                 />
                 <Area
+                  yAxisId="left"
                   type="monotone"
                   dataKey="portfolio_value"
                   stroke="#10b981"
@@ -219,6 +258,7 @@ export default function Dashboard() {
                   fill="url(#portfolioGradient)"
                 />
                 <Area
+                  yAxisId="left"
                   type="stepBefore"
                   dataKey="cumulative_deposits"
                   stroke="#3b82f6"
@@ -227,11 +267,35 @@ export default function Dashboard() {
                   fill="url(#depositsGradient)"
                   dot={false}
                 />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="twr"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls={false}
+                />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
             <p className="text-slate-500 text-center py-8">Nessun dato storico disponibile</p>
           )}
+          {/* Legenda linea TWR */}
+          <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-emerald-400" />
+              <span>Patrimonio</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-blue-400" style={{ borderTop: '2px dashed #60a5fa' }} />
+              <span>Versato</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-amber-400" />
+              <span>TWR</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

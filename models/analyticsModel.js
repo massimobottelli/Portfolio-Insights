@@ -158,3 +158,138 @@ export function getSnapshotHistory() {
     .prepare('SELECT * FROM daily_portfolio_snapshots ORDER BY snapshot_date ASC')
     .all();
 }
+
+/**
+ * Converte una data Directa (DD-MM-YYYY) in formato ISO (YYYY-MM-DD).
+ * @param {string} dateStr Data in formato DD-MM-YYYY
+ * @returns {string} Data in formato YYYY-MM-DD
+ */
+function toISODate(dateStr) {
+  return dateStr.substr(6, 4) + '-' + dateStr.substr(3, 2) + '-' + dateStr.substr(0, 2);
+}
+
+/**
+ * Calcola il Time-Weighted Rate of Return (TWR) del portafoglio.
+ * 
+ * Metodo:
+ * 1. Recupera tutti gli snapshot giornalieri ordinati per data
+ * 2. Recupera tutti i depositi (flussi di cassa esterni)
+ * 3. Identifica i sottoperiodi delimitati dai depositi
+ * 4. Per ogni sottoperiodo calcola il rendimento: (V_end - V_start) / V_start
+ * 5. Compatta geometricamente: TWR = ∏(1 + r_i) - 1
+ * 
+ * I depositi sono l'unico flusso di cassa esterno considerato (nessun WITHDRAWAL).
+ * 
+ * @returns {Object} TWR totale, YTD, annuali e serie storica
+ */
+export function calculateTWR() {
+  // Recupera tutti gli snapshot ordinati per data
+  const snapshots = db
+    .prepare('SELECT snapshot_date, portfolio_value FROM daily_portfolio_snapshots ORDER BY snapshot_date ASC')
+    .all();
+
+  if (snapshots.length < 2) {
+    return {
+      twrTotal: 0,
+      twrYTD: 0,
+      twrAnnual: [],
+      twrHistory: []
+    };
+  }
+
+  // Recupera tutti i depositi ordinati per data
+  const deposits = db
+    .prepare("SELECT operation_date, euro_amount FROM cash_movements WHERE movement_type = 'DEPOSIT' ORDER BY operation_date ASC")
+    .all()
+    .map(d => ({
+      // Converte la data Directa in ISO per il confronto
+      date: toISODate(d.operation_date),
+      amount: d.euro_amount
+    }));
+
+  // Costruisce la mappa dei depositi per data (somma se multipli nello stesso giorno)
+  const depositMap = {};
+  for (const d of deposits) {
+    depositMap[d.date] = (depositMap[d.date] || 0) + d.amount;
+  }
+
+  // Calcola il TWR per sottoperiodi delimitati dai depositi
+  // Un sottoperiodo inizia dopo un deposito e termina al deposito successivo (o alla fine)
+  let twrHistory = [];
+  let cumulativeTWR = 1; // Fattore moltiplicativo cumulato
+  let subperiodStartValue = snapshots[0].portfolio_value;
+  let subperiodStartDate = snapshots[0].snapshot_date;
+
+  // Il primo snapshot ha TWR = 0 (punto di partenza)
+  twrHistory.push({
+    snapshot_date: subperiodStartDate,
+    twr: 0
+  });
+
+  for (let i = 1; i < snapshots.length; i++) {
+    const current = snapshots[i];
+    const currentDate = current.snapshot_date;
+    const currentValue = current.portfolio_value;
+
+    // Verifica se in questa data c'è un deposito
+    const depositAmount = depositMap[currentDate] || 0;
+
+    if (depositAmount > 0) {
+      // C'è un deposito: chiude il sottoperiodo corrente
+      // Il valore finale del sottoperiodo è il valore prima del deposito
+      // Il rendimento del sottoperiodo: (V_end - V_start) / V_start
+      const subperiodReturn = (currentValue - depositAmount - subperiodStartValue) / subperiodStartValue;
+      cumulativeTWR *= (1 + subperiodReturn);
+
+      // Il nuovo sottoperiodo inizia dopo il deposito
+      subperiodStartValue = currentValue;
+      subperiodStartDate = currentDate;
+    }
+
+    // Calcola il TWR cumulato fino a questa data
+    // Se siamo in un sottoperiodo aperto, calcola il rendimento parziale
+    const partialReturn = subperiodStartValue > 0
+      ? (currentValue - subperiodStartValue) / subperiodStartValue
+      : 0;
+    const twrUpToDate = cumulativeTWR * (1 + partialReturn) - 1;
+
+    twrHistory.push({
+      snapshot_date: currentDate,
+      twr: parseFloat(twrUpToDate.toFixed(6))
+    });
+  }
+
+  // TWR totale = ultimo valore della serie storica
+  const twrTotal = twrHistory.length > 0 ? twrHistory[twrHistory.length - 1].twr : 0;
+
+  // Calcola TWR YTD (da inizio anno a oggi)
+  const currentYear = snapshots[snapshots.length - 1].snapshot_date.substr(0, 4);
+  const yearStart = currentYear + '-01-01';
+  const yearStartSnapshot = twrHistory.find(s => s.snapshot_date >= yearStart);
+  const lastSnapshot = twrHistory[twrHistory.length - 1];
+  const twrYTD = yearStartSnapshot && lastSnapshot
+    ? parseFloat(((1 + lastSnapshot.twr) / (1 + yearStartSnapshot.twr) - 1).toFixed(6))
+    : 0;
+
+  // Calcola TWR per anno solare
+  const twrAnnual = [];
+  const years = [...new Set(snapshots.map(s => s.snapshot_date.substr(0, 4)))].sort();
+  for (const year of years) {
+    const yearSnapshots = twrHistory.filter(s => s.snapshot_date.startsWith(year));
+    if (yearSnapshots.length > 0) {
+      const firstOfYear = yearSnapshots[0];
+      const lastOfYear = yearSnapshots[yearSnapshots.length - 1];
+      const twrYear = firstOfYear.twr !== 0
+        ? parseFloat(((1 + lastOfYear.twr) / (1 + firstOfYear.twr) - 1).toFixed(6))
+        : lastOfYear.twr;
+      twrAnnual.push({ year: parseInt(year), twr: twrYear });
+    }
+  }
+
+  return {
+    twrTotal: parseFloat(twrTotal.toFixed(4)),
+    twrYTD: parseFloat(twrYTD.toFixed(4)),
+    twrAnnual,
+    twrHistory
+  };
+}

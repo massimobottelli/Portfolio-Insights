@@ -6,7 +6,8 @@ import {
   getLatestSnapshot,
   getLatestPriceDate,
   getSnapshotHistory,
-  getDepositHistory
+  getDepositHistory,
+  calculateTWR
 } from '../models/analyticsModel.js';
 
 /**
@@ -99,5 +100,19 @@ export function getHistory(req, res) {
     })));
   } catch (error) {
     res.status(500).json({ error: 'Errore nel recupero dello storico', details: error.message });
+  }
+}
+
+/**
+ * GET /api/analytics/twr
+ * Restituisce il Time-Weighted Rate of Return (TWR) del portafoglio.
+ * Include TWR totale, YTD, annuali e serie storica completa.
+ */
+export function getTWR(req, res) {
+  try {
+    const twr = calculateTWR();
+    res.json(twr);
+  } catch (error) {
+    res.status(500).json({ error: 'Errore nel calcolo del TWR', details: error.message });
   }
 }

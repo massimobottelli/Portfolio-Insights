@@ -58,6 +58,23 @@ export interface SnapshotItem {
   cumulative_deposits: number;
 }
 
+export interface TWRAnnualItem {
+  year: number;
+  twr: number;
+}
+
+export interface TWRHistoryItem {
+  snapshot_date: string;
+  twr: number;
+}
+
+export interface TWRData {
+  twrTotal: number;
+  twrYTD: number;
+  twrAnnual: TWRAnnualItem[];
+  twrHistory: TWRHistoryItem[];
+}
+
 export interface ImportResponse {
   success: boolean;
   importSessionId: string;

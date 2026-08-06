@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDashboard, getPortfolio, getAllocation, getHistory } from '../controllers/analyticsController.js';
+import { getDashboard, getPortfolio, getAllocation, getHistory, getTWR } from '../controllers/analyticsController.js';
 
 const router = Router();
 
@@ -14,5 +14,8 @@ router.get('/allocation', getAllocation);
 
 // GET /api/analytics/history — Storico valore portafoglio (snapshot giornalieri)
 router.get('/history', getHistory);
+
+// GET /api/analytics/twr — Time-Weighted Rate of Return
+router.get('/twr', getTWR);
 
 export default router;
