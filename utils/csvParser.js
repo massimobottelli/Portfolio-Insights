@@ -35,6 +35,49 @@ const HEADER_ROW_INDEX = 9; // Riga 10 (1-based)
 const FIRST_DATA_ROW_INDEX = 10; // Riga 11 (1-based)
 
 /**
+ * Normalizza una data dal formato Directa (M/D/YY o M/D/YYYY) in formato ISO (YYYY-MM-DD).
+ *
+ * Directa esporta le date nel formato "M/D/YY" (es. "8/6/26" per 6 agosto 2026).
+ * Questo formato non è ordinabile cronologicamente come stringa.
+ * La normalizzazione in YYYY-MM-DD garantisce ordinamento corretto.
+ *
+ * Esempi:
+ *   "8/6/26"   -> "2026-08-06"
+ *   "9/9/25"   -> "2025-09-09"
+ *   "12/31/25" -> "2025-12-31"
+ *
+ * @param {string} raw - Data raw dal CSV in formato M/D/YY o M/D/YYYY
+ * @returns {string} Data normalizzata in formato YYYY-MM-DD (stringa vuota se non valida)
+ */
+export function normalizeDate(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  const str = raw.trim();
+  if (!str) return '';
+
+  const parts = str.split('/');
+  if (parts.length !== 3) return str; // fallback: restituisce l'originale
+
+  const month = parts[0].padStart(2, '0');
+  const day = parts[1].padStart(2, '0');
+  let year = parts[2];
+
+  // Converte anno a 2 cifre in anno a 4 cifre (assume 2000+)
+  if (year.length === 2) {
+    year = '20' + year;
+  }
+
+  // Valida che sia una data valida
+  const numMonth = parseInt(month, 10);
+  const numDay = parseInt(day, 10);
+  const numYear = parseInt(year, 10);
+  if (numMonth < 1 || numMonth > 12 || numDay < 1 || numDay > 31 || numYear < 2000) {
+    return str; // fallback: restituisce l'originale
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Converte una stringa numerica in formato italiano in Number.
  * Il formato Directa usa la virgola come separatore decimale
  * e il punto come separatore migliaia.
@@ -401,8 +444,11 @@ export function parseDirectaHistoryCSV(csvText) {
     // Salta righe senza dati sufficienti
     if (fields.length < 6) continue;
 
-    const snapshotDate = cleanString(fields[0]);
-    if (!snapshotDate) continue;
+    const rawDate = cleanString(fields[0]);
+    if (!rawDate) continue;
+
+    // Normalizza la data in formato ISO (YYYY-MM-DD) per garantire ordinamento cronologico
+    const snapshotDate = normalizeDate(rawDate);
 
     // Parsing snapshot giornaliero (colonne A-G)
     const snapshot = {
