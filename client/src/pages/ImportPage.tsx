@@ -5,6 +5,8 @@ export default function ImportPage() {
   const [sessions, setSessions] = useState<ImportSession[]>([]);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadSessions = () => {
@@ -64,6 +66,43 @@ export default function ImportPage() {
     }
   };
 
+  const handleClearDatabase = async () => {
+    setClearing(true);
+    setResult(null);
+    setShowConfirm(false);
+
+    try {
+      const response = await fetch('/api/import/clear', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        const { deleted } = data;
+        setResult({
+          success: true,
+          message: `Database svuotato: ${deleted.sessions} sessioni, ${deleted.assets} asset, ${deleted.marketOrders} ordini, ${deleted.cashMovements} movimenti, ${deleted.snapshots} snapshot rimossi.`,
+        });
+        loadSessions();
+      } else {
+        setResult({
+          success: false,
+          message: data.error || 'Errore durante la cancellazione',
+        });
+      }
+    } catch (error) {
+      setResult({
+        success: false,
+        message: `Errore: ${error instanceof Error ? error.message : 'Sconosciuto'}`,
+      });
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -113,6 +152,47 @@ export default function ImportPage() {
           }`}>
             {result.message}
           </div>
+        )}
+      </div>
+
+      {/* Clear Database Section */}
+      <div className="bg-slate-800 rounded-xl border border-red-900/30 p-6">
+        <h3 className="text-lg font-semibold text-white mb-2">Gestione Database</h3>
+        <p className="text-sm text-slate-400 mb-4">
+          Svuota completamente il database cancellando tutti i dati importati, inclusi asset,
+          ordini, movimenti di cassa, snapshot e cronologia import.
+        </p>
+
+        {showConfirm ? (
+          <div className="space-y-3">
+            <p className="text-sm text-red-400 font-medium">
+              Sei sicuro di voler cancellare tutti i dati? Questa operazione è irreversibile.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleClearDatabase}
+                disabled={clearing}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                {clearing ? 'Cancellazione in corso...' : 'Sì, cancella tutto'}
+              </button>
+              <button
+                onClick={() => setShowConfirm(false)}
+                disabled={clearing}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                Annulla
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowConfirm(true)}
+            disabled={clearing}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium"
+          >
+            {clearing ? 'Cancellazione in corso...' : 'Svuota database'}
+          </button>
         )}
       </div>
 

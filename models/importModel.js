@@ -121,3 +121,42 @@ export function insertDailySnapshot(snapshotData) {
 
   return db.prepare('SELECT * FROM daily_portfolio_snapshots WHERE id = ?').get(id);
 }
+
+/**
+ * Svuota completamente il database cancellando tutti i record dalle tabelle.
+ * Esegue le cancellazioni in una transazione, rispettando l'ordine delle
+ * Foreign Key (RESTRICT su assets, CASCADE su import_sessions).
+ * @returns {Object} Conteggi di eliminazione per ogni tabella
+ */
+export function clearDatabase() {
+  // Conta i record prima della cancellazione per restituire un report accurato
+  const before = {
+    marketOrders: db.prepare('SELECT COUNT(*) as count FROM market_orders').get().count,
+    cashMovements: db.prepare('SELECT COUNT(*) as count FROM cash_movements').get().count,
+    snapshots: db.prepare('SELECT COUNT(*) as count FROM daily_portfolio_snapshots').get().count,
+    assets: db.prepare('SELECT COUNT(*) as count FROM assets').get().count,
+    sessions: db.prepare('SELECT COUNT(*) as count FROM import_sessions').get().count,
+  };
+
+  // Disabilita temporaneamente le foreign key constraint per permettere
+  // la cancellazione di tutte le tabelle in qualsiasi ordine.
+  // Le FK vengono riattivate subito dopo la transazione.
+  db.exec('PRAGMA foreign_keys = OFF');
+
+  try {
+    db.exec('BEGIN TRANSACTION');
+    db.exec('DELETE FROM market_orders;');
+    db.exec('DELETE FROM cash_movements;');
+    db.exec('DELETE FROM daily_portfolio_snapshots;');
+    db.exec('DELETE FROM assets;');
+    db.exec('DELETE FROM import_sessions;');
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+
+  return { deleted: before };
+}

@@ -1,4 +1,4 @@
-import { createImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot } from '../models/importModel.js';
+import { createImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, clearDatabase } from '../models/importModel.js';
 import { upsertAsset } from '../models/assetModel.js';
 import { randomUUID } from 'node:crypto';
 import { parseDirectaCSV, parseDirectaHistoryCSV, detectFileType } from '../utils/csvParser.js';
@@ -100,6 +100,27 @@ export function listSessions(req, res) {
     res.json(sessions);
   } catch (error) {
     res.status(500).json({ error: 'Errore nel recupero delle sessioni', details: error.message });
+  }
+}
+
+/**
+ * DELETE /api/import/clear
+ * Svuota completamente il database cancellando tutti i dati importati.
+ * Richiede conferma esplicita nel corpo della richiesta: { confirm: true }
+ */
+export function clearAllData(req, res) {
+  try {
+    if (req.body.confirm !== true) {
+      return res.status(400).json({
+        error: 'Conferma richiesta',
+        details: 'Per cancellare tutti i dati inviare { "confirm": true }'
+      });
+    }
+
+    const result = clearDatabase();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ error: 'Errore durante la cancellazione', details: error.message });
   }
 }
 
