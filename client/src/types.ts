@@ -50,6 +50,14 @@ export interface ImportSession {
   errors: string | null;
 }
 
+export interface SnapshotItem {
+  snapshot_date: string;
+  portfolio_value: number;
+  available_cash: number;
+  invested_capital: number;
+  cumulative_deposits: number;
+}
+
 export interface ImportResponse {
   success: boolean;
   importSessionId: string;

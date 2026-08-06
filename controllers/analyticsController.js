@@ -4,7 +4,9 @@ import {
   calculatePositions,
   calculateAllocation,
   getLatestSnapshot,
-  getLatestPriceDate
+  getLatestPriceDate,
+  getSnapshotHistory,
+  getDepositHistory
 } from '../models/analyticsModel.js';
 
 /**
@@ -69,5 +71,33 @@ export function getAllocation(req, res) {
     res.json(allocation);
   } catch (error) {
     res.status(500).json({ error: 'Errore nel calcolo dell\'allocazione', details: error.message });
+  }
+}
+
+/**
+ * GET /api/analytics/history
+ * Restituisce la serie storica degli snapshot giornalieri del portafoglio.
+ */
+export function getHistory(req, res) {
+  try {
+    const history = getSnapshotHistory();
+    const deposits = getDepositHistory();
+
+    // Crea una mappa { snapshot_date => cumulative_deposits } per merge veloce
+    const depositMap = {};
+    for (const d of deposits) {
+      depositMap[d.snapshot_date] = d.cumulative_deposits;
+    }
+
+    // Espone i campi rilevanti per il grafico, arrotondando i valori monetari a 2 decimali
+    res.json(history.map(s => ({
+      snapshot_date: s.snapshot_date,
+      portfolio_value: parseFloat(s.portfolio_value.toFixed(2)),
+      available_cash: parseFloat(s.available_cash.toFixed(2)),
+      invested_capital: parseFloat(s.invested_capital.toFixed(2)),
+      cumulative_deposits: parseFloat((depositMap[s.snapshot_date] || 0).toFixed(2))
+    })));
+  } catch (error) {
+    res.status(500).json({ error: 'Errore nel recupero dello storico', details: error.message });
   }
 }

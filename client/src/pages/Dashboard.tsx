@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import type { DashboardData, AllocationItem } from '../types';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
+import type { DashboardData, AllocationItem, SnapshotItem } from '../types';
 
 const COLORS = [
   '#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed',
@@ -38,16 +38,19 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
 export default function Dashboard() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [allocation, setAllocation] = useState<AllocationItem[]>([]);
+  const [history, setHistory] = useState<SnapshotItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch('/api/analytics/dashboard').then(r => r.json()),
       fetch('/api/analytics/allocation').then(r => r.json()),
+      fetch('/api/analytics/history').then(r => r.json()),
     ])
-      .then(([dashData, allocData]) => {
+      .then(([dashData, allocData, histData]) => {
         setDashboard(dashData);
         setAllocation(allocData);
+        setHistory(histData);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -151,10 +154,84 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Position Summary - MVP2 */}
+        {/* Portfolio Value History Chart */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Riepilogo Posizioni</h3>
-          <p className="text-slate-500 text-center py-8">Disponibile in MVP2</p>
+          <h3 className="text-lg font-semibold text-white mb-4">Andamento Patrimonio</h3>
+          {history.length > 0 ? (
+            <ResponsiveContainer width="100%" height={400}>
+              <AreaChart data={history} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="depositsGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis
+                  dataKey="snapshot_date"
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickFormatter={(dateStr) => {
+                    const d = new Date(dateStr);
+                    return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                  }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+                  domain={['auto', 'auto']}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+                    const item = payload[0].payload as SnapshotItem;
+                    const formatEUR = (v: number) =>
+                      new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(v);
+                    return (
+                      <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
+                        <p className="text-slate-300 text-sm">
+                          {new Date(item.snapshot_date).toLocaleDateString('it-IT', {
+                            day: '2-digit', month: 'long', year: 'numeric'
+                          })}
+                        </p>
+                        <p className="font-semibold text-emerald-400 text-sm mt-1">
+                          Patrimonio: {formatEUR(item.portfolio_value)}
+                        </p>
+                        <p className="text-slate-300 text-xs mt-1">
+                          Liquidità: {formatEUR(item.available_cash)}
+                        </p>
+                        <p className="text-blue-400 text-xs mt-1">
+                          Versato: {formatEUR(item.cumulative_deposits)}
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="portfolio_value"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  fill="url(#portfolioGradient)"
+                />
+                <Area
+                  type="stepBefore"
+                  dataKey="cumulative_deposits"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                  fill="url(#depositsGradient)"
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-slate-500 text-center py-8">Nessun dato storico disponibile</p>
+          )}
         </div>
       </div>
     </div>

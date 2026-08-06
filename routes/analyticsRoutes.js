@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDashboard, getPortfolio, getAllocation } from '../controllers/analyticsController.js';
+import { getDashboard, getPortfolio, getAllocation, getHistory } from '../controllers/analyticsController.js';
 
 const router = Router();
 
@@ -11,5 +11,8 @@ router.get('/portfolio', getPortfolio);
 
 // GET /api/analytics/allocation — Allocazione percentuale del portafoglio
 router.get('/allocation', getAllocation);
+
+// GET /api/analytics/history — Storico valore portafoglio (snapshot giornalieri)
+router.get('/history', getHistory);
 
 export default router;

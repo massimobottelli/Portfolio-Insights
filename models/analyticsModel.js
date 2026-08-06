@@ -123,6 +123,33 @@ export function getLatestSnapshot() {
 }
 
 /**
+ * Calcola il totale cumulativo dei depositi per ogni data di snapshot.
+ * 
+ * Per ogni snapshot_date, somma tutti i DEPOSIT con operation_date <= snapshot_date.
+ * Questo permette di tracciare una linea "capitale versato" nel grafico storico.
+ * 
+ * @returns {Array<{snapshot_date: string, cumulative_deposits: number}>}
+ */
+export function getDepositHistory() {
+  // Le date in cash_movements sono in formato DD-MM-YYYY (es. "05-06-2024")
+  // mentre snapshot_date è in YYYY-MM-DD (es. "2024-06-05").
+  // La conversione usa substr per riordinare: substr(operation_date,7,4)||'-'||substr(operation_date,4,2)||'-'||substr(operation_date,1,2)
+  return db
+    .prepare(`
+      SELECT
+        d.snapshot_date,
+        COALESCE(SUM(c.euro_amount), 0) AS cumulative_deposits
+      FROM daily_portfolio_snapshots d
+      LEFT JOIN cash_movements c
+        ON c.movement_type = 'DEPOSIT'
+        AND substr(c.operation_date,7,4) || '-' || substr(c.operation_date,4,2) || '-' || substr(c.operation_date,1,2) <= d.snapshot_date
+      GROUP BY d.snapshot_date
+      ORDER BY d.snapshot_date ASC
+    `)
+    .all();
+}
+
+/**
  * Ottiene la serie storica completa degli snapshot di portafoglio.
  * @returns {Array} Snapshot ordinati per data crescente
  */
