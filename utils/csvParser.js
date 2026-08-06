@@ -326,11 +326,11 @@ export function parseDirectaHistoryCSV(csvText) {
     snapshots.push(snapshot);
 
     // Parsing eventi di movimento (colonne H-M)
-    // H = eventDate, I = eventDescription, J = eventValue
-    if (fields.length > 8) {
-      const eventDate = cleanString(fields[7]);
-      const eventDescription = cleanString(fields[8]);
-      const eventValue = fields.length > 9 ? cleanString(fields[9]) : '';
+    // H = vuota (separatore), I = eventDate, J = eventDescription, K = eventValue, L-M = vuote
+    if (fields.length > 9) {
+      const eventDate = cleanString(fields[8]);
+      const eventDescription = cleanString(fields[9]);
+      const eventValue = fields.length > 10 ? cleanString(fields[10]) : '';
 
       if (eventDate && eventDescription) {
         events.push({
