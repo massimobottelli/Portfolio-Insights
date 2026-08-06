@@ -163,7 +163,7 @@ function parseRow(fields) {
  * @returns {string} Tipo di file ('orders', 'portfolio', 'history')
  */
 export function detectFileType(header) {
-  const reportType = header.reportType || '';
+  const reportType = header.reportType || header.dataType || '';
 
   if (reportType.includes('movimenti')) return 'orders';
   if (reportType.includes('Portafoglio')) return 'portfolio';
@@ -226,4 +226,123 @@ export function parseDirectaCSV(csvText) {
   }
 
   return { header, records };
+}
+
+/**
+ * Parser per il report "Patrimonio Totale" (Portfolio Value History) di Directa.
+ *
+ * Questo report ha una struttura a doppia sezione:
+ *   - Colonne A-G: Dati giornalieri di patrimonio (snapshot)
+ *   - Colonne H-M: Eventi di movimento (depositi, bolli, ecc.)
+ *
+ * Formato intestazione:
+ *   Riga 1-4: metadati (conto, date, tipo dato)
+ *   Riga 5-6: titoli di sezione
+ *   Riga 7-8: doppio header (colonne secondarie + principali)
+ *   Riga 9+: dati
+ *
+ * @param {string} csvText - Contenuto testuale del file CSV
+ * @returns {{ header: Object, snapshots: Array<Object>, events: Array<Object> }}
+ *   header: metadati del report
+ *   snapshots: array di snapshot giornalieri
+ *   events: array di eventi di movimento (conferimenti, bolli, ecc.)
+ */
+export function parseDirectaHistoryCSV(csvText) {
+  if (!csvText || typeof csvText !== 'string') {
+    throw new Error('Il contenuto CSV non è valido o è vuoto');
+  }
+
+  const lines = csvText.split(/\r?\n/);
+
+  // Estrae i metadati dalle prime righe (header diverso dal report ordini)
+  const header = {
+    account: '',
+    extractionDate: '',
+    dataType: '',
+    fromDate: '',
+    toDate: ''
+  };
+
+  for (let i = 0; i < Math.min(6, lines.length); i++) {
+    const parts = lines[i].split(';');
+    const label = cleanString(parts[0]);
+
+    const extractValue = (str) => {
+      const colonIndex = str.indexOf(':');
+      if (colonIndex !== -1) return str.slice(colonIndex + 1).trim();
+      return '';
+    };
+
+    if (label.startsWith('Conto')) header.account = extractValue(label);
+    else if (label.startsWith('Data estrazione')) header.extractionDate = extractValue(label);
+    else if (label.startsWith('Dati dal')) {
+      // "Dati dal 2024/06/05 al 2026/08/05"
+      const match = label.match(/Dati dal\s+(\S+)\s+al\s+(\S+)/);
+      if (match) {
+        header.fromDate = match[1];
+        header.toDate = match[2];
+      }
+    }
+    else if (label.startsWith('Tipo dato')) header.dataType = extractValue(label);
+  }
+
+  // Valida che sia il formato Patrimonio (riga 6 deve contenere "PATRIMONIO")
+  const titleLine = lines.length > 5 ? cleanString(lines[5]) : '';
+  if (!titleLine.includes('PATRIMONIO')) {
+    throw new Error('File non riconosciuto: report Patrimonio non valido');
+  }
+
+  // La prima riga dati è la riga 8 (0-based: index 8, che è la riga 9 nel file 1-based)
+  // La riga 7 è l'header secondario, la riga 8 è l'header principale
+  const FIRST_DATA_LINE = 8; // Riga 9 (1-based)
+
+  // Processa le righe dati
+  const snapshots = [];
+  const events = [];
+
+  for (let i = FIRST_DATA_LINE; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    const fields = line.split(';');
+
+    // Salta righe senza dati sufficienti
+    if (fields.length < 6) continue;
+
+    const snapshotDate = cleanString(fields[0]);
+    if (!snapshotDate) continue;
+
+    // Parsing snapshot giornaliero (colonne A-G)
+    const snapshot = {
+      snapshotDate,
+      availableCash: parseItalianNumber(fields[1]),  // B - Liquidità
+      finanziamentoLong: parseItalianNumber(fields[2]), // C - Finanziamento long
+      garanziaShort: parseItalianNumber(fields[3]),    // D - Garanzia short
+      portfolioValue: parseItalianNumber(fields[4]),    // E - Portafoglio
+      patrimonio: parseItalianNumber(fields[5]),        // F - Patrimonio (totale)
+      note: cleanString(fields[6] || '')                // G - Note
+    };
+
+    snapshots.push(snapshot);
+
+    // Parsing eventi di movimento (colonne H-M)
+    // H = eventDate, I = eventDescription, J = eventValue
+    if (fields.length > 8) {
+      const eventDate = cleanString(fields[7]);
+      const eventDescription = cleanString(fields[8]);
+      const eventValue = fields.length > 9 ? cleanString(fields[9]) : '';
+
+      if (eventDate && eventDescription) {
+        events.push({
+          eventDate,
+          description: eventDescription,
+          value: eventValue,
+          // Le colonne K-M (Descrizione titolo, Isin, Ticker) sono sempre vuote
+          // e non vengono parsate
+        });
+      }
+    }
+  }
+
+  return { header, snapshots, events };
 }

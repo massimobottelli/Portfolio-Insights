@@ -1,7 +1,7 @@
 import { createImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot } from '../models/importModel.js';
 import { upsertAsset } from '../models/assetModel.js';
 import { randomUUID } from 'node:crypto';
-import { parseDirectaCSV, detectFileType } from '../utils/csvParser.js';
+import { parseDirectaCSV, parseDirectaHistoryCSV, detectFileType } from '../utils/csvParser.js';
 
 /**
  * POST /api/import
@@ -21,9 +21,20 @@ export function importFile(req, res) {
 
     // Se riceviamo fileContent, usiamo il parser CSV nativo
     if (req.body.fileContent) {
-      const parsed = parseDirectaCSV(req.body.fileContent);
-      fileType = detectFileType(parsed.header);
-      records = parsed.records;
+      // Rilevamento automatico: il report "Patrimonio Totale" ha una riga con "PATRIMONIO"
+      // nelle prime righe, mentre il report movimenti ha "Tutti i movimenti"
+      const firstLines = req.body.fileContent.split(/\r?\n/).slice(0, 7);
+      const isHistoryReport = firstLines.some(line => line.includes('PATRIMONIO'));
+
+      if (isHistoryReport) {
+        const parsed = parseDirectaHistoryCSV(req.body.fileContent);
+        fileType = 'history';
+        records = parsed.snapshots;
+      } else {
+        const parsed = parseDirectaCSV(req.body.fileContent);
+        fileType = detectFileType(parsed.header);
+        records = parsed.records;
+      }
     } else if (req.body.fileType && Array.isArray(req.body.records)) {
       // Formato legacy: JSON pre-parsato
       fileType = req.body.fileType;
@@ -166,11 +177,17 @@ function processPortfolioRecord(record, sessionId) {
 }
 
 function processHistoryRecord(record, sessionId) {
+  // Il report "Patrimonio Totale" fornisce snapshot giornalieri con:
+  // - patrimonio: valore TOTALE del portafoglio (liquidità + titoli)
+  // - portfolioValue: valore dei soli titoli
+  // - availableCash: liquidità disponibile
+  // Usiamo "patrimonio" come portfolio_value perché rappresenta il valore complessivo
+  // richiesto dal dashboard per il calcolo del P&L.
   insertDailySnapshot({
-    snapshotDate: record.date,
-    portfolioValue: record.portfolioValue,
-    availableCash: record.availableCash,
-    investedCapital: record.investedCapital,
+    snapshotDate: record.snapshotDate,
+    portfolioValue: record.patrimonio || record.portfolioValue || 0,
+    availableCash: record.availableCash || 0,
+    investedCapital: 0, // Il report Patrimonio non fornisce il valore di carico
     importSessionId: sessionId
   });
 }
