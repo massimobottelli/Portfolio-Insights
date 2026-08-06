@@ -106,6 +106,10 @@ Suggerimenti per le estensioni di VS Code consigliate per questo progetto.
 Una volta completato il setup dei file sorgente (`server.js`, `database.js`, ecc.), puoi avviare l'applicazione con il comando:
 
 ```bash
+
+fnm use 22 && npm run dev 2>&1 || echo "---TRYING_ALT---" && eval "$(fnm env --use-on-cd)" && npm run dev 2>&1
+
+
 npm run dev
 ```
 
