@@ -21,9 +21,9 @@ La filosofia di sviluppo prevede la creazione di componenti minimali, nativi e a
 
 | ID | Task | Descrizione | Stato | Priorità |
 |---|---|---|---|---|
-| T2.1 | Lettura File CSV | Implementazione del parser di stringhe CSV nativo (senza librerie esterne) | Da fare | Alta |
-| T2.2 | Sanificazione & Normalizzazione | Implementazione regole di pulizia (trim, virgola -> punto, gestione asterisco `*`) | Da fare | Alta |
-| T2.3 | Mapping Causali | Traduzione deterministica delle causali Directa in entità di dominio | **Completato** (in `importController.js`) | Alta |
+| T2.1 | Lettura File CSV | Implementazione del parser di stringhe CSV nativo (senza librerie esterne) | **Completato** (in `utils/csvParser.js`) | Alta |
+| T2.2 | Sanificazione & Normalizzazione | Implementazione regole di pulizia (trim, virgola -> punto, gestione asterisco `*`) | **Completato** (in `utils/csvParser.js`) | Alta |
+| T2.3 | Mapping Causali | Traduzione deterministica delle causali Directa in entità di dominio (18 causali in `importController.js`) | **Completato** (in `importController.js`) | Alta |
 | T2.4 | Gestione Idempotenza | Logica di inserimento sicuro a prova di duplicati (re-import dello stesso file) | **Completato** (in `importModel.js`) | Alta |
 | T2.5 | Tracciamento Sessioni | Salvataggio dei log di successo/errore nella tabella `import_sessions` | **Completato** (in `importModel.js`) | Media |
 
@@ -70,8 +70,8 @@ La filosofia di sviluppo prevede la creazione di componenti minimali, nativi e a
 | Fase | Totale Task | Completati | Da Fare |
 |---|---|---|---|
 | Fase 1: Setup & Infrastruttura | 5 | 5 | 0 |
-| Fase 2: Importer Engine | 5 | 3 | 2 |
+| Fase 2: Importer Engine | 5 | 5 | 0 |
 | Fase 3: Analytics Engine | 5 | 5 | 0 |
 | Fase 4: Rotte API | 6 | 6 | 0 |
 | Fase 5: Frontend React | 4 | 0 | 4 |
-| **Totale** | **25** | **19** | **6** |
+| **Totale** | **25** | **21** | **4** |

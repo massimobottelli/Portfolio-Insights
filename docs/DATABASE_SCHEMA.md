@@ -75,6 +75,31 @@ Rules:
 - Immutable after import.
 - Unique constraint on `protocol` (when present) or (operationDate, movementType, euroAmount, assetId) to guarantee idempotency.
 
+### Causali Directa → MovementType
+
+Il mapping deterministico delle causali in italiano dai report Directa ai `MovementType` è definito nella sezione 9 del `DOMAIN_MODEL`. Le causali attualmente supportate sono:
+
+| Causale Directa (IT) | MovementType | Segno Atteso |
+|---|---|---|
+| Acquisto | `MarketOrder` (BUY) | Negativo (`-`) |
+| Vendita | `MarketOrder` (SELL) | Positivo (`+`) |
+| Cedola obb. | `INTEREST` | Positivo (`+`) |
+| Rit.cedola obb. | `TAX` | Negativo (`-`) |
+| Rit. etf | `TAX` | Negativo (`-`) |
+| Commissioni | `COMMISSION` | Negativo (`-`) |
+| Bollo portafoglio titoli\* | `STAMP_DUTY` | Negativo (`-`) |
+| Conferimento con bonifico | `DEPOSIT` | Positivo (`+`) |
+| Incasso dividendi italia | `DIVIDEND` | Positivo (`+`) |
+| Ritenuta dividendi italia | `TAX` | Negativo (`-`) |
+| Tobin tax italia | `TAX` | Negativo (`-`) |
+| St.rimborso obbl. a scade | `OTHER` | Variabile |
+| St.rit.debito disaggio | `OTHER` | Variabile |
+| Rit.debito disaggio | `TAX` | Negativo (`-`) |
+| Rimborso obbl. a scadenza | `OTHER` | Positivo (`+`) |
+| Ratei pass.obb. | `OTHER` | Negativo (`-`) |
+| Rit.ratei pass.obb. | `TAX` | Positivo (`+`) |
+| Rit.credito disaggio | `OTHER` | Positivo (`+`) |
+
 ---
 
 ## DailyPortfolioSnapshot
