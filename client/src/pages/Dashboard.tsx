@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Line } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, CartesianGrid, Line } from 'recharts';
 import type { DashboardData, AllocationItem, SnapshotItem, TWRData } from '../types';
 
 const COLORS = [
@@ -41,6 +41,8 @@ export default function Dashboard() {
   const [history, setHistory] = useState<SnapshotItem[]>([]);
   const [twr, setTwr] = useState<TWRData | null>(null);
   const [loading, setLoading] = useState(true);
+  // Serie nascoste nel grafico (cliccando sulla legenda)
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     Promise.all([
@@ -83,6 +85,21 @@ export default function Dashboard() {
   const formatPercent = (value: number) =>
     `${value >= 0 ? '+' : ''}${(value * 100).toFixed(2)}%`;
 
+  // Funzione per attivare/disattivare una serie nella legenda
+  const toggleSeries = (key: string) => {
+    setHiddenSeries(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const isHidden = (key: string) => hiddenSeries.has(key);
+
   // Merge history + TWR per il grafico combinato
   const twrMap = new Map<string, number>();
   if (twr) {
@@ -107,7 +124,7 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
-          title="Valore Portafoglio"
+          title="Valore Portfolio"
           value={formatEUR(dashboard.portfolioValue)}
           color="text-emerald-400"
         />
@@ -130,7 +147,7 @@ export default function Dashboard() {
           <KpiCard
             title="TWR"
             value={formatPercent(twr.twrTotal)}
-            color={twr.twrTotal >= 0 ? 'text-emerald-400' : 'text-red-400'}
+            color={twr.twrTotal >= 0 ? 'text-amber-400' : 'text-red-400'}
           />
         )}
       </div>
@@ -181,10 +198,10 @@ export default function Dashboard() {
 
         {/* Portfolio Value & TWR History Chart */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Andamento Patrimonio & TWR</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">Andamento Portfolio & TWR</h3>
           {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
-              <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+              <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -234,13 +251,13 @@ export default function Dashboard() {
                           })}
                         </p>
                         <p className="font-semibold text-emerald-400 text-sm mt-1">
-                          Patrimonio: {formatEUR(item.portfolio_value)}
+                          Portfolio: {formatEUR(item.portfolio_value)}
                         </p>
                         <p className="text-slate-300 text-xs mt-1">
                           Liquidità: {formatEUR(item.available_cash)}
                         </p>
                         <p className="text-blue-400 text-xs mt-1">
-                          Versato: {formatEUR(item.cumulative_deposits)}
+                          Investito: {formatEUR(item.cumulative_deposits)}
                         </p>
                         <p className={`text-xs mt-1 ${item.twr !== null && item.twr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           TWR: {formatPct(item.twr)}
@@ -249,52 +266,71 @@ export default function Dashboard() {
                     );
                   }}
                 />
-                <Area
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="portfolio_value"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  fill="url(#portfolioGradient)"
-                />
-                <Area
-                  yAxisId="left"
-                  type="stepBefore"
-                  dataKey="cumulative_deposits"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  strokeDasharray="6 3"
-                  fill="url(#depositsGradient)"
-                  dot={false}
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="twr"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls={false}
-                />
-              </AreaChart>
+                {!isHidden('portfolio') && (
+                  <Area
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="portfolio_value"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    fill="url(#portfolioGradient)"
+                  />
+                )}
+                {!isHidden('deposits') && (
+                  <Area
+                    yAxisId="left"
+                    type="stepBefore"
+                    dataKey="cumulative_deposits"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    strokeDasharray="6 3"
+                    fill="url(#depositsGradient)"
+                    dot={false}
+                  />
+                )}
+                {!isHidden('twr') && (
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="twr"
+                    stroke="#f59e0b"
+                    strokeWidth={1}
+                    dot={false}
+                    connectNulls={false}
+                  />
+                )}
+              </ComposedChart>
             </ResponsiveContainer>
           ) : (
             <p className="text-slate-500 text-center py-8">Nessun dato storico disponibile</p>
           )}
-          {/* Legenda linea TWR */}
-          <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-emerald-400" />
-              <span>Patrimonio</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-blue-400" style={{ borderTop: '2px dashed #60a5fa' }} />
-              <span>Versato</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-amber-400" />
-              <span>TWR</span>
-            </div>
+          {/* Legenda cliccabile per attivare/disattivare le serie */}
+          <div className="flex items-center gap-4 mt-2">
+            {[
+              { key: 'portfolio', label: 'Portfolio', dashClass: '', color: '#10b981' },
+              { key: 'deposits', label: 'Investito', dashClass: 'dashed', color: '#3b82f6' },
+              { key: 'twr', label: 'TWR', dashClass: '', color: '#f59e0b' },
+            ].map(({ key, label, dashClass, color }) => (
+              <button
+                key={key}
+                onClick={() => toggleSeries(key)}
+                className={`flex items-center gap-1.5 text-xs transition-all cursor-pointer select-none ${
+                  isHidden(key) ? 'opacity-40 line-through' : 'text-slate-300 hover:text-white'
+                }`}
+                title={isHidden(key) ? `Mostra ${label}` : `Nascondi ${label}`}
+              >
+                <div
+                  className="w-3 h-0.5"
+                  style={{
+                    backgroundColor: isHidden(key) ? '#475569' : color,
+                    ...(dashClass === 'dashed' && !isHidden(key)
+                      ? { backgroundImage: 'linear-gradient(90deg, #60a5fa 50%, transparent 50%)', backgroundSize: '6px 2px', backgroundRepeat: 'repeat-x' }
+                      : {}),
+                  }}
+                />
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
