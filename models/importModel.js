@@ -119,6 +119,38 @@ export function insertDailySnapshot(snapshotData) {
 }
 
 /**
+ * Inserisce o aggiorna un prezzo di asset nel database.
+ * Usa INSERT OR REPLACE per gestire l'unicità su (asset_id, extraction_date).
+ * @param {Object} priceData - Dati del prezzo
+ * @param {string} priceData.assetId - ID dell'asset
+ * @param {number} priceData.currentPrice - Prezzo corrente unitario
+ * @param {number} priceData.averagePrice - Prezzo medio di carico unitario
+ * @param {string} priceData.extractionDate - Data di estrazione del report
+ * @param {string} priceData.importSessionId - ID della sessione di import
+ * @returns {Object} Record di prezzo inserito o aggiornato
+ */
+export function insertAssetPrice(priceData) {
+  const id = randomUUID();
+  const { assetId, currentPrice, averagePrice, extractionDate, importSessionId } = priceData;
+
+  // Elimina eventuale record esistente per la stessa coppia (asset_id, extraction_date)
+  const existing = db
+    .prepare('SELECT id FROM asset_prices WHERE asset_id = ? AND extraction_date = ?')
+    .get(assetId, extractionDate);
+
+  if (existing) {
+    db.prepare('DELETE FROM asset_prices WHERE id = ?').run(existing.id);
+  }
+
+  db.prepare(`
+    INSERT INTO asset_prices (id, asset_id, current_price, average_price, extraction_date, import_session_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, assetId, currentPrice, averagePrice, extractionDate, importSessionId);
+
+  return db.prepare('SELECT * FROM asset_prices WHERE id = ?').get(id);
+}
+
+/**
  * Svuota completamente il database cancellando tutti i record dalle tabelle.
  * Esegue le cancellazioni in una transazione, rispettando l'ordine delle
  * Foreign Key (RESTRICT su assets, CASCADE su import_sessions).
@@ -130,6 +162,7 @@ export function clearDatabase() {
     marketOrders: db.prepare('SELECT COUNT(*) as count FROM market_orders').get().count,
     cashMovements: db.prepare('SELECT COUNT(*) as count FROM cash_movements').get().count,
     snapshots: db.prepare('SELECT COUNT(*) as count FROM daily_portfolio_snapshots').get().count,
+    assetPrices: db.prepare('SELECT COUNT(*) as count FROM asset_prices').get().count,
     assets: db.prepare('SELECT COUNT(*) as count FROM assets').get().count,
     sessions: db.prepare('SELECT COUNT(*) as count FROM import_sessions').get().count,
   };
@@ -144,6 +177,7 @@ export function clearDatabase() {
     db.exec('DELETE FROM market_orders;');
     db.exec('DELETE FROM cash_movements;');
     db.exec('DELETE FROM daily_portfolio_snapshots;');
+    db.exec('DELETE FROM asset_prices;');
     db.exec('DELETE FROM assets;');
     db.exec('DELETE FROM import_sessions;');
     db.exec('COMMIT');

@@ -3,7 +3,8 @@ import {
   calculateInvestedCapital,
   calculatePositions,
   calculateAllocation,
-  getLatestSnapshot
+  getLatestSnapshot,
+  getLatestPriceDate
 } from '../models/analyticsModel.js';
 
 /**
@@ -45,12 +46,14 @@ export function getDashboard(req, res) {
 
 /**
  * GET /api/analytics/portfolio
- * Restituisce la lista delle posizioni attive nel portafoglio.
+ * Restituisce la lista delle posizioni attive nel portafoglio,
+ * con prezzo corrente, prezzo medio di carico e data di aggiornamento.
  */
 export function getPortfolio(req, res) {
   try {
     const positions = calculatePositions();
-    res.json(positions);
+    const priceDate = getLatestPriceDate();
+    res.json({ positions, priceDate });
   } catch (error) {
     res.status(500).json({ error: 'Errore nel recupero del portafoglio', details: error.message });
   }

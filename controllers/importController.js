@@ -1,7 +1,7 @@
-import { createImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, clearDatabase } from '../models/importModel.js';
+import { createImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, insertAssetPrice, clearDatabase } from '../models/importModel.js';
 import { upsertAsset } from '../models/assetModel.js';
 import { randomUUID } from 'node:crypto';
-import { parseDirectaCSV, parseDirectaHistoryCSV, detectFileType } from '../utils/csvParser.js';
+import { parseDirectaCSV, parseDirectaHistoryCSV, parseDirectaPortfolioCSV, detectFileType } from '../utils/csvParser.js';
 
 /**
  * POST /api/import
@@ -21,15 +21,23 @@ export function importFile(req, res) {
 
     // Se riceviamo fileContent, usiamo il parser CSV nativo
     if (req.body.fileContent) {
-      // Rilevamento automatico: il report "Patrimonio Totale" ha una riga con "PATRIMONIO"
-      // nelle prime righe, mentre il report movimenti ha "Tutti i movimenti"
       const firstLines = req.body.fileContent.split(/\r?\n/).slice(0, 7);
+
+      // Rilevamento automatico: il report "Patrimonio Totale" ha una riga con "PATRIMONIO"
       const isHistoryReport = firstLines.some(line => line.includes('PATRIMONIO'));
+      // Il report "Portafoglio Corrente" (P_TOTALE) inizia con "Portafoglio : TOTALE"
+      const isPortfolioReport = firstLines.some(line => line.includes('Portafoglio : TOTALE'));
 
       if (isHistoryReport) {
         const parsed = parseDirectaHistoryCSV(req.body.fileContent);
         fileType = 'history';
         records = parsed.snapshots;
+      } else if (isPortfolioReport) {
+        const parsed = parseDirectaPortfolioCSV(req.body.fileContent);
+        fileType = 'portfolio';
+        records = parsed.records;
+        // Salva la data di estrazione per usarla nel processPortfolioRecord
+        req._extractionDate = parsed.header.extractionDate;
       } else {
         const parsed = parseDirectaCSV(req.body.fileContent);
         fileType = detectFileType(parsed.header);
@@ -187,14 +195,25 @@ function processOrderRecord(record, sessionId) {
 
 function processPortfolioRecord(record, sessionId) {
   // Crea o aggiorna l'asset
-  upsertAsset({
+  const asset = upsertAsset({
     id: randomUUID(),
     isin: record.isin,
     ticker: record.ticker || '',
-    name: record.description || '',
+    name: record.name || record.description || '',
     currency: record.currency || 'EUR',
     directaCode: record.directaCode || null
   });
+
+  // Salva prezzo corrente e prezzo medio se disponibili (dal report P_TOTALE)
+  if (record.currentPrice !== undefined && record.currentPrice > 0) {
+    insertAssetPrice({
+      assetId: asset.id,
+      currentPrice: record.currentPrice,
+      averagePrice: record.averagePrice || 0,
+      extractionDate: record.extractionDate || new Date().toISOString().split('T')[0],
+      importSessionId: sessionId
+    });
+  }
 }
 
 function processHistoryRecord(record, sessionId) {

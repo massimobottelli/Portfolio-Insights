@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { PositionItem } from '../types';
+import type { PositionItem, PortfolioResponse } from '../types';
 
-type SortKey = 'ticker' | 'isin' | 'name' | 'quantity' | 'currency' | 'asset_type';
+type SortKey = 'ticker' | 'isin' | 'name' | 'quantity' | 'currency' | 'asset_type' | 'current_price' | 'average_price';
 type SortDirection = 'asc' | 'desc';
 
 // I BTP (Buoni del Tesoro Poliennali) sono quotati in percentuale (es. 102.50),
@@ -11,8 +11,29 @@ const isBtp = (pos: PositionItem) =>
 
 const displayQuantity = (pos: PositionItem) => (isBtp(pos) ? pos.quantity / 100 : pos.quantity);
 
+/**
+ * Formatta un numero come prezzo con 2-4 decimali significativi.
+ * Per valori > 10 usa 2 decimali, per valori <= 10 usa 4 decimali.
+ */
+const formatPrice = (price: number | null) => {
+  if (price === null || price === undefined) return '—';
+  return price >= 10
+    ? price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : price.toLocaleString('it-IT', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+};
+
+/**
+ * Formatta una data ISO in formato italiano (DD/MM/YYYY).
+ */
+const formatDate = (dateStr: string | null) => {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('it-IT', { year: 'numeric', month: '2-digit', day: '2-digit' });
+};
+
 export default function Portfolio() {
   const [positions, setPositions] = useState<PositionItem[]>([]);
+  const [priceDate, setPriceDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -20,7 +41,10 @@ export default function Portfolio() {
   useEffect(() => {
     fetch('/api/analytics/portfolio')
       .then(r => r.json())
-      .then(data => setPositions(data))
+      .then((data: PortfolioResponse) => {
+        setPositions(data.positions);
+        setPriceDate(data.priceDate);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -40,6 +64,9 @@ export default function Portfolio() {
     return [...visiblePositions].sort((a, b) => {
       const aVal = a[sortKey];
       const bVal = b[sortKey];
+      if (aVal === null && bVal === null) return 0;
+      if (aVal === null) return 1;
+      if (bVal === null) return -1;
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return (aVal - bVal) * dir;
       }
@@ -81,6 +108,11 @@ export default function Portfolio() {
         <p className="text-slate-400 text-sm mt-1">
           {sortedPositions.length} posizioni attive
         </p>
+        {priceDate && (
+          <p className="text-emerald-400 text-xs mt-1">
+            Prezzi attuali aggiornati al {formatDate(priceDate)}
+          </p>
+        )}
       </div>
 
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
@@ -100,6 +132,12 @@ export default function Portfolio() {
                 <th className={thClass('quantity', 'right')} onClick={() => handleSort('quantity')}>
                   Quantità{sortArrow('quantity')}
                 </th>
+                <th className={thClass('current_price', 'right')} onClick={() => handleSort('current_price')}>
+                  Prezzo{sortArrow('current_price')}
+                </th>
+                <th className={thClass('average_price', 'right')} onClick={() => handleSort('average_price')}>
+                  Prezzo Medio{sortArrow('average_price')}
+                </th>
                 <th className={thClass('currency')} onClick={() => handleSort('currency')}>
                   Valuta{sortArrow('currency')}
                 </th>
@@ -117,6 +155,12 @@ export default function Portfolio() {
                   <td className="px-4 py-3 text-sm text-right text-white font-medium">
                     {pos.quantity.toLocaleString('it-IT')}
                   </td>
+                  <td className="px-4 py-3 text-sm text-right text-white font-medium">
+                    {formatPrice(pos.current_price)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right text-slate-300">
+                    {formatPrice(pos.average_price)}
+                  </td>
                   <td className="px-4 py-3 text-sm text-slate-400">{pos.currency}</td>
                   <td className="px-4 py-3 text-sm">
                     <span className="px-2 py-1 rounded-md text-xs font-medium bg-slate-700 text-slate-300">
@@ -127,7 +171,7 @@ export default function Portfolio() {
               ))}
               {sortedPositions.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                     Nessuna posizione attiva
                   </td>
                 </tr>

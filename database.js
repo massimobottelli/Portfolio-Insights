@@ -86,6 +86,18 @@ export function initializeDatabase() {
         import_session_id TEXT NOT NULL,
         FOREIGN KEY (import_session_id) REFERENCES import_sessions(id) ON DELETE CASCADE
       );
+
+      CREATE TABLE IF NOT EXISTS asset_prices (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL,
+        current_price REAL NOT NULL,
+        average_price REAL NOT NULL,
+        extraction_date TEXT NOT NULL,
+        import_session_id TEXT NOT NULL,
+        FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+        FOREIGN KEY (import_session_id) REFERENCES import_sessions(id) ON DELETE CASCADE,
+        UNIQUE(asset_id, extraction_date)
+      );
     `);
 
     // Creazione Indici per ottimizzare le performance delle query di Analytics
@@ -97,6 +109,8 @@ export function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_cash_movements_type ON cash_movements(movement_type);
       CREATE INDEX IF NOT EXISTS idx_cash_movements_date ON cash_movements(operation_date);
       CREATE INDEX IF NOT EXISTS idx_snapshots_date ON daily_portfolio_snapshots(snapshot_date);
+      CREATE INDEX IF NOT EXISTS idx_asset_prices_asset ON asset_prices(asset_id);
+      CREATE INDEX IF NOT EXISTS idx_asset_prices_date ON asset_prices(extraction_date);
     `);
 
     console.log('✅ Database pronto e tabelle/indici verificati con successo!');

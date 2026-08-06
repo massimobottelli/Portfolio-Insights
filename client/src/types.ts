@@ -27,6 +27,14 @@ export interface PositionItem {
   currency: string;
   asset_type: string;
   quantity: number;
+  current_price: number | null;
+  average_price: number | null;
+  price_date: string | null;
+}
+
+export interface PortfolioResponse {
+  positions: PositionItem[];
+  priceDate: string | null;
 }
 
 export interface ImportSession {

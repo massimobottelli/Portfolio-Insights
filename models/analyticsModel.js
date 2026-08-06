@@ -26,6 +26,7 @@ export function calculateInvestedCapital() {
 /**
  * Calcola le posizioni correnti: per ogni asset, la quantità netta
  * derivante dalla somma di tutti i MarketOrder (BUY = +qty, SELL = -qty).
+ * Include prezzo corrente e prezzo medio di carico dalla tabella asset_prices.
  * @returns {Array} Posizioni attive (solo quantità > 0)
  */
 export function calculatePositions() {
@@ -38,14 +39,37 @@ export function calculatePositions() {
         a.name,
         a.currency,
         a.asset_type,
-        SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) AS quantity
+        SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) AS quantity,
+        ap.current_price AS current_price,
+        ap.average_price AS average_price,
+        ap.extraction_date AS price_date
       FROM market_orders mo
       JOIN assets a ON a.id = mo.asset_id
-      GROUP BY a.id, a.isin, a.ticker, a.name, a.currency, a.asset_type
+      LEFT JOIN (
+        SELECT asset_id, current_price, average_price, extraction_date
+        FROM asset_prices
+        WHERE (asset_id, extraction_date) IN (
+          SELECT asset_id, MAX(extraction_date)
+          FROM asset_prices
+          GROUP BY asset_id
+        )
+      ) ap ON ap.asset_id = a.id
+      GROUP BY a.id, a.isin, a.ticker, a.name, a.currency, a.asset_type, ap.current_price, ap.average_price, ap.extraction_date
       HAVING quantity > 0
       ORDER BY a.name ASC
     `)
     .all();
+}
+
+/**
+ * Ottiene la data di estrazione più recente dalla tabella asset_prices.
+ * @returns {string|null} Data di estrazione più recente o null se non ci sono prezzi
+ */
+export function getLatestPriceDate() {
+  const result = db
+    .prepare('SELECT extraction_date FROM asset_prices ORDER BY extraction_date DESC LIMIT 1')
+    .get();
+  return result ? result.extraction_date : null;
 }
 
 /**

@@ -247,6 +247,98 @@ export function parseDirectaCSV(csvText) {
  *   snapshots: array di snapshot giornalieri
  *   events: array di eventi di movimento (conferimenti, bolli, ecc.)
  */
+/**
+ * Parser per il report "Portafoglio Corrente" (P_TOTALE_*.csv) di Directa.
+ *
+ * Questo report contiene la situazione attuale del portafoglio con prezzi,
+ * quantità, valori di carico e attuali per ogni strumento.
+ *
+ * Formato:
+ *   Riga 1: "Portafoglio : TOTALE"
+ *   Riga 2: "Conto : H4091 ..."
+ *   Riga 3: "Data estrazione : 2026/08/06 14:1:49"
+ *   Riga 4: (vuota)
+ *   Riga 5: "Valore portafoglio : 282784,60€"
+ *   Riga 6-7: (vuote)
+ *   Riga 8: Header colonne: Strumento;Ticker;Isin;Prezzo;Trend %;Quantita;Valore di carico;Valore attuale;Gain/Loss €;Gain/Loss %;Gain/Loss € Intraday;Prezzo medio;Bid;Ask;Divisa
+ *   Riga 9+: Dati
+ *
+ * @param {string} csvText - Contenuto testuale del file CSV
+ * @returns {{ header: Object, records: Array<Object> }}
+ *   header: metadati del report (extractionDate)
+ *   records: array di record con isin, currentPrice, averagePrice
+ */
+export function parseDirectaPortfolioCSV(csvText) {
+  if (!csvText || typeof csvText !== 'string') {
+    throw new Error('Il contenuto CSV non è valido o è vuoto');
+  }
+
+  const lines = csvText.split(/\r?\n/);
+
+  // Estrae i metadati (conto, data estrazione)
+  const header = {
+    account: '',
+    extractionDate: ''
+  };
+
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const parts = lines[i].split(';');
+    const label = cleanString(parts[0]);
+
+    const extractValue = (str) => {
+      const colonIndex = str.indexOf(':');
+      if (colonIndex !== -1) return str.slice(colonIndex + 1).trim();
+      return '';
+    };
+
+    if (label.startsWith('Conto')) header.account = extractValue(label);
+    else if (label.startsWith('Data estrazione')) header.extractionDate = extractValue(label);
+  }
+
+  // Cerca la riga header colonne (contiene "Strumento;Ticker;Isin")
+  let headerRowIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('Strumento') && lines[i].includes('Ticker') && lines[i].includes('Isin')) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+
+  if (headerRowIndex === -1) {
+    throw new Error('File P_TOTALE non riconosciuto: header colonne non trovato');
+  }
+
+  // Processa le righe dati (dopo l'header)
+  const records = [];
+  for (let i = headerRowIndex + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    const fields = line.split(';');
+
+    // Salta righe troppo corte o la riga di totale (inizia con punto e virgola o vuota)
+    if (fields.length < 15) continue;
+    if (!cleanString(fields[0]) && !cleanString(fields[1])) continue;
+
+    const isin = cleanString(fields[2]);
+    if (!isin) continue;
+
+    records.push({
+      isin,
+      ticker: cleanString(fields[1]),
+      name: cleanString(fields[0]),
+      currentPrice: parseItalianNumber(fields[3]),   // Prezzo
+      quantity: parseItalianNumber(fields[5]),        // Quantita
+      bookValue: parseItalianNumber(fields[6]),       // Valore di carico
+      currentValue: parseItalianNumber(fields[7]),    // Valore attuale
+      averagePrice: parseItalianNumber(fields[11]),   // Prezzo medio
+      currency: cleanString(fields[14])               // Divisa
+    });
+  }
+
+  return { header, records };
+}
+
 export function parseDirectaHistoryCSV(csvText) {
   if (!csvText || typeof csvText !== 'string') {
     throw new Error('Il contenuto CSV non è valido o è vuoto');
