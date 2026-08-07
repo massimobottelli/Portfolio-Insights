@@ -59,19 +59,25 @@ export default function Layout() {
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        {/* Header con titolo e toggle */}
+        {/* Header con titolo e toggle — clicca sul logo o sulla freccia per toggle */}
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
-          {showFull ? (
-            <h1 className="text-xl font-bold text-white">
-              <span className="text-blue-400">Portfolio</span>
-              <span className="text-green-400">Insights</span>
-            </h1>
-          ) : (
-            <h1 className="text-xl font-bold text-white mx-auto">
-              <span className="text-blue-400">P</span>
-              <span className="text-green-400">I</span>
-            </h1>
-          )}
+          <button
+            onClick={() => setCollapsed(prev => !prev)}
+            className="hidden lg:block"
+            title={collapsed ? 'Espandi sidebar' : 'Comprimi sidebar'}
+          >
+            {showFull ? (
+              <h1 className="text-xl font-bold text-white">
+                <span className="text-blue-400">Portfolio</span>
+                <span className="text-green-400">Insights</span>
+              </h1>
+            ) : (
+              <h1 className="text-xl font-bold text-white">
+                <span className="text-blue-400">P</span>
+                <span className="text-green-400">I</span>
+              </h1>
+            )}
+          </button>
           <button
             onClick={() => setCollapsed(prev => !prev)}
             className="text-slate-400 hover:text-white transition-colors text-lg p-1 rounded-md hover:bg-slate-700/50 hidden lg:block"
