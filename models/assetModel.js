@@ -72,11 +72,17 @@ export function upsertAsset(assetData) {
   // L'ISIN è la business key: se esiste già, aggiorniamo solo i metadati
   const existing = getAssetByIsin(isin);
   if (existing) {
+    // Preserva il tipo assegnato manualmente dall'utente: se l'asset è già stato
+    // classificato (es. "ETF", "BOND"), non sovrascriverlo con "UNKNOWN" durante il re-import.
+    const finalAssetType = (assetType === 'UNKNOWN' && existing.asset_type !== 'UNKNOWN')
+      ? existing.asset_type
+      : assetType;
+
     db.prepare(`
       UPDATE assets
       SET ticker = ?, name = ?, currency = ?, asset_type = ?, exchange = ?, directa_code = ?
       WHERE id = ?
-    `).run(ticker, name, currency, assetType, exchange, directaCode, existing.id);
+    `).run(ticker, name, currency, finalAssetType, exchange, directaCode, existing.id);
     return getAssetById(existing.id);
   }
 
