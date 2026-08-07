@@ -82,7 +82,7 @@ export default function Layout() {
         </div>
 
         {/* Navigazione */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className={`flex-1 space-y-1 ${showFull ? 'p-4' : 'p-2'}`}>
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -91,8 +91,8 @@ export default function Layout() {
                 to={item.to}
                 onClick={handleNavClick}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    showFull ? '' : 'justify-center'
+                  `flex items-center rounded-lg text-sm font-medium transition-colors ${
+                    showFull ? 'gap-3 px-4 py-3' : 'justify-center px-2 py-3'
                   } ${
                     isActive
                       ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
