@@ -7,8 +7,8 @@
 #
 #  What it does:
 #    1. Installs system prerequisites (curl, git, build-essential)
-#    2. Installs fnm (Fast Node Manager) for the portfolio user
-#    3. Installs Node.js 22 LTS via fnm
+#    2. Adds the NodeSource APT repository for Node.js 22.x
+#    3. Installs Node.js 22 LTS system-wide via apt
 #    4. Clones the repository from GitHub
 #    5. Installs npm dependencies (backend + frontend)
 #    6. Builds the React frontend (compiles to public/)
@@ -84,43 +84,22 @@ create_service_user() {
 }
 
 # -----------------------------------------------------------------------------
-# Phase 3: Install fnm and Node.js for the service user
+# Phase 3: Install Node.js 22 LTS via NodeSource
 # -----------------------------------------------------------------------------
-install_node_via_fnm() {
-    local user_home
-    user_home=$(eval echo "~$SERVICE_USER")
+install_node_via_nodesource() {
+    log_info "Adding NodeSource APT repository for Node.js ${NODE_VERSION}.x..."
 
-    # Ensure the home directory exists for fnm cache
-    if [[ ! -d "$user_home" ]]; then
-        mkdir -p "$user_home"
-        chown "$SERVICE_USER:$SERVICE_USER" "$user_home"
-    fi
+    # Download and run the NodeSource setup script
+    curl -fsSL "https://deb.nodesource.com/setup_${NODE_VERSION}.x" | bash -
 
-    # Install fnm as the service user
-    log_info "Installing fnm (Fast Node Manager) for user '$SERVICE_USER'..."
-    su -s /bin/bash "$SERVICE_USER" -c "
-        curl -fsSL https://fnm.vercel.app/install | bash
-    "
+    log_info "Installing Node.js ${NODE_VERSION}.x via apt..."
+    apt-get install -y -qq nodejs
 
-    # Source fnm in the user's profile for future logins
-    local fnm_profile="$user_home/.bashrc"
-    if ! grep -q 'fnm env' "$fnm_profile" 2>/dev/null; then
-        echo '' >> "$fnm_profile"
-        echo 'eval "$(fnm env --use-on-cd)"' >> "$fnm_profile"
-    fi
+    log_info "Verifying installation..."
+    node -v
+    npm -v
 
-    # Install Node.js via fnm
-    log_info "Installing Node.js v${NODE_VERSION} via fnm..."
-    su -s /bin/bash "$SERVICE_USER" -c "
-        export PATH=\"\$HOME/.fnm:\$PATH\"
-        eval \"\$(fnm env)\"
-        fnm install ${NODE_VERSION}
-        fnm use ${NODE_VERSION}
-        node -v
-        npm -v
-    "
-
-    log_info "Node.js v${NODE_VERSION} installed successfully."
+    log_info "Node.js $(node -v) and npm $(npm -v) installed successfully."
 }
 
 # -----------------------------------------------------------------------------
@@ -149,28 +128,15 @@ setup_application() {
 # -----------------------------------------------------------------------------
 install_dependencies() {
     log_info "Installing backend npm dependencies..."
-    su -s /bin/bash "$SERVICE_USER" -c "
-        export PATH=\"\$HOME/.fnm:\$PATH\"
-        eval \"\$(fnm env)\"
-        cd '$INSTALL_DIR'
-        npm install
-    "
+    cd "$INSTALL_DIR"
+    npm install
 
     log_info "Installing frontend npm dependencies..."
-    su -s /bin/bash "$SERVICE_USER" -c "
-        export PATH=\"\$HOME/.fnm:\$PATH\"
-        eval \"\$(fnm env)\"
-        cd '$INSTALL_DIR/client'
-        npm install
-    "
+    cd "$INSTALL_DIR/client"
+    npm install
 
     log_info "Building React frontend..."
-    su -s /bin/bash "$SERVICE_USER" -c "
-        export PATH=\"\$HOME/.fnm:\$PATH\"
-        eval \"\$(fnm env)\"
-        cd '$INSTALL_DIR/client'
-        npm run build
-    "
+    npm run build
 
     log_info "Dependencies installed and frontend built."
 }
@@ -207,7 +173,7 @@ Type=simple
 User=${SERVICE_USER}
 Group=${SERVICE_USER}
 WorkingDirectory=${INSTALL_DIR}
-ExecStart=${INSTALL_DIR}/node_modules/.bin/node server.js
+ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
@@ -319,7 +285,7 @@ main() {
 
     install_system_deps
     create_service_user
-    install_node_via_fnm
+    install_node_via_nodesource
     setup_application
     install_dependencies
     setup_data_directory
