@@ -7,6 +7,7 @@ import { initializeDatabase } from './database.js';
 import assetRoutes from './routes/assetRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import importRoutes from './routes/importRoutes.js';
+import movementRoutes from './routes/movementRoutes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +25,7 @@ app.use(express.urlencoded({ extended: true })); // Parsing dei form urlencoded
 app.use('/api/assets', assetRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/import', importRoutes);
+app.use('/api/movements', movementRoutes);
 
 // 5. Servizio dei file statici del frontend React (build in public/)
 app.use(express.static(path.join(__dirname, 'public')));

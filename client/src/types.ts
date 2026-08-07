@@ -81,3 +81,23 @@ export interface ImportResponse {
   recordsImported: number;
   totalRecords: number;
 }
+
+export interface CashMovementItem {
+  id: string;
+  operation_date: string;
+  value_date: string;
+  movement_type: string;
+  euro_amount: number;
+  currency: string;
+  protocol: string | null;
+  order_reference: string | null;
+  asset_id: string | null;
+  isin: string | null;
+  ticker: string | null;
+  asset_name: string | null;
+}
+
+export interface MovementsResponse {
+  data: CashMovementItem[];
+  total: number;
+}

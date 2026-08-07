@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, BarChart3, Download } from 'lucide-react';
+import { LayoutDashboard, BarChart3, ArrowLeftRight, Download } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/portfolio', label: 'Portfolio', icon: BarChart3 },
+  { to: '/movements', label: 'Movimenti', icon: ArrowLeftRight },
   { to: '/import', label: 'Import', icon: Download },
 ];
 
