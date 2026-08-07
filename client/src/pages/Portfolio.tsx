@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Calendar } from 'lucide-react';
+import { Calendar, Loader2 } from 'lucide-react';
+import { ASSET_TYPES } from '@config/assetTypes.js';
 import type { PositionItem, PortfolioResponse } from '../types';
 
 type SortKey = 'ticker' | 'isin' | 'name' | 'quantity' | 'currency' | 'asset_type' | 'current_price' | 'average_price' | 'total_value' | 'gain_eur' | 'gain_percent';
@@ -82,6 +83,73 @@ const formatDate = (dateStr: string | null) => {
   const d = new Date(dateStr);
   return d.toLocaleDateString('it-IT', { year: 'numeric', month: '2-digit', day: '2-digit' });
 };
+
+
+function AssetTypeDropdown({ assetId, assetType }: { assetId: string; assetType: string }) {
+  const [currentType, setCurrentType] = useState(assetType);
+  const [saving, setSaving] = useState(false);
+
+  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newType = e.target.value;
+    const previousType = currentType;
+    // Ottimistic update
+    setCurrentType(newType);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/assets/${assetId}/type`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetType: newType }),
+      });
+      if (!res.ok) {
+        // Rollback on error
+        setCurrentType(previousType);
+      }
+    } catch {
+      setCurrentType(previousType);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isUnknown = currentType === 'UNKNOWN';
+  const bgColor = saving
+    ? 'bg-blue-900/50 border-blue-700'
+    : isUnknown
+      ? 'bg-amber-900/30 border-amber-700/50'
+      : 'bg-slate-700 border-slate-600';
+
+  const textColor = saving ? 'text-blue-200' : isUnknown ? 'text-amber-300' : 'text-slate-200';
+
+  return (
+    <div className="relative">
+      {saving && (
+        <Loader2 size={12} className="absolute -left-4 top-1/2 -translate-y-1/2 text-blue-400 animate-spin" />
+      )}
+      <select
+        value={currentType}
+        onChange={handleChange}
+        className={`px-2 py-1 rounded-md text-xs font-medium border cursor-pointer appearance-none transition-colors ${bgColor} ${textColor} hover:border-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500`}
+        style={{ paddingRight: '1.25rem' }}
+      >
+        {ASSET_TYPES.map(type => (
+          <option key={type} value={type} className="bg-slate-800 text-slate-200">
+            {type}
+          </option>
+        ))}
+      </select>
+      <svg
+        className={`absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none ${textColor}`}
+        width="10"
+        height="10"
+        viewBox="0 0 10 10"
+        fill="none"
+      >
+        <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
 
 export default function Portfolio() {
   const [positions, setPositions] = useState<PositionItem[]>([]);
@@ -251,9 +319,10 @@ export default function Portfolio() {
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-400">{pos.currency}</td>
                     <td className="px-4 py-3 text-sm">
-                      <span className="px-2 py-1 rounded-md text-xs font-medium bg-slate-700 text-slate-300">
-                        {pos.asset_type || 'UNKNOWN'}
-                      </span>
+                      <AssetTypeDropdown
+                        assetId={pos.asset_id}
+                        assetType={pos.asset_type || 'UNKNOWN'}
+                      />
                     </td>
                   </tr>
                 );

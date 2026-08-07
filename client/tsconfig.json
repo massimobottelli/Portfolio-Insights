@@ -15,7 +15,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@config/*": ["../config/*"]
+    },
+    "baseUrl": "."
   },
-  "include": ["src"]
+  "include": ["src", "../config"]
 }

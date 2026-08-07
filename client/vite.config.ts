@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [react()],
   root: '.',
   base: '/',
+  resolve: {
+    alias: {
+      '@config': path.resolve(__dirname, '..', 'config'),
+    },
+  },
   build: {
     outDir: path.resolve(__dirname, '..', 'public'),
     emptyOutDir: true,

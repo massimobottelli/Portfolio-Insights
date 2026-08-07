@@ -1,3 +1,5 @@
+export type AssetType = 'ETF' | 'ETC' | 'ETN' | 'STOCK' | 'BOND' | 'FUND' | 'COMMODITY' | 'CASH' | 'UNKNOWN';
+
 export interface DashboardData {
   portfolioValue: number;
   investedCapital: number;

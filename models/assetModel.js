@@ -46,6 +46,17 @@ export function getAssetById(id) {
  * @param {string|null} [assetData.directaCode=null] - Codice interno Directa
  * @returns {Object} Asset inserito o aggiornato
  */
+/**
+ * Aggiorna solo il tipo di un asset esistente.
+ * @param {string} id - ID interno dell'asset (UUID)
+ * @param {string} assetType - Nuovo tipo di asset (ETF, BOND, STOCK, etc.)
+ * @returns {Object} Asset aggiornato
+ */
+export function updateAssetType(id, assetType) {
+  db.prepare('UPDATE assets SET asset_type = ? WHERE id = ?').run(assetType, id);
+  return getAssetById(id);
+}
+
 export function upsertAsset(assetData) {
   const {
     id,
