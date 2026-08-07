@@ -65,12 +65,41 @@ pull_latest_code() {
     # when running as root on a repo owned by the portfolio user)
     git config --global --add safe.directory "$INSTALL_DIR"
 
-    # Save the current HEAD commit hash before pulling
+    # Fetch remote changes (do not merge yet — we'll reset explicitly below)
+    git fetch origin main
+
+    # -------------------------------------------------------------------------
+    # Transitional safety: if the SQLite database or TypeScript build info are
+    # still tracked from an older install (they were committed in the past),
+    # untrack them WITHOUT deleting the files from disk. This preserves the
+    # user's financial data and prevents "local changes would be overwritten"
+    # errors during the pull.
+    # -------------------------------------------------------------------------
+    if git ls-files --error-unmatch db/portfolio.db >/dev/null 2>&1; then
+        log_warn "Updating git tracking: db/portfolio.db will no longer be tracked (data kept on disk)..."
+        git rm --cached -q db/portfolio.db
+    fi
+    if git ls-files --error-unmatch client/tsconfig.tsbuildinfo >/dev/null 2>&1; then
+        log_warn "Updating git tracking: client/tsconfig.tsbuildinfo will no longer be tracked..."
+        git rm --cached -q client/tsconfig.tsbuildinfo
+    fi
+
+    # If we staged any untracking, commit it so that HEAD no longer contains
+    # these runtime files. This is REQUIRED before reset --hard, otherwise
+    # reset would delete the (now untracked) db file from disk.
+    if ! git diff --cached --quiet; then
+        git commit -q -m "chore: untrack runtime-only files (db, tsbuildinfo)" || true
+    fi
+
+    # Save the current HEAD commit hash before updating
     local before
     before=$(git rev-parse HEAD)
 
-    # Pull the latest changes
-    git pull
+    # Reset the checkout to the latest remote commit. This discards any local
+    # modifications to tracked files (the code should be identical to the
+    # deployed version). Untracked runtime files like db/portfolio.db are
+    # preserved on disk.
+    git reset --hard FETCH_HEAD
 
     # Check if anything actually changed
     local after
