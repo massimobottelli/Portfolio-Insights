@@ -184,7 +184,10 @@ Environment=PORT=${APP_PORT}
 
 # Security hardening
 NoNewPrivileges=true
+# ProtectSystem=full rende /usr, /etc e /opt in sola lettura. Dobbiamo
+# permettere la scrittura esplicita nella directory del database.
 ProtectSystem=full
+ReadWritePaths=${INSTALL_DIR}/db
 ProtectHome=true
 PrivateTmp=true
 InaccessiblePaths=/root

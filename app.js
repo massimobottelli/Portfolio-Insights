@@ -18,8 +18,10 @@ initializeDatabase();
 const app = express();
 
 // 3. Middleware nativi di Express
-app.use(express.json()); // Parsing automatico dei body JSON
-app.use(express.urlencoded({ extended: true })); // Parsing dei form urlencoded
+// Il limite del body è aumentato a 50mb perché i file CSV Directa (inviati come
+// stringa JSON) possono superare abbondantemente i 100KB default di Express.
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 4. Registrazione delle rotte API
 app.use('/api/assets', assetRoutes);

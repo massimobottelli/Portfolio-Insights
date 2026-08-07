@@ -108,7 +108,52 @@ build_frontend() {
 }
 
 # -----------------------------------------------------------------------------
-# Phase 4: Fix permissions
+# Phase 4: Regenerate systemd service configuration
+# -----------------------------------------------------------------------------
+regenerate_systemd_service() {
+    local service_file="/etc/systemd/system/${SERVICE_NAME}.service"
+
+    log_info "Regenerating systemd service file at '$service_file'..."
+
+    cat > "$service_file" <<EOF
+[Unit]
+Description=Portfolio Insights - Personal Finance Portfolio Manager
+Documentation=https://github.com/massimobottelli/Portfolio-Insights
+After=network.target
+
+[Service]
+Type=simple
+User=${SERVICE_USER}
+Group=${SERVICE_USER}
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# Security hardening
+NoNewPrivileges=true
+# ProtectSystem=full rende /usr, /etc e /opt in sola lettura. Dobbiamo
+# permettere la scrittura esplicita nella directory del database.
+ProtectSystem=full
+ReadWritePaths=${INSTALL_DIR}/db
+ProtectHome=true
+PrivateTmp=true
+InaccessiblePaths=/root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    log_info "Systemd service configuration updated."
+}
+
+# -----------------------------------------------------------------------------
+# Phase 5: Fix permissions
 # -----------------------------------------------------------------------------
 fix_permissions() {
     log_info "Restoring permissions for user '$SERVICE_USER'..."
@@ -117,7 +162,7 @@ fix_permissions() {
 }
 
 # -----------------------------------------------------------------------------
-# Phase 5: Restart the service
+# Phase 7: Restart the service
 # -----------------------------------------------------------------------------
 restart_service() {
     log_info "Restarting '$SERVICE_NAME' service..."
@@ -135,7 +180,7 @@ restart_service() {
 }
 
 # -----------------------------------------------------------------------------
-# Phase 6: Verify
+# Phase 8: Verify
 # -----------------------------------------------------------------------------
 verify_application() {
     local http_code
@@ -161,17 +206,28 @@ main() {
     check_root
     check_directory
 
+    local changes_detected=false
+
     if pull_latest_code; then
-        # No changes — exit early
+        # No code changes found — skip npm install/build but still
+        # regenerate the systemd service and restart to apply any
+        # configuration fixes (e.g. ReadWritePaths for the database).
         echo ""
-        log_info "Update complete. Nothing to do."
+        log_info "No code changes detected."
         echo ""
-        exit 0
+    else
+        changes_detected=true
+        update_dependencies
+        build_frontend
     fi
 
-    update_dependencies
-    build_frontend
-    fix_permissions
+    # Regenerate the systemd service on every update. This ensures that
+    # infrastructure fixes (like ReadWritePaths needed for SQLite writes)
+    # are applied even when the running code is already up to date.
+    regenerate_systemd_service
+    if [[ "$changes_detected" == "true" ]]; then
+        fix_permissions
+    fi
     restart_service
     verify_application
 
