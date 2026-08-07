@@ -120,6 +120,7 @@ setup_application() {
     fi
 
     git clone "$REPO_URL" "$INSTALL_DIR"
+    git config --global --add safe.directory "$INSTALL_DIR"
     log_info "Repository cloned."
 }
 
