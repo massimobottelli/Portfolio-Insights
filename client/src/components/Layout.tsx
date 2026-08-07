@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
+import { LayoutDashboard, BarChart3, Download } from 'lucide-react';
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: '🏠' },
-  { to: '/portfolio', label: 'Portfolio', icon: '📊' },
-  { to: '/import', label: 'Import', icon: '📥' },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/portfolio', label: 'Portfolio', icon: BarChart3 },
+  { to: '/import', label: 'Import', icon: Download },
 ];
 
 // Hook per rilevare schermi < 1024px
@@ -82,26 +83,29 @@ export default function Layout() {
 
         {/* Navigazione */}
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={handleNavClick}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                  showFull ? '' : 'justify-center'
-                } ${
-                  isActive
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
-                }`
-              }
-              title={!showFull ? item.label : undefined}
-            >
-              <span className="text-lg">{item.icon}</span>
-              {showFull && <span>{item.label}</span>}
-            </NavLink>
-          ))}
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={handleNavClick}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    showFull ? '' : 'justify-center'
+                  } ${
+                    isActive
+                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
+                  }`
+                }
+                title={!showFull ? item.label : undefined}
+              >
+                <Icon size={20} />
+                {showFull && <span>{item.label}</span>}
+              </NavLink>
+            );
+          })}
         </nav>
 
         {/* Footer — nascosto quando sidebar chiusa su desktop */}

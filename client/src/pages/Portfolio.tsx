@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Calendar } from 'lucide-react';
 import type { PositionItem, PortfolioResponse } from '../types';
 
 type SortKey = 'ticker' | 'isin' | 'name' | 'quantity' | 'currency' | 'asset_type' | 'current_price' | 'average_price' | 'total_value' | 'gain_eur' | 'gain_percent';
@@ -170,11 +171,12 @@ export default function Portfolio() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex justify-between items-start">
         <h2 className="text-2xl font-bold text-white">Portfolio</h2>
         {priceDate && (
-          <p className="text-slate-400 text-sm mt-1">
-            Ultimo aggiornamento: {formatDate(priceDate)}
+          <p className="text-slate-400 text-sm flex items-center gap-1">
+            <Calendar size={14} className="text-slate-400" />
+            {formatDate(priceDate)}
           </p>
         )}
       </div>

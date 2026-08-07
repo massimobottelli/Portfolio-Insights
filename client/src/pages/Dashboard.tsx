@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, CartesianGrid, Line } from 'recharts';
+import { TrendingUp, BarChart3, Wallet, Droplets, Calendar } from 'lucide-react';
 import type { DashboardData, AllocationItem, SnapshotItem, TWRData } from '../types';
 
 const COLORS = [
@@ -133,8 +134,9 @@ export default function Dashboard() {
       {/* Ultimo aggiornamento — in alto a destra */}
       <div className="flex justify-end">
         {dashboard.snapshotDate && (
-          <p className="text-slate-400 text-xs lg:text-sm">
-            🗓️ {new Date(dashboard.snapshotDate).toLocaleDateString('it-IT')}
+          <p className="text-slate-400 text-xs lg:text-sm flex items-center gap-1">
+            <Calendar size={14} className="text-slate-400" />
+            {new Date(dashboard.snapshotDate).toLocaleDateString('it-IT')}
           </p>
         )}
       </div>
@@ -349,31 +351,27 @@ export default function Dashboard() {
             value={`${isPositive ? '+' : ''}${formatEUR(dashboard.totalProfitLoss)}`}
             sub={`(${dashboard.totalProfitLossPercent}%)`}
             color={isPositive ? 'text-emerald-400' : 'text-red-400'}
-            emoji="📈"
-            isMobile={isMobile}
+            icon={<TrendingUp size={isMobile ? 24 : 32} className={isPositive ? 'text-emerald-400' : 'text-red-400'} />}
           />
           {twr && (
             <KpiCard
               title="TWR"
               value={formatPercent(twr.twrTotal)}
               color={twr.twrTotal >= 0 ? 'text-amber-400' : 'text-red-400'}
-              emoji="📊"
-              isMobile={isMobile}
+              icon={<BarChart3 size={isMobile ? 24 : 32} className={twr.twrTotal >= 0 ? 'text-amber-400' : 'text-red-400'} />}
             />
           )}
           <KpiCard
             title="Capitale Investito"
             value={formatEUR(dashboard.investedCapital)}
             color="text-blue-400"
-            emoji="👛"
-            isMobile={isMobile}
+            icon={<Wallet size={isMobile ? 24 : 32} className="text-blue-400" />}
           />
           <KpiCard
             title="Liquidità"
             value={formatEUR(dashboard.availableCash)}
             color="text-blue-400"
-            emoji="💧"
-            isMobile={isMobile}
+            icon={<Droplets size={isMobile ? 24 : 32} className="text-blue-400" />}
           />
         </div>
       </div>
@@ -381,15 +379,15 @@ export default function Dashboard() {
   );
 }
 
-function KpiCard({ title, value, color, emoji, sub, isMobile }: { title: string; value: string; color: string; emoji?: string; sub?: string; isMobile?: boolean }) {
+function KpiCard({ title, value, color, icon, sub }: { title: string; value: string; color: string; icon?: React.ReactNode; sub?: string }) {
   return (
     <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700 p-3 lg:p-5 flex items-center justify-between">
       <div>
         <p className="uppercase text-slate-400 text-sm lg:text-base font-semibold tracking-wider mb-2">{title}</p>
-        <p className={`font-bold ${isMobile ? 'text-2xl' : 'text-4xl'} ${color}`}>{value}</p>
-        {sub && <p className={`font-bold mt-1 ${isMobile ? 'text-base' : 'text-2xl'} ${color}`}>{sub}</p>}
+        <p className={`font-bold text-2xl lg:text-4xl ${color}`}>{value}</p>
+        {sub && <p className={`font-bold mt-1 text-base lg:text-2xl ${color}`}>{sub}</p>}
       </div>
-      {emoji && <span className={isMobile ? 'text-2xl' : 'text-4xl'}>{emoji}</span>}
+      {icon}
     </div>
   );
 }
