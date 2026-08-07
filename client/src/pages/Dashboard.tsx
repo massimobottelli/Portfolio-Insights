@@ -129,6 +129,22 @@ export default function Dashboard() {
     twr: twrMap.get(s.snapshot_date) ?? null,
   }));
 
+  // Etichette trimestrali per l'asse X (Qx-YY) per evitare sovrapposizioni.
+  // Mostra solo i punti a inizio trimestre (gen, apr, lug, ott), più primo e ultimo sempre inclusi.
+  const formatQuarter = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const q = Math.floor(d.getMonth() / 3) + 1;
+    const y = d.getFullYear().toString().slice(-2);
+    return `Q${q}-${y}`;
+  };
+
+  const quarterTicks = chartData
+    .filter((d, i) => {
+      if (i === 0 || i === chartData.length - 1) return true;
+      return new Date(d.snapshot_date).getMonth() % 3 === 0;
+    })
+    .map(d => d.snapshot_date);
+
   return (
     <div className="space-y-4 lg:space-y-6">
       {/* Ultimo aggiornamento — in alto a destra */}
@@ -204,12 +220,9 @@ export default function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis
                 dataKey="snapshot_date"
+                ticks={quarterTicks}
                 tick={{ fill: '#94a3b8', fontSize: isMobile ? 10 : 12 }}
-                tickFormatter={(dateStr) => {
-                  const d = new Date(dateStr);
-                  return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
-                }}
-                interval="preserveStartEnd"
+                tickFormatter={formatQuarter}
               />
               <YAxis
                 yAxisId="left"
