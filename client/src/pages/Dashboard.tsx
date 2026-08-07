@@ -85,6 +85,9 @@ export default function Dashboard() {
   const formatPercent = (value: number) =>
     `${value >= 0 ? '+' : ''}${(value * 100).toFixed(2)}%`;
 
+  const formatPctGainLoss = (value: number) =>
+    `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+
   // Funzione per attivare/disattivare una serie nella legenda
   const toggleSeries = (key: string) => {
     setHiddenSeries(prev => {
@@ -113,49 +116,177 @@ export default function Dashboard() {
   }));
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-white">Dashboard</h2>
-        <p className="text-slate-400 text-sm mt-1">
-          Ultimo aggiornamento: {dashboard.snapshotDate ? new Date(dashboard.snapshotDate).toLocaleDateString('it-IT') : 'N/D'}
-        </p>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <KpiCard
-          title="Valore Portfolio"
-          value={formatEUR(dashboard.portfolioValue)}
-          color="text-emerald-400"
-        />
-        <KpiCard
-          title="Capitale Investito"
-          value={formatEUR(dashboard.investedCapital)}
-          color="text-blue-400"
-        />
-        <KpiCard
-          title="Liquidità"
-          value={formatEUR(dashboard.availableCash)}
-          color="text-blue-400"
-        />
-        <KpiCard
-          title="Profit / Loss"
-          value={`${isPositive ? '+' : ''}${formatEUR(dashboard.totalProfitLoss)} (${dashboard.totalProfitLossPercent}%)`}
-          color={isPositive ? 'text-emerald-400' : 'text-red-400'}
-        />
-        {twr && (
-          <KpiCard
-            title="TWR"
-            value={formatPercent(twr.twrTotal)}
-            color={twr.twrTotal >= 0 ? 'text-amber-400' : 'text-red-400'}
-          />
+    <div className="space-y-6">
+      {/* Ultimo aggiornamento — in alto a destra */}
+      <div className="flex justify-end">
+        {dashboard.snapshotDate && (
+          <p className="text-slate-400 text-sm">
+            🗓️ {new Date(dashboard.snapshotDate).toLocaleDateString('it-IT')}
+          </p>
         )}
       </div>
 
-      {/* Allocation Chart */}
+      {/* Box VALORE PORTAFOGLIO — full-width */}
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
+        <p className="uppercase text-slate-300 text-base tracking-wider mb-2">
+          Valore Portafoglio
+        </p>
+        <p className="text-white font-bold text-6xl">
+          {formatEUR(dashboard.portfolioValue)}
+        </p>
+        <p className={`text-2xl font-bold mt-2 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+          {isPositive ? '+' : ''}{formatEUR(dashboard.totalProfitLoss)}&nbsp;
+          <span>({formatPctGainLoss(dashboard.totalProfitLossPercent)})</span>
+        </p>
+      </div>
+
+      {/* Box ANDAMENTO PORTAFOGLIO — full-width */}
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
+        <h3 className="uppercase text-white text-base font-semibold tracking-wider mb-3">
+          Andamento Portafoglio
+        </h3>
+        {/* Legenda in alto a sinistra, sotto il titolo */}
+        <div className="flex items-center gap-4 mb-4">
+          {[
+            { key: 'portfolio', label: 'Portfolio', dashClass: '', color: '#10b981' },
+            { key: 'deposits', label: 'Investito', dashClass: 'dashed', color: '#3b82f6' },
+            { key: 'twr', label: 'TWR', dashClass: '', color: '#f59e0b' },
+          ].map(({ key, label, dashClass, color }) => (
+            <button
+              key={key}
+              onClick={() => toggleSeries(key)}
+              className={`flex items-center gap-1.5 text-xs transition-all cursor-pointer select-none ${
+                isHidden(key) ? 'opacity-40 line-through' : 'text-slate-300 hover:text-white'
+              }`}
+              title={isHidden(key) ? `Mostra ${label}` : `Nascondi ${label}`}
+            >
+              <div
+                className="w-3 h-0.5"
+                style={{
+                  backgroundColor: isHidden(key) ? '#475569' : color,
+                  ...(dashClass === 'dashed' && !isHidden(key)
+                    ? { backgroundImage: 'linear-gradient(90deg, #60a5fa 50%, transparent 50%)', backgroundSize: '6px 2px', backgroundRepeat: 'repeat-x' }
+                    : {}),
+                }}
+              />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+        {chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={400}>
+            <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="depositsGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <XAxis
+                dataKey="snapshot_date"
+                tick={{ fill: '#94a3b8', fontSize: 12 }}
+                tickFormatter={(dateStr) => {
+                  const d = new Date(dateStr);
+                  return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                }}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                yAxisId="left"
+                tick={{ fill: '#94a3b8', fontSize: 12 }}
+                tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+                domain={['auto', 'auto']}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                tick={{ fill: '#94a3b8', fontSize: 12 }}
+                tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                domain={['auto', 'auto']}
+              />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload || payload.length === 0) return null;
+                  const item = payload[0].payload as SnapshotItem & { twr: number | null };
+                  const formatEUR = (v: number) =>
+                    new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(v);
+                  const formatPct = (v: number | null) =>
+                    v !== null ? `${(v * 100).toFixed(2)}%` : 'N/D';
+                  return (
+                    <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
+                      <p className="text-slate-300 text-sm">
+                        {new Date(item.snapshot_date).toLocaleDateString('it-IT', {
+                          day: '2-digit', month: 'long', year: 'numeric'
+                        })}
+                      </p>
+                      <p className="font-semibold text-emerald-400 text-sm mt-1">
+                        Portfolio: {formatEUR(item.portfolio_value)}
+                      </p>
+                      <p className="text-slate-300 text-xs mt-1">
+                        Liquidità: {formatEUR(item.available_cash)}
+                      </p>
+                      <p className="text-blue-400 text-xs mt-1">
+                        Investito: {formatEUR(item.cumulative_deposits)}
+                      </p>
+                      <p className={`text-xs mt-1 ${item.twr !== null && item.twr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        TWR: {formatPct(item.twr)}
+                      </p>
+                    </div>
+                  );
+                }}
+              />
+              {!isHidden('portfolio') && (
+                <Area
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="portfolio_value"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  fill="url(#portfolioGradient)"
+                />
+              )}
+              {!isHidden('deposits') && (
+                <Area
+                  yAxisId="left"
+                  type="stepBefore"
+                  dataKey="cumulative_deposits"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                  fill="url(#depositsGradient)"
+                  dot={false}
+                />
+              )}
+              {!isHidden('twr') && (
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="twr"
+                  stroke="#f59e0b"
+                  strokeWidth={1}
+                  dot={false}
+                  connectNulls={false}
+                />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <p className="text-slate-500 text-center py-8">Nessun dato storico disponibile</p>
+        )}
+      </div>
+
+      {/* Due colonne: sinistra = allocazione, destra = 4 KPI verticali */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Allocazione Portafoglio — PieChart */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Allocazione Portafoglio</h3>
+          <h3 className="uppercase text-white text-base font-semibold tracking-wider mb-4">
+            Allocazione Portafoglio
+          </h3>
           {allocation.length > 0 ? (
             <div className="flex flex-col items-center">
               <ResponsiveContainer width="100%" height={400}>
@@ -196,153 +327,50 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Portfolio Value & TWR History Chart */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Andamento Portfolio & TWR</h3>
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={400}>
-              <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="depositsGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis
-                  dataKey="snapshot_date"
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
-                  tickFormatter={(dateStr) => {
-                    const d = new Date(dateStr);
-                    return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
-                  }}
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  yAxisId="left"
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
-                  tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
-                  domain={['auto', 'auto']}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
-                  tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
-                  domain={['auto', 'auto']}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload || payload.length === 0) return null;
-                    const item = payload[0].payload as SnapshotItem & { twr: number | null };
-                    const formatEUR = (v: number) =>
-                      new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(v);
-                    const formatPct = (v: number | null) =>
-                      v !== null ? `${(v * 100).toFixed(2)}%` : 'N/D';
-                    return (
-                      <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
-                        <p className="text-slate-300 text-sm">
-                          {new Date(item.snapshot_date).toLocaleDateString('it-IT', {
-                            day: '2-digit', month: 'long', year: 'numeric'
-                          })}
-                        </p>
-                        <p className="font-semibold text-emerald-400 text-sm mt-1">
-                          Portfolio: {formatEUR(item.portfolio_value)}
-                        </p>
-                        <p className="text-slate-300 text-xs mt-1">
-                          Liquidità: {formatEUR(item.available_cash)}
-                        </p>
-                        <p className="text-blue-400 text-xs mt-1">
-                          Investito: {formatEUR(item.cumulative_deposits)}
-                        </p>
-                        <p className={`text-xs mt-1 ${item.twr !== null && item.twr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          TWR: {formatPct(item.twr)}
-                        </p>
-                      </div>
-                    );
-                  }}
-                />
-                {!isHidden('portfolio') && (
-                  <Area
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="portfolio_value"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    fill="url(#portfolioGradient)"
-                  />
-                )}
-                {!isHidden('deposits') && (
-                  <Area
-                    yAxisId="left"
-                    type="stepBefore"
-                    dataKey="cumulative_deposits"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    strokeDasharray="6 3"
-                    fill="url(#depositsGradient)"
-                    dot={false}
-                  />
-                )}
-                {!isHidden('twr') && (
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="twr"
-                    stroke="#f59e0b"
-                    strokeWidth={1}
-                    dot={false}
-                    connectNulls={false}
-                  />
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-slate-500 text-center py-8">Nessun dato storico disponibile</p>
+        {/* 4 KPI box in sequenza verticale */}
+        <div className="flex flex-col gap-4">
+          <KpiCard
+            title="Profit / Loss"
+            value={`${isPositive ? '+' : ''}${formatEUR(dashboard.totalProfitLoss)}`}
+            sub={`(${dashboard.totalProfitLossPercent}%)`}
+            color={isPositive ? 'text-emerald-400' : 'text-red-400'}
+            emoji="📈"
+          />
+          {twr && (
+            <KpiCard
+              title="TWR"
+              value={formatPercent(twr.twrTotal)}
+              color={twr.twrTotal >= 0 ? 'text-amber-400' : 'text-red-400'}
+              emoji="📊"
+            />
           )}
-          {/* Legenda cliccabile per attivare/disattivare le serie */}
-          <div className="flex items-center gap-4 mt-2">
-            {[
-              { key: 'portfolio', label: 'Portfolio', dashClass: '', color: '#10b981' },
-              { key: 'deposits', label: 'Investito', dashClass: 'dashed', color: '#3b82f6' },
-              { key: 'twr', label: 'TWR', dashClass: '', color: '#f59e0b' },
-            ].map(({ key, label, dashClass, color }) => (
-              <button
-                key={key}
-                onClick={() => toggleSeries(key)}
-                className={`flex items-center gap-1.5 text-xs transition-all cursor-pointer select-none ${
-                  isHidden(key) ? 'opacity-40 line-through' : 'text-slate-300 hover:text-white'
-                }`}
-                title={isHidden(key) ? `Mostra ${label}` : `Nascondi ${label}`}
-              >
-                <div
-                  className="w-3 h-0.5"
-                  style={{
-                    backgroundColor: isHidden(key) ? '#475569' : color,
-                    ...(dashClass === 'dashed' && !isHidden(key)
-                      ? { backgroundImage: 'linear-gradient(90deg, #60a5fa 50%, transparent 50%)', backgroundSize: '6px 2px', backgroundRepeat: 'repeat-x' }
-                      : {}),
-                  }}
-                />
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
+          <KpiCard
+            title="Capitale Investito"
+            value={formatEUR(dashboard.investedCapital)}
+            color="text-blue-400"
+            emoji="👛"
+          />
+          <KpiCard
+            title="Liquidità"
+            value={formatEUR(dashboard.availableCash)}
+            color="text-blue-400"
+            emoji="💧"
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function KpiCard({ title, value, color }: { title: string; value: string; color: string }) {
+function KpiCard({ title, value, color, emoji, sub }: { title: string; value: string; color: string; emoji?: string; sub?: string }) {
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
-      <p className="text-sm text-slate-400 mb-2">{title}</p>
-      <p className={`text-2xl font-bold ${color}`}>{value}</p>
+    <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700 p-5 flex items-center justify-between">
+      <div>
+        <p className="uppercase text-slate-400 text-base font-semibold tracking-wider mb-2">{title}</p>
+        <p className={`text-4xl font-bold ${color}`}>{value}</p>
+        {sub && <p className={`text-2xl font-bold mt-1 ${color}`}>{sub}</p>}
+      </div>
+      {emoji && <span className="text-4xl">{emoji}</span>}
     </div>
   );
 }
