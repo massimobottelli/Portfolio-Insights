@@ -35,6 +35,17 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   );
 }
 
+// Hook semplice per rilevare schermi < 1024px
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return isMobile;
+}
+
 export default function Dashboard() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [allocation, setAllocation] = useState<AllocationItem[]>([]);
@@ -43,6 +54,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   // Serie nascoste nel grafico (cliccando sulla legenda)
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
+
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     Promise.all([
@@ -116,33 +129,33 @@ export default function Dashboard() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       {/* Ultimo aggiornamento — in alto a destra */}
       <div className="flex justify-end">
         {dashboard.snapshotDate && (
-          <p className="text-slate-400 text-sm">
+          <p className="text-slate-400 text-xs lg:text-sm">
             🗓️ {new Date(dashboard.snapshotDate).toLocaleDateString('it-IT')}
           </p>
         )}
       </div>
 
       {/* Box VALORE PORTAFOGLIO — full-width */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-        <p className="uppercase text-slate-300 text-base tracking-wider mb-2">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+        <p className="uppercase text-slate-300 text-sm lg:text-base tracking-wider mb-2">
           Valore Portafoglio
         </p>
-        <p className="text-white font-bold text-6xl">
+        <p className="text-white font-bold text-4xl lg:text-6xl">
           {formatEUR(dashboard.portfolioValue)}
         </p>
-        <p className={`text-2xl font-bold mt-2 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+        <p className={`text-lg lg:text-2xl font-bold mt-2 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
           {isPositive ? '+' : ''}{formatEUR(dashboard.totalProfitLoss)}&nbsp;
           <span>({formatPctGainLoss(dashboard.totalProfitLossPercent)})</span>
         </p>
       </div>
 
       {/* Box ANDAMENTO PORTAFOGLIO — full-width */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-        <h3 className="uppercase text-white text-base font-semibold tracking-wider mb-3">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+        <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
           Andamento Portafoglio
         </h3>
         {/* Legenda in alto a sinistra, sotto il titolo */}
@@ -174,8 +187,8 @@ export default function Dashboard() {
           ))}
         </div>
         {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={400}>
-            <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={isMobile ? 220 : 400}>
+            <ComposedChart data={chartData} margin={{ top: 10, right: isMobile ? 4 : 20, left: isMobile ? 0 : 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -189,7 +202,7 @@ export default function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis
                 dataKey="snapshot_date"
-                tick={{ fill: '#94a3b8', fontSize: 12 }}
+                tick={{ fill: '#94a3b8', fontSize: isMobile ? 10 : 12 }}
                 tickFormatter={(dateStr) => {
                   const d = new Date(dateStr);
                   return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -198,14 +211,16 @@ export default function Dashboard() {
               />
               <YAxis
                 yAxisId="left"
-                tick={{ fill: '#94a3b8', fontSize: 12 }}
+                width={isMobile ? 32 : 60}
+                tick={{ fill: '#94a3b8', fontSize: isMobile ? 8 : 12 }}
                 tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
                 domain={['auto', 'auto']}
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                tick={{ fill: '#94a3b8', fontSize: 12 }}
+                width={isMobile ? 24 : 60}
+                tick={{ fill: '#94a3b8', fontSize: isMobile ? 8 : 12 }}
                 tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
                 domain={['auto', 'auto']}
               />
@@ -281,15 +296,15 @@ export default function Dashboard() {
       </div>
 
       {/* Due colonne: sinistra = allocazione, destra = 4 KPI verticali */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         {/* Allocazione Portafoglio — PieChart */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="uppercase text-white text-base font-semibold tracking-wider mb-4">
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+          <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-4">
             Allocazione Portafoglio
           </h3>
           {allocation.length > 0 ? (
             <div className="flex flex-col items-center">
-              <ResponsiveContainer width="100%" height={400}>
+              <ResponsiveContainer width="100%" height={isMobile ? 250 : 400}>
                 <PieChart>
                   <Pie
                     data={allocation}
@@ -297,8 +312,8 @@ export default function Dashboard() {
                     nameKey="ticker"
                     cx="50%"
                     cy="50%"
-                    outerRadius={140}
-                    innerRadius={70}
+                    outerRadius={isMobile ? 90 : 140}
+                    innerRadius={isMobile ? 45 : 70}
                     paddingAngle={1}
                   >
                     {allocation.map((_, index) => (
@@ -335,6 +350,7 @@ export default function Dashboard() {
             sub={`(${dashboard.totalProfitLossPercent}%)`}
             color={isPositive ? 'text-emerald-400' : 'text-red-400'}
             emoji="📈"
+            isMobile={isMobile}
           />
           {twr && (
             <KpiCard
@@ -342,6 +358,7 @@ export default function Dashboard() {
               value={formatPercent(twr.twrTotal)}
               color={twr.twrTotal >= 0 ? 'text-amber-400' : 'text-red-400'}
               emoji="📊"
+              isMobile={isMobile}
             />
           )}
           <KpiCard
@@ -349,12 +366,14 @@ export default function Dashboard() {
             value={formatEUR(dashboard.investedCapital)}
             color="text-blue-400"
             emoji="👛"
+            isMobile={isMobile}
           />
           <KpiCard
             title="Liquidità"
             value={formatEUR(dashboard.availableCash)}
             color="text-blue-400"
             emoji="💧"
+            isMobile={isMobile}
           />
         </div>
       </div>
@@ -362,15 +381,15 @@ export default function Dashboard() {
   );
 }
 
-function KpiCard({ title, value, color, emoji, sub }: { title: string; value: string; color: string; emoji?: string; sub?: string }) {
+function KpiCard({ title, value, color, emoji, sub, isMobile }: { title: string; value: string; color: string; emoji?: string; sub?: string; isMobile?: boolean }) {
   return (
-    <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700 p-5 flex items-center justify-between">
+    <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700 p-3 lg:p-5 flex items-center justify-between">
       <div>
-        <p className="uppercase text-slate-400 text-base font-semibold tracking-wider mb-2">{title}</p>
-        <p className={`text-4xl font-bold ${color}`}>{value}</p>
-        {sub && <p className={`text-2xl font-bold mt-1 ${color}`}>{sub}</p>}
+        <p className="uppercase text-slate-400 text-sm lg:text-base font-semibold tracking-wider mb-2">{title}</p>
+        <p className={`font-bold ${isMobile ? 'text-2xl' : 'text-4xl'} ${color}`}>{value}</p>
+        {sub && <p className={`font-bold mt-1 ${isMobile ? 'text-base' : 'text-2xl'} ${color}`}>{sub}</p>}
       </div>
-      {emoji && <span className="text-4xl">{emoji}</span>}
+      {emoji && <span className={isMobile ? 'text-2xl' : 'text-4xl'}>{emoji}</span>}
     </div>
   );
 }
