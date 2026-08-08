@@ -27,7 +27,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
     <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
       <p className="font-semibold text-white text-sm">{item.name}</p>
       <p className="text-slate-300 text-sm mt-1">
-        Valore: €{item.marketValue.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        Valore: €{item.marketValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
       </p>
       <p className="text-slate-300 text-sm">
         Peso: {item.allocationPercent.toFixed(2)}%
@@ -94,7 +94,7 @@ export default function Dashboard() {
   const isPositive = dashboard.totalProfitLoss >= 0;
 
   const formatEUR = (value: number) =>
-    new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+    new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 
   const formatPercent = (value: number) =>
     `${value >= 0 ? '+' : ''}${(value * 100).toFixed(2)}%`;
@@ -244,7 +244,7 @@ export default function Dashboard() {
                   if (!active || !payload || payload.length === 0) return null;
                   const item = payload[0].payload as SnapshotItem & { twr: number | null };
                   const formatEUR = (v: number) =>
-                    new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(v);
+                    new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
                   const formatPct = (v: number | null) =>
                     v !== null ? `${(v * 100).toFixed(2)}%` : 'N/D';
                   return (
