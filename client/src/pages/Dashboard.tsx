@@ -1,16 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, CartesianGrid, Line } from 'recharts';
 import { TrendingUp, BarChart3, Wallet, Droplets, Calendar } from 'lucide-react';
 import type { DashboardData, AllocationItem, SnapshotItem, TWRData } from '../types';
 
-const COLORS = [
-  '#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed',
-  '#0891b2', '#db2777', '#65a30d', '#ca8a04', '#9333ea',
-  '#0d9488', '#be123c', '#4f46e5', '#16a34a', '#f59e0b',
-  '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16',
-  '#eab308', '#a855f7', '#14b8a6', '#e11d48', '#6366f1',
-  '#22c55e', '#f97316',
-];
+// Famiglia di colori per ogni asset type (tinta base).
+// Ogni asset type ha una tinta propria: le sfumature vengono generate all'interno dello stesso gruppo.
+const ASSET_TYPE_COLORS: Record<string, { hue: number; saturation: number }> = {
+  BOND: { hue: 145, saturation: 60 },      // verde
+  COMMODITY: { hue: 45, saturation: 85 },  // giallo
+  FUND: { hue: 28, saturation: 75 },       // arancione
+  STOCK: { hue: 0, saturation: 70 },       // rosso
+  CASH: { hue: 220, saturation: 65 },      // blu
+  ETF: { hue: 190, saturation: 60 },       // ciano
+  ETC: { hue: 275, saturation: 60 },       // viola
+  ETN: { hue: 330, saturation: 65 },       // rosa
+  UNKNOWN: { hue: 0, saturation: 0 },      // grigio
+};
+
+const DEFAULT_ASSET_COLOR = { hue: 200, saturation: 60 };
+
+// Genera una sfumatura: indexInType 0 = più scuro (importo maggiore), ultimo = più chiaro.
+function getAssetColor(assetType: string, indexInType: number, typeCount: number): string {
+  const { hue, saturation } = ASSET_TYPE_COLORS[assetType] ?? DEFAULT_ASSET_COLOR;
+  // Con un solo asset nel gruppo usa una tinta media; con più asset scala da scura a chiara.
+  const lightness = typeCount <= 1 ? 50 : 32 + (indexInType / (typeCount - 1)) * 38;
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -57,6 +72,29 @@ export default function Dashboard() {
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
 
   const isMobile = useIsMobile();
+
+  // Ordina gli asset: prima per asset type (alfabetico), poi per importo totale decrescente.
+  const sortedAllocation = useMemo(() => {
+    return [...allocation].sort((a, b) => {
+      if (a.asset_type !== b.asset_type) return a.asset_type.localeCompare(b.asset_type);
+      return b.marketValue - a.marketValue;
+    });
+  }, [allocation]);
+
+  // Colori: ogni asset type ha una famiglia di tinte, e all'interno del tipo
+  // ogni asset ottiene una sfumatura dal più scuro (valore maggiore) al più chiaro.
+  const allocationColors = useMemo(() => {
+    const typeCounts = new Map<string, number>();
+    for (const item of sortedAllocation) {
+      typeCounts.set(item.asset_type, (typeCounts.get(item.asset_type) ?? 0) + 1);
+    }
+    const typeIndex = new Map<string, number>();
+    return sortedAllocation.map(item => {
+      const idx = typeIndex.get(item.asset_type) ?? 0;
+      typeIndex.set(item.asset_type, idx + 1);
+      return getAssetColor(item.asset_type, idx, typeCounts.get(item.asset_type) ?? 1);
+    });
+  }, [sortedAllocation]);
 
   useEffect(() => {
     Promise.all([
@@ -322,7 +360,7 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={isMobile ? 250 : 400}>
                 <PieChart>
                   <Pie
-                    data={allocation}
+                    data={sortedAllocation}
                     dataKey="allocationPercent"
                     nameKey="ticker"
                     cx="50%"
@@ -331,8 +369,8 @@ export default function Dashboard() {
                     innerRadius={isMobile ? 45 : 70}
                     paddingAngle={1}
                   >
-                    {allocation.map((_, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                    {sortedAllocation.map((_, index) => (
+                      <Cell key={index} fill={allocationColors[index]} />
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
@@ -340,11 +378,11 @@ export default function Dashboard() {
               </ResponsiveContainer>
               {/* Legend */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 mt-4 w-full max-w-2xl">
-                {allocation.map((item, index) => (
+                {sortedAllocation.map((item, index) => (
                   <div key={item.asset_id} className="flex items-center gap-2 text-sm">
                     <div
                       className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      style={{ backgroundColor: allocationColors[index] }}
                     />
                     <span className="text-slate-300 truncate">{item.ticker}</span>
                     <span className="text-slate-500 ml-auto">{item.allocationPercent.toFixed(1)}%</span>
