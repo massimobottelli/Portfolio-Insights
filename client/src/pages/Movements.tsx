@@ -32,18 +32,8 @@ const MOVEMENT_TYPE_LEGEND: Record<string, string> = {
 };
 
 /**
- * Converte YYYY-MM-DD (formato input date HTML) in DD-MM-YYYY (formato DB).
- */
-const toDbDate = (isoDate: string) => {
-  if (!isoDate) return '';
-  const parts = isoDate.split('-');
-  if (parts.length !== 3) return isoDate;
-  return `${parts[2]}-${parts[1]}-${parts[0]}`;
-};
-
-/**
- * Converte una data in vari formati (YYYY-MM-DD, DD-MM-YYYY, M/D/YY) in formato italiano (DD/MM/YYYY).
- * Gestisce i formati data non standard presenti nei dati legacy.
+ * Converte una data in formato ISO (YYYY-MM-DD) in formato italiano (DD/MM/YYYY).
+ * Gestisce anche formati legacy (DD-MM-YYYY, M/D/YY) per compatibilità con dati esistenti.
  */
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return '—';
@@ -113,9 +103,10 @@ export default function Movements() {
     const query = new URLSearchParams();
     query.set('sortBy', sortKey);
     query.set('sortOrder', sortDirection);
-    // Converte le date ISO dell'input HTML in formato DB (DD-MM-YYYY)
-    if (startDate) query.set('startDate', toDbDate(startDate));
-    if (endDate) query.set('endDate', toDbDate(endDate));
+    // Le date ISO dell'input HTML (YYYY-MM-DD) vengono passate direttamente
+    // perché il DB ora memorizza le date in formato ISO
+    if (startDate) query.set('startDate', startDate);
+    if (endDate) query.set('endDate', endDate);
     if (typeFilter) query.set('type', typeFilter);
     if (symbolFilter) query.set('symbol', symbolFilter);
     if (search) query.set('search', search);

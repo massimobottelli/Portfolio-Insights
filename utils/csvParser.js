@@ -54,27 +54,58 @@ export function normalizeDate(raw) {
   const str = raw.trim();
   if (!str) return '';
 
-  const parts = str.split('/');
-  if (parts.length !== 3) return str; // fallback: restituisce l'originale
+  // Formato Directa legacy: M/D/YY o M/D/YYYY (es. "8/6/26", "12/31/2025")
+  if (str.includes('/')) {
+    const parts = str.split('/');
+    if (parts.length !== 3) return str;
 
-  const month = parts[0].padStart(2, '0');
-  const day = parts[1].padStart(2, '0');
-  let year = parts[2];
+    const month = parts[0].padStart(2, '0');
+    const day = parts[1].padStart(2, '0');
+    let year = parts[2];
 
-  // Converte anno a 2 cifre in anno a 4 cifre (assume 2000+)
-  if (year.length === 2) {
-    year = '20' + year;
+    // Converte anno a 2 cifre in anno a 4 cifre (assume 2000+)
+    if (year.length === 2) {
+      year = '20' + year;
+    }
+
+    // Valida che sia una data valida
+    const numMonth = parseInt(month, 10);
+    const numDay = parseInt(day, 10);
+    const numYear = parseInt(year, 10);
+    if (numMonth < 1 || numMonth > 12 || numDay < 1 || numDay > 31 || numYear < 2000) {
+      return str;
+    }
+
+    return `${year}-${month}-${day}`;
   }
 
-  // Valida che sia una data valida
-  const numMonth = parseInt(month, 10);
-  const numDay = parseInt(day, 10);
-  const numYear = parseInt(year, 10);
-  if (numMonth < 1 || numMonth > 12 || numDay < 1 || numDay > 31 || numYear < 2000) {
-    return str; // fallback: restituisce l'originale
+  // Formato Directa attuale: DD-MM-YYYY (es. "23-07-2026", "05-06-2026")
+  if (str.includes('-')) {
+    const parts = str.split('-');
+    if (parts.length !== 3) return str;
+
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    let year = parts[2];
+
+    // Converte anno a 2 cifre in anno a 4 cifre (assume 2000+)
+    if (year.length === 2) {
+      year = '20' + year;
+    }
+
+    // Valida che sia una data valida
+    const numDay = parseInt(day, 10);
+    const numMonth = parseInt(month, 10);
+    const numYear = parseInt(year, 10);
+    if (numDay < 1 || numDay > 31 || numMonth < 1 || numMonth > 12 || numYear < 2000) {
+      return str;
+    }
+
+    return `${year}-${month}-${day}`;
   }
 
-  return `${year}-${month}-${day}`;
+  // Formato non riconosciuto: restituisce l'originale
+  return str;
 }
 
 /**
@@ -177,8 +208,8 @@ function parseRow(fields) {
   });
 
   return {
-    operationDate: cleanString(raw.operationDate),
-    valueDate: cleanString(raw.valueDate),
+    operationDate: normalizeDate(raw.operationDate),
+    valueDate: normalizeDate(raw.valueDate),
     causale: cleanString(raw.causale),
     ticker: cleanString(raw.ticker),
     isin: cleanString(raw.isin),
