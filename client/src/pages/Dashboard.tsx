@@ -3,6 +3,56 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, ComposedChart, Area,
 import { TrendingUp, BarChart3, Wallet, Droplets, Calendar } from 'lucide-react';
 import type { DashboardData, AllocationItem, SnapshotItem, TWRData } from '../types';
 
+// Tipi per il filtro temporale del grafico
+type TimeRange = '1m' | '3m' | '6m' | '1y' | 'ytd' | 'all';
+
+const TIME_RANGE_OPTIONS: { key: TimeRange; label: string }[] = [
+  { key: '1m', label: '1M' },
+  { key: '3m', label: '3M' },
+  { key: '6m', label: '6M' },
+  { key: '1y', label: '1Y' },
+  { key: 'ytd', label: 'YTD' },
+  { key: 'all', label: 'All' },
+];
+
+// Calcola la data di cutoff in base al filtro selezionato.
+// Restituisce una stringa ISO (YYYY-MM-DD) da confrontare con snapshot_date.
+function getCutoffDate(range: TimeRange): string | null {
+  const now = new Date();
+  const yyyy = (d: Date) => d.getFullYear();
+  const mm = (d: Date) => String(d.getMonth() + 1).padStart(2, '0');
+  const dd = (d: Date) => String(d.getDate()).padStart(2, '0');
+  const fmt = (d: Date) => `${yyyy(d)}-${mm(d)}-${dd(d)}`;
+
+  switch (range) {
+    case '1m': {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 30);
+      return fmt(d);
+    }
+    case '3m': {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 90);
+      return fmt(d);
+    }
+    case '6m': {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 180);
+      return fmt(d);
+    }
+    case '1y': {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 365);
+      return fmt(d);
+    }
+    case 'ytd': {
+      return `${yyyy(now)}-01-01`;
+    }
+    case 'all':
+      return null;
+  }
+}
+
 // Famiglia di colori per ogni asset type (tinta base).
 // Ogni asset type ha una tinta propria: le sfumature vengono generate all'interno dello stesso gruppo.
 const ASSET_TYPE_COLORS: Record<string, { hue: number; saturation: number }> = {
@@ -70,6 +120,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   // Serie nascoste nel grafico (cliccando sulla legenda)
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
+  // Filtro temporale per l'asse X del grafico
+  const [timeRange, setTimeRange] = useState<TimeRange>('all');
 
   const isMobile = useIsMobile();
 
@@ -113,6 +165,43 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Merge history + TWR per il grafico combinato
+  const twrMap = new Map<string, number>();
+  if (twr) {
+    for (const item of twr.twrHistory) {
+      twrMap.set(item.snapshot_date, item.twr);
+    }
+  }
+  const chartData = history.map(s => ({
+    ...s,
+    twr: twrMap.get(s.snapshot_date) ?? null,
+  }));
+
+  // Filtra i dati del grafico in base al timeRange selezionato
+  const filteredChartData = useMemo(() => {
+    const cutoff = getCutoffDate(timeRange);
+    if (cutoff === null) return chartData;
+    return chartData.filter(d => d.snapshot_date >= cutoff);
+  }, [chartData, timeRange]);
+
+  // Etichette trimestrali per l'asse X (Qx-YY) per evitare sovrapposizioni.
+  // Mostra solo i punti a inizio trimestre (gen, apr, lug, ott), più primo e ultimo sempre inclusi.
+  const formatQuarter = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const q = Math.floor(d.getMonth() / 3) + 1;
+    const y = d.getFullYear().toString().slice(-2);
+    return `Q${q}-${y}`;
+  };
+
+  const quarterTicks = useMemo(() => {
+    return filteredChartData
+      .filter((d, i, arr) => {
+        if (i === 0 || i === arr.length - 1) return true;
+        return new Date(d.snapshot_date).getMonth() % 3 === 0;
+      })
+      .map(d => d.snapshot_date);
+  }, [filteredChartData]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -155,34 +244,6 @@ export default function Dashboard() {
 
   const isHidden = (key: string) => hiddenSeries.has(key);
 
-  // Merge history + TWR per il grafico combinato
-  const twrMap = new Map<string, number>();
-  if (twr) {
-    for (const item of twr.twrHistory) {
-      twrMap.set(item.snapshot_date, item.twr);
-    }
-  }
-  const chartData = history.map(s => ({
-    ...s,
-    twr: twrMap.get(s.snapshot_date) ?? null,
-  }));
-
-  // Etichette trimestrali per l'asse X (Qx-YY) per evitare sovrapposizioni.
-  // Mostra solo i punti a inizio trimestre (gen, apr, lug, ott), più primo e ultimo sempre inclusi.
-  const formatQuarter = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const q = Math.floor(d.getMonth() / 3) + 1;
-    const y = d.getFullYear().toString().slice(-2);
-    return `Q${q}-${y}`;
-  };
-
-  const quarterTicks = chartData
-    .filter((d, i) => {
-      if (i === 0 || i === chartData.length - 1) return true;
-      return new Date(d.snapshot_date).getMonth() % 3 === 0;
-    })
-    .map(d => d.snapshot_date);
-
   return (
     <div className="space-y-4 lg:space-y-6">
       {/* Ultimo aggiornamento — in alto a destra */}
@@ -214,37 +275,56 @@ export default function Dashboard() {
         <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
           Andamento Portafoglio
         </h3>
-        {/* Legenda in alto a sinistra, sotto il titolo */}
-        <div className="flex items-center gap-4 mb-4">
-          {[
-            { key: 'portfolio', label: 'Portfolio', dashClass: '', color: '#10b981' },
-            { key: 'deposits', label: 'Investito', dashClass: 'dashed', color: '#3b82f6' },
-            { key: 'twr', label: 'TWR', dashClass: '', color: '#f59e0b' },
-          ].map(({ key, label, dashClass, color }) => (
-            <button
-              key={key}
-              onClick={() => toggleSeries(key)}
-              className={`flex items-center gap-1.5 text-xs transition-all cursor-pointer select-none ${
-                isHidden(key) ? 'opacity-40 line-through' : 'text-slate-300 hover:text-white'
-              }`}
-              title={isHidden(key) ? `Mostra ${label}` : `Nascondi ${label}`}
-            >
-              <div
-                className="w-3 h-0.5"
-                style={{
-                  backgroundColor: isHidden(key) ? '#475569' : color,
-                  ...(dashClass === 'dashed' && !isHidden(key)
-                    ? { backgroundImage: 'linear-gradient(90deg, #60a5fa 50%, transparent 50%)', backgroundSize: '6px 2px', backgroundRepeat: 'repeat-x' }
-                    : {}),
-                }}
-              />
-              <span>{label}</span>
-            </button>
-          ))}
+        {/* Header con legenda a sinistra e bottoni time range a destra */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          {/* Legenda */}
+          <div className="flex items-center gap-4">
+            {[
+              { key: 'portfolio', label: 'Portfolio', dashClass: '', color: '#10b981' },
+              { key: 'deposits', label: 'Investito', dashClass: 'dashed', color: '#3b82f6' },
+              { key: 'twr', label: 'TWR', dashClass: '', color: '#f59e0b' },
+            ].map(({ key, label, dashClass, color }) => (
+              <button
+                key={key}
+                onClick={() => toggleSeries(key)}
+                className={`flex items-center gap-1.5 text-xs transition-all cursor-pointer select-none ${
+                  isHidden(key) ? 'opacity-40 line-through' : 'text-slate-300 hover:text-white'
+                }`}
+                title={isHidden(key) ? `Mostra ${label}` : `Nascondi ${label}`}
+              >
+                <div
+                  className="w-3 h-0.5"
+                  style={{
+                    backgroundColor: isHidden(key) ? '#475569' : color,
+                    ...(dashClass === 'dashed' && !isHidden(key)
+                      ? { backgroundImage: 'linear-gradient(90deg, #60a5fa 50%, transparent 50%)', backgroundSize: '6px 2px', backgroundRepeat: 'repeat-x' }
+                      : {}),
+                  }}
+                />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+          {/* Bottoni time range */}
+          <div className="flex items-center gap-1">
+            {TIME_RANGE_OPTIONS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setTimeRange(key)}
+                className={`px-2 py-1 text-xs rounded transition-colors cursor-pointer select-none ${
+                  timeRange === key
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-        {chartData.length > 0 ? (
+        {filteredChartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={isMobile ? 220 : 400}>
-            <ComposedChart data={chartData} margin={{ top: 10, right: isMobile ? 4 : 20, left: isMobile ? 0 : 10, bottom: 0 }}>
+            <ComposedChart data={filteredChartData} margin={{ top: 10, right: isMobile ? 4 : 20, left: isMobile ? 0 : 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
