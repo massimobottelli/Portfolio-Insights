@@ -193,11 +193,29 @@ export default function Dashboard() {
     return `Q${q}-${y}`;
   };
 
+  // Etichette mensili per l'asse X (MM/YYYY) quando il filtro non è "All".
+  const formatMonth = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${mm}/${yyyy}`;
+  };
+
   const quarterTicks = useMemo(() => {
     return filteredChartData
       .filter((d, i, arr) => {
         if (i === 0 || i === arr.length - 1) return true;
         return new Date(d.snapshot_date).getMonth() % 3 === 0;
+      })
+      .map(d => d.snapshot_date);
+  }, [filteredChartData]);
+
+  // Tick mensili per l'asse X: un tick per ogni cambio mese, più primo e ultimo sempre inclusi.
+  const monthTicks = useMemo(() => {
+    return filteredChartData
+      .filter((d, i, arr) => {
+        if (i === 0 || i === arr.length - 1) return true;
+        return d.snapshot_date.slice(0, 7) !== arr[i - 1].snapshot_date.slice(0, 7);
       })
       .map(d => d.snapshot_date);
   }, [filteredChartData]);
@@ -371,9 +389,9 @@ export default function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis
                 dataKey="snapshot_date"
-                ticks={quarterTicks}
+                ticks={timeRange === 'all' ? quarterTicks : monthTicks}
                 tick={{ fill: '#94a3b8', fontSize: isMobile ? 10 : 12 }}
-                tickFormatter={formatQuarter}
+                tickFormatter={timeRange === 'all' ? formatQuarter : formatMonth}
               />
               <YAxis
                 yAxisId="left"
