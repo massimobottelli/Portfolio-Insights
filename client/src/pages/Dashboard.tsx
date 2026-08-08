@@ -202,6 +202,18 @@ export default function Dashboard() {
       .map(d => d.snapshot_date);
   }, [filteredChartData]);
 
+  // Calcola variazione di periodo e TWR quando viene selezionato un time range specifico
+  const periodStats = useMemo(() => {
+    if (timeRange === 'all' || filteredChartData.length < 2) return null;
+    const first = filteredChartData[0];
+    const last = filteredChartData[filteredChartData.length - 1];
+    const change = last.portfolio_value - first.portfolio_value;
+    const changePct = first.portfolio_value > 0 ? (change / first.portfolio_value) * 100 : 0;
+    // TWR del periodo: differenza tra TWR finale e iniziale (approssimazione)
+    const twrPeriod = first.twr !== null && last.twr !== null ? (last.twr - first.twr) * 100 : null;
+    return { change, changePct, twrPeriod };
+  }, [filteredChartData, timeRange]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -258,16 +270,37 @@ export default function Dashboard() {
 
       {/* Box VALORE PORTAFOGLIO — full-width */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
-        <p className="uppercase text-slate-300 text-sm lg:text-base tracking-wider mb-2">
-          Valore Portafoglio
-        </p>
-        <p className="text-white font-bold text-4xl lg:text-6xl">
-          {formatEUR(dashboard.portfolioValue)}
-        </p>
-        <p className={`text-lg lg:text-2xl font-bold mt-2 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-          {isPositive ? '+' : ''}{formatEUR(dashboard.totalProfitLoss)}&nbsp;
-          <span>({formatPctGainLoss(dashboard.totalProfitLossPercent)})</span>
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div>
+            <p className="uppercase text-slate-300 text-sm lg:text-base tracking-wider mb-2">
+              Valore Portafoglio
+            </p>
+            <p className="text-white font-bold text-4xl lg:text-6xl">
+              {formatEUR(dashboard.portfolioValue)}
+            </p>
+            <p className={`text-lg lg:text-2xl font-bold mt-2 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+              {isPositive ? '+' : ''}{formatEUR(dashboard.totalProfitLoss)}&nbsp;
+              <span>({formatPctGainLoss(dashboard.totalProfitLossPercent)})</span>
+            </p>
+          </div>
+          {/* Variazione del periodo selezionato */}
+          {periodStats && (
+            <div className="sm:text-right">
+              <p className="uppercase text-slate-400 text-xs lg:text-sm tracking-wider mb-1">
+                Variazione {timeRange.toUpperCase()}
+              </p>
+              <p className={`text-lg lg:text-2xl font-bold ${periodStats.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {periodStats.change >= 0 ? '+' : ''}{formatEUR(periodStats.change)}&nbsp;
+                <span>({periodStats.changePct >= 0 ? '+' : ''}{periodStats.changePct.toFixed(2)}%)</span>
+              </p>
+              {periodStats.twrPeriod !== null && (
+                <p className={`text-sm lg:text-base mt-1 ${periodStats.twrPeriod >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                  TWR: {periodStats.twrPeriod >= 0 ? '+' : ''}{periodStats.twrPeriod.toFixed(2)}%
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Box ANDAMENTO PORTAFOGLIO — full-width */}
@@ -305,8 +338,8 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
-          {/* Bottoni time range */}
-          <div className="flex items-center gap-1">
+          {/* Bottoni time range — allineati all'asse Y destro */}
+          <div className="flex items-center gap-1 sm:pr-[80px] pr-[28px]">
             {TIME_RANGE_OPTIONS.map(({ key, label }) => (
               <button
                 key={key}
