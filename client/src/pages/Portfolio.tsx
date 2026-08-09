@@ -189,6 +189,38 @@ export default function Portfolio() {
     [positions]
   );
 
+  // Raggruppa per asset_type e calcola totali aggregati
+  const assetTypeSummary = useMemo(() => {
+    const groups = new Map<string, { carico: number; attuale: number; count: number }>();
+    for (const pos of visiblePositions) {
+      const type = pos.asset_type || 'UNKNOWN';
+      if (!groups.has(type)) {
+        groups.set(type, { carico: 0, attuale: 0, count: 0 });
+      }
+      const g = groups.get(type)!;
+      // Valore di carico: prezzo medio × quantità (solo se prezzo medio disponibile)
+      if (pos.average_price !== null) {
+        g.carico += pos.average_price * pos.quantity;
+      }
+      // Valore attuale: prezzo corrente × quantità (solo se prezzo corrente disponibile)
+      if (pos.current_price !== null) {
+        g.attuale += pos.current_price * pos.quantity;
+      }
+      g.count++;
+    }
+    // Ordina per asset_type
+    return Array.from(groups.entries())
+      .map(([assetType, { carico, attuale, count }]) => ({
+        assetType,
+        carico,
+        attuale,
+        gain: attuale - carico,
+        gainPercent: carico !== 0 ? ((attuale - carico) / carico) * 100 : null,
+        count,
+      }))
+      .sort((a, b) => a.assetType.localeCompare(b.assetType));
+  }, [visiblePositions]);
+
   // Chiavi che rappresentano valori numerici (per ordinamento numerico, non testuale)
   const numericSortKeys = new Set<SortKey>([
     'quantity', 'current_price', 'average_price', 'total_value', 'gain_eur', 'gain_percent',
@@ -228,6 +260,55 @@ export default function Portfolio() {
     `cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors ${
       align === 'right' ? 'text-right' : 'text-left'
     } ${sortKey === key ? 'text-white' : 'text-slate-400'} hover:text-white`;
+
+  // Totali complessivi per la riga di riepilogo
+  const totals = useMemo(() => {
+    const carico = assetTypeSummary.reduce((s, g) => s + g.carico, 0);
+    const attuale = assetTypeSummary.reduce((s, g) => s + g.attuale, 0);
+    const gain = attuale - carico;
+    return {
+      carico,
+      attuale,
+      gain,
+      gainPercent: carico !== 0 ? (gain / carico) * 100 : null,
+      count: assetTypeSummary.reduce((s, g) => s + g.count, 0),
+    };
+  }, [assetTypeSummary]);
+
+  type SummarySortKey = 'assetType' | 'carico' | 'attuale' | 'gain' | 'gainPercent';
+  const [summarySortKey, setSummarySortKey] = useState<SummarySortKey>('attuale');
+  const [summarySortDirection, setSummarySortDirection] = useState<SortDirection>('desc');
+
+  const handleSummarySort = (key: SummarySortKey) => {
+    if (summarySortKey === key) {
+      setSummarySortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSummarySortKey(key);
+      setSummarySortDirection('asc');
+    }
+  };
+
+  const summarySortArrow = (key: SummarySortKey) => {
+    if (summarySortKey !== key) return ' ⇅';
+    return summarySortDirection === 'asc' ? ' ↑' : ' ↓';
+  };
+
+  const numericSummaryKeys = new Set<SummarySortKey>(['carico', 'attuale', 'gain', 'gainPercent']);
+
+  const sortedSummary = useMemo(() => {
+    const dir = summarySortDirection === 'asc' ? 1 : -1;
+    return [...assetTypeSummary].sort((a, b) => {
+      const aVal = a[summarySortKey];
+      const bVal = b[summarySortKey];
+      if (aVal === null && bVal === null) return 0;
+      if (aVal === null) return 1;
+      if (bVal === null) return -1;
+      if (numericSummaryKeys.has(summarySortKey)) {
+        return ((aVal as number) - (bVal as number)) * dir;
+      }
+      return String(aVal).localeCompare(String(bVal)) * dir;
+    });
+  }, [assetTypeSummary, summarySortKey, summarySortDirection]);
 
   if (loading) {
     return (
@@ -338,6 +419,103 @@ export default function Portfolio() {
           </table>
         </div>
       </div>
+
+      {/* Tabella riepilogativa per asset type */}
+      {assetTypeSummary.length > 0 && (
+        <>
+          <div className="flex justify-between items-start">
+            <h2 className="text-2xl font-bold text-white">Asset Class</h2>
+          </div>
+          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+            <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-700 bg-slate-800/50">
+                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-slate-400 hover:text-white text-left"
+                      onClick={() => handleSummarySort('assetType')}>
+                    Tipo Asset{summarySortArrow('assetType')}
+                  </th>
+                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-slate-400 hover:text-white text-right"
+                      onClick={() => handleSummarySort('carico')}>
+                    Valore Carico{summarySortArrow('carico')}
+                  </th>
+                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-slate-400 hover:text-white text-right"
+                      onClick={() => handleSummarySort('attuale')}>
+                    Valore Attuale{summarySortArrow('attuale')}
+                  </th>
+                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-slate-400 hover:text-white text-right"
+                      onClick={() => handleSummarySort('gain')}>
+                    Gain/Loss €{summarySortArrow('gain')}
+                  </th>
+                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-slate-400 hover:text-white text-right"
+                      onClick={() => handleSummarySort('gainPercent')}>
+                    Gain/Loss %{summarySortArrow('gainPercent')}
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">
+                    N. Asset
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700">
+                {sortedSummary.map(({ assetType, carico, attuale, gain, gainPercent, count }) => (
+                  <tr key={assetType} className="hover:bg-slate-700/30 transition-colors">
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`inline-block px-2 py-1 rounded-md text-xs font-medium border ${
+                        assetType === 'UNKNOWN'
+                          ? 'bg-amber-900/30 text-amber-300 border-amber-700/50'
+                          : assetType === 'ETF'
+                          ? 'bg-blue-900/30 text-blue-300 border-blue-700/50'
+                          : assetType === 'ETC'
+                          ? 'bg-purple-900/30 text-purple-300 border-purple-700/50'
+                          : assetType === 'ETN'
+                          ? 'bg-indigo-900/30 text-indigo-300 border-indigo-700/50'
+                          : assetType === 'STOCK'
+                          ? 'bg-emerald-900/30 text-emerald-300 border-emerald-700/50'
+                          : assetType === 'BOND'
+                          ? 'bg-amber-900/30 text-amber-300 border-amber-700/50'
+                          : assetType === 'FUND'
+                          ? 'bg-cyan-900/30 text-cyan-300 border-cyan-700/50'
+                          : assetType === 'COMMODITY'
+                          ? 'bg-orange-900/30 text-orange-300 border-orange-700/50'
+                          : assetType === 'CASH'
+                          ? 'bg-green-900/30 text-green-300 border-green-700/50'
+                          : 'bg-slate-700 text-slate-200 border-slate-600'
+                      }`}>
+                        {assetType}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatAmount(carico)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatAmount(attuale)}</td>
+                    <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gain)}`}>
+                      {formatAmount(gain)}
+                    </td>
+                    <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainPercent)}`}>
+                      {formatPercent(gainPercent)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-slate-400">{count}</td>
+                  </tr>
+                ))}
+              </tbody>
+              {/* Riga totali complessivi */}
+              <tfoot>
+                <tr className="border-t-2 border-slate-600 bg-slate-800/80">
+                  <td className="px-4 py-3 text-sm font-semibold text-white uppercase tracking-wider">Totale</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-white">{formatAmount(totals.carico)}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-white">{formatAmount(totals.attuale)}</td>
+                  <td className={`px-4 py-3 text-sm text-right font-bold ${gainColorClass(totals.gain)}`}>
+                    {formatAmount(totals.gain)}
+                  </td>
+                  <td className={`px-4 py-3 text-sm text-right font-bold ${gainColorClass(totals.gainPercent)}`}>
+                    {formatPercent(totals.gainPercent)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-white">{totals.count}</td>
+                </tr>
+              </tfoot>
+            </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

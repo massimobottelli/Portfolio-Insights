@@ -193,7 +193,7 @@ export default function Movements() {
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              className={`${inputClass} w-full`}
+              className={`${inputClass} w-full min-w-0`}
             />
           </div>
           <div>
@@ -202,7 +202,7 @@ export default function Movements() {
               type="date"
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
-              className={`${inputClass} w-full`}
+              className={`${inputClass} w-full min-w-0`}
             />
           </div>
 
