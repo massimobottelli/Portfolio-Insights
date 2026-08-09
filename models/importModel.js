@@ -40,6 +40,27 @@ export function getImportSessions() {
 }
 
 /**
+ * Recupera la data operazione più recente tra tutti i record
+ * presenti nelle tabelle market_orders e cash_movements.
+ * Utilizzata per filtrare i record da importare: vengono importati
+ * solo i movimenti con data successiva all'ultima data presente.
+ * @returns {string|null} Data ISO (YYYY-MM-DD) più recente, o null se il database è vuoto
+ */
+export function getLatestOperationDate() {
+  const marketOrdersMax = db.prepare('SELECT MAX(operation_date) as max_date FROM market_orders').get();
+  const cashMovementsMax = db.prepare('SELECT MAX(operation_date) as max_date FROM cash_movements').get();
+
+  const dates = [];
+  if (marketOrdersMax.max_date) dates.push(marketOrdersMax.max_date);
+  if (cashMovementsMax.max_date) dates.push(cashMovementsMax.max_date);
+
+  if (dates.length === 0) return null;
+
+  dates.sort();
+  return dates[dates.length - 1];
+}
+
+/**
  * Inserisce un MarketOrder nel database.
  * I duplicati non vengono filtrati per permettere esecuzioni parziali
  * identiche (stesso ordine, stessa quantità, stesso importo) che

@@ -1,4 +1,4 @@
-import { createImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, insertAssetPrice, clearDatabase } from '../models/importModel.js';
+import { createImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, insertAssetPrice, clearDatabase, getLatestOperationDate } from '../models/importModel.js';
 import { upsertAsset } from '../models/assetModel.js';
 import { randomUUID } from 'node:crypto';
 import { parseDirectaCSV, parseDirectaHistoryCSV, parseDirectaPortfolioCSV, detectFileType } from '../utils/csvParser.js';
@@ -61,6 +61,22 @@ export function importFile(req, res) {
       recordsImported: 0,
       errors: null
     });
+
+    // Filtra i record per data: per i report ordini, importa solo movimenti
+    // con data successiva all'ultima data presente nel database.
+    // Questo previene duplicati durante il re-import dello stesso report,
+    // pur permettendo ordini multipli con la stessa data (ordini divisi).
+    if (fileType === 'orders') {
+      const latestDate = getLatestOperationDate();
+      if (latestDate) {
+        const before = records.length;
+        records = records.filter(r => r.operationDate > latestDate);
+        const filtered = before - records.length;
+        if (filtered > 0) {
+          console.log(`Filtrati ${filtered} record già presenti (operation_date <= ${latestDate})`);
+        }
+      }
+    }
 
     let importedCount = 0;
 
