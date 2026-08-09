@@ -28,18 +28,25 @@ The first release focuses on providing a complete overview of the current portfo
 #### Supported Pages
 - Dashboard
 - Portfolio
+- Movements
 - Import Manager
 - Settings
 
 #### Features
-- Import Directa reports
+- Import Directa reports (Movimenti, Patrimonio Totale, Portafoglio Corrente)
 - Normalize imported data
 - Persist normalized data
 - Display portfolio overview
-- Portfolio allocation
-- Portfolio KPIs
-- Basic charts
+- Portfolio allocation with PieChart
+- Portfolio KPIs (P&L, TWR, Invested Capital, Available Cash)
+- Historical portfolio value chart with time range filters
+- TWR (Time-Weighted Rate of Return) calculation
+- Movements list with filtering, sorting and search
+- Asset type classification (manual via dropdown)
+- Asset Class summary table
 - Safe re-import without duplicates
+- Clear database functionality
+- Responsive design (mobile + desktop)
 
 ---
 
@@ -63,9 +70,9 @@ The first release focuses on providing a complete overview of the current portfo
 The user imports Directa export files.
 
 Supported reports:
-1. Current Portfolio
-2. Portfolio Value History
-3. Order History
+1. **Movimenti** (Movimenti*.csv) — Orders, cash movements, commissions, taxes
+2. **Patrimonio Totale** (PatrimonioTotale*.csv) — Daily portfolio snapshots
+3. **Portafoglio Corrente** (P_TOTALE*.csv) — Current positions with prices
 
 The application parses, validates and normalizes imported data before storing it in the local database. **No manual data entry** is required.
 
@@ -101,9 +108,9 @@ The application parses three distinct export files to reconstruct the portfolio:
 
 | Report Tipo | Scopo Principale | Identificatori di Idempotenza |
 |---|---|---|
-| **Current Portfolio** | Allineamento asset in tempo reale, controllo "Valore attuale" e "Valore di carico". | ID Asset / ISIN |
-| **Portfolio Value History** | Snapshot del saldo giornaliero (Liquidità, Portafoglio, Patrimonio). | Data Snapshot |
-| **Order History** | Registro delle transazioni finanziarie (BUY, SELL, Cedole, Bolli, Ritenute, Commissioni). | `Riferimento ordine` e `Protocollo` |
+| **Movimenti** (Movimenti*.csv) | Registro delle transazioni finanziarie (BUY, SELL, Cedole, Bolli, Ritenute, Commissioni). | `Riferimento ordine` e `Protocollo` |
+| **Patrimonio Totale** (PatrimonioTotale*.csv) | Snapshot del saldo giornaliero (Liquidità, Portafoglio, Patrimonio). | Data Snapshot |
+| **Portafoglio Corrente** (P_TOTALE*.csv) | Allineamento asset in tempo reale con prezzi correnti e prezzi medi di carico. | ISIN + Data Estrazione |
 
 ---
 
@@ -117,16 +124,30 @@ The Analytics Engine generates every derived model used by the application. **No
 - Available Cash
 - Total Profit / Loss (Assoluto e %)
 - Year-To-Date (YTD) Performance
+- Time-Weighted Rate of Return (TWR)
+- Portfolio Allocation (% per asset)
+- Historical Portfolio Value (time series)
+- Position-level Gain/Loss (€ and %)
+
+### TWR Calculation
+The TWR is calculated using sub-periods delimited by external cash flows (deposits):
+1. All daily snapshots are retrieved in chronological order
+2. All deposits are identified as external cash flows
+3. Sub-periods are defined between deposit dates
+4. For each sub-period: return = (V_end - V_start) / V_start
+5. Geometric compounding: TWR = ∏(1 + r_i) - 1
+6. YTD and annual TWR are also computed
 
 ---
 
 ## 🎨 7. User Interface
 
 ### MVP1
-- Dashboard (KPI, Allocazione)
-- Portfolio (Dettaglio posizioni)
-- Import Manager (Upload CSV)
-- Settings (Configurazioni generali)
+- **Dashboard** — KPI cards (P&L, TWR, Invested Capital, Cash), portfolio value chart with time range filters (1M, 3M, 6M, 1Y, YTD, All), allocation PieChart with legend
+- **Portfolio** — Sortable table of current positions (ticker, ISIN, name, quantity, price, avg price, value, gain/loss), Asset Type dropdown for manual classification, Asset Class summary table with totals
+- **Movements** — Filterable/sortable table of cash movements with date range, type, symbol filters, text search, type legend, and total amount row
+- **Import Manager** — Upload CSV files (drag & drop or click), import session history, clear database with confirmation
+- **Settings** — App information display
 
 ### MVP2
 - Asset Detail (Analisi singolo strumento)
@@ -162,7 +183,7 @@ L'adozione di Express si sposa perfettamente con il pattern **Model-View-Control
 *   **Model:** Gestisce l'accesso diretto ai dati e la persistenza. Sfrutta il modulo nativo `node:sqlite` per eseguire query SQL dirette e restituire oggetti JavaScript tipizzati. Non contiene logica di presentazione o di routing.
 *   **View:** Rappresentata dall'applicazione frontend in React. Consuma le API JSON esposte dal backend Express e si occupa esclusivamente della presentazione visiva.
 *   **Controller:** Contiene la logica applicativa e di business. Riceve i dati dalle richieste HTTP (già parsati in `req.body` o `req.params`), interroga o aggiorna i Model, elabora i risultati e restituisce la risposta JSON tramite `res.json()`.
-*   **Route:** Mappa gli endpoint URL (es. `/api/assets`) e i metodi HTTP (GET, POST) verso lo specifico metodo del Controller utilizzando `express.Router()`.
+*   **Route:** Mappa gli endpoint URL (es. `/api/assets`) e i metodi HTTP (GET, POST, PATCH, DELETE) verso lo specifico metodo del Controller utilizzando `express.Router()`.
 
 ---
 
@@ -172,22 +193,42 @@ Il progetto segue un'architettura monorepo chiara basata sull'utilizzo di Expres
 
 ```text
 portfolio-insights/
+├── config/
+│   └── assetTypes.js           # Centralized asset type definitions (shared BE/FE)
 ├── models/
-│   ├── assetModel.js          # Query SQLite per la gestione degli asset
-│   ├── analyticsModel.js      # Query SQLite per i dati storici e i calcoli delle metriche
-│   └── importModel.js         # Query SQLite per l'inserimento delle transazioni e log di import
+│   ├── assetModel.js           # Query SQLite per la gestione degli asset
+│   ├── analyticsModel.js       # Query SQLite per i dati storici e i calcoli delle metriche
+│   ├── importModel.js          # Query SQLite per l'inserimento delle transazioni e log di import
+│   └── movementModel.js        # Query SQLite per i movimenti di cassa con filtri
 ├── controllers/
-│   ├── assetController.js     # Logica per recuperare e formattare i dati degli asset
-│   ├── analyticsController.js # Calcoli KPI, allocazione e orchestrazione della Dashboard
-│   └── importController.js    # Gestione dell'upload, validazione e salvataggio dei CSV
+│   ├── assetController.js      # Logica per recuperare e formattare i dati degli asset
+│   ├── analyticsController.js  # Calcoli KPI, allocazione e orchestrazione della Dashboard
+│   ├── importController.js     # Gestione dell'upload, validazione e salvataggio dei CSV
+│   └── movementController.js   # Logica per recuperare e filtrare i movimenti di cassa
 ├── routes/
-│   ├── assetRoutes.js         # Definizione endpoint Express per gli strumenti (Asset)
+│   ├── assetRoutes.js          # Definizione endpoint Express per gli strumenti (Asset)
 │   ├── analyticsRoutes.js      # Definizione endpoint Express per la Dashboard e KPI
-│   └── importRoutes.js        # Definizione endpoint Express per l'importazione dei file Directa
-├── database.js                # Inizializzazione della connessione a SQLite nativo
-├── app.js                     # Configurazione di Express (middleware, routes, static files)
-├── server.js                  # Entry point del server HTTP (avvio di app.listen)
-└── public/                    # Frontend React (build statica dell'interfaccia utente)
+│   ├── importRoutes.js         # Definizione endpoint Express per l'importazione dei file Directa
+│   └── movementRoutes.js       # Definizione endpoint Express per i movimenti di cassa
+├── utils/
+│   └── csvParser.js            # Parser CSV nativo per i tre formati Directa
+├── database.js                 # Inizializzazione della connessione a SQLite nativo
+├── app.js                      # Configurazione di Express (middleware, routes, static files)
+├── server.js                   # Entry point del server HTTP (avvio di app.listen)
+├── client/                     # Frontend React (sorgente TypeScript)
+│   ├── src/
+│   │   ├── App.tsx             # Router principale
+│   │   ├── types.ts            # TypeScript type definitions
+│   │   ├── components/
+│   │   │   └── Layout.tsx      # Sidebar + main layout (collapsible, responsive)
+│   │   └── pages/
+│   │       ├── Dashboard.tsx   # KPI, chart, allocation
+│   │       ├── Portfolio.tsx   # Positions table + Asset Class summary
+│   │       ├── Movements.tsx   # Cash movements with filters
+│   │       ├── ImportPage.tsx  # CSV upload + clear database
+│   │       └── Settings.tsx    # App info
+│   └── ...
+└── public/                     # Frontend React (build statica dell'interfaccia utente)
 ```
 
 ---
@@ -200,6 +241,8 @@ portfolio-insights/
 - **Business logic belongs to the Analytics package:** I calcoli complessi non vengono salvati nel DB ma generati a runtime dai controller preposti.
 - **Importers never perform business calculations:** L'importatore si occupa solo di ripulire, validare e salvare i dati grezzi in modo idempotente.
 - **Keep modules small and explicit:** Preferire funzioni pure, composizione rispetto all'ereditarietà ed evitare dipendenze circolari.
+- **Shared configuration:** I tipi di asset sono definiti in `config/assetTypes.js` e importati sia dal backend che dal frontend, garantendo un'unica fonte di verità.
+- **Date format normalization:** Tutte le date sono memorizzate in formato ISO (YYYY-MM-DD) per garantire confronti cronologici corretti.
 
 ---
 

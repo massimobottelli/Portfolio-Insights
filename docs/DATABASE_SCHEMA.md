@@ -21,13 +21,15 @@ Fields:
 - ticker: String
 - name: String
 - currency: String (e.g., "EUR", "USD")
-- assetType: AssetType (Enum: ETF, ETC, ETN, STOCK, BOND, FUND, UNKNOWN)
+- assetType: AssetType (Enum: ETF, ETC, ETN, STOCK, BOND, FUND, COMMODITY, CASH, UNKNOWN)
 - exchange: String (Nullable)
 - directaCode: String (Nullable, mapping internal Directa code if present, e.g., M.512272)
 
 Rules:
 - ISIN unique
 - ISIN immutable
+- Asset type can be manually updated by the user via PATCH `/api/assets/:id/type`
+- On re-import, if the user has manually classified an asset (e.g. "ETF"), the type is preserved and not overwritten by "UNKNOWN"
 
 ---
 
@@ -50,7 +52,7 @@ Fields:
 
 Rules:
 - Immutable after import.
-- Unique constraint on (orderReference, assetId, type, quantity) to prevent duplicates during re-import.
+- Duplicates are allowed (Directa may generate identical CSV rows for partial executions).
 
 ---
 
@@ -60,7 +62,7 @@ Represents liquidity changes that do not alter asset quantity.
 
 Fields:
 - id: String (UUID)
-- assetId: String (FK to Asset, Nullable - null for taxes, deposits, withdrawals)
+- assetId: String (FK to Asset, Nullable — null for taxes, deposits, withdrawals)
 - operationDate: DateTime
 - valueDate: DateTime
 - movementType: MovementType (Enum: DEPOSIT, WITHDRAWAL, DIVIDEND, INTEREST, TAX, COMMISSION, STAMP_DUTY, OTHER)
@@ -113,6 +115,25 @@ Fields:
 - availableCash: Decimal (Total cash on hand)
 - investedCapital: Decimal (Book value / Valore di carico total)
 - importSessionId: String (FK to ImportSession)
+
+---
+
+## AssetPrice
+Purpose:
+Stores the current market price and average book price for each asset, extracted from the Directa portfolio report (P_TOTALE).
+
+Fields:
+- id: String (UUID)
+- assetId: String (FK to Asset)
+- currentPrice: Decimal (Current unit market price)
+- averagePrice: Decimal (Average book cost per unit)
+- extractionDate: DateTime (Date when the portfolio report was generated)
+- importSessionId: String (FK to ImportSession)
+
+Rules:
+- Unique constraint on (assetId, extractionDate)
+- On re-import of the same report, the existing record is replaced (INSERT OR REPLACE logic)
+- Used by the Analytics Engine to calculate current position values and gain/loss
 
 ---
 

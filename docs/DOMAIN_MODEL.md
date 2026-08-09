@@ -117,6 +117,20 @@ It is never calculated by the application.
 
 ---
 
+## AssetPrice
+
+The current market price and average book price for an asset, extracted from the Directa portfolio report (P_TOTALE).
+
+An AssetPrice is a snapshot of pricing data at a specific extraction date.
+
+It is used by the Analytics Engine to calculate:
+
+* Current position value (quantity × current price)
+* Gain/Loss per position (current price - average price) × quantity
+* Gain/Loss percentage ((current price - average price) / average price) × 100
+
+---
+
 ## Position
 
 The current holding of an Asset.
@@ -126,6 +140,7 @@ A Position is not persisted.
 It is calculated from:
 
 * MarketOrders
+* AssetPrices (for current price and average price)
 * CashMovements
 * Portfolio snapshots (when applicable)
 
@@ -175,6 +190,8 @@ CashMovement
 
 DailyPortfolioSnapshot
 
+AssetPrice
+
 ImportSession
 ```
 
@@ -196,6 +213,8 @@ Performance
 Dashboard
 
 KPIs
+
+TWR (Time-Weighted Return)
 ```
 
 ---
@@ -233,7 +252,7 @@ Broker-specific identifiers are not used as domain identifiers.
 | ticker         | Yes      | Directa reports    | Trading symbol         |
 | name           | Yes      | Directa reports    | Instrument description |
 | currency       | Yes      | Directa reports    | Trading currency       |
-| assetType      | Yes      | Unknown in MVP1    | ETF, ETC, Stock, Bond  |
+| assetType      | Yes      | Manual classification | ETF, ETC, ETN, STOCK, BOND, FUND, COMMODITY, CASH, UNKNOWN |
 | exchange       | No       | Future enrichment  | Trading venue          |
 | directaCode    | No       | Future integration | Broker identifier      |
 
@@ -252,6 +271,8 @@ ETN
 STOCK
 BOND
 FUND
+COMMODITY
+CASH
 UNKNOWN
 ```
 
@@ -259,13 +280,9 @@ In MVP1:
 
 * the attribute exists in the model;
 * the default value is UNKNOWN;
-* no automatic classification is performed.
-
-Future versions may enrich this information through:
-
-* external instrument databases;
-* ISIN classification;
-* manual classification.
+* no automatic classification is performed;
+* the user can manually classify assets via the Portfolio page dropdown (PATCH `/api/assets/:id/type`);
+* on re-import, manually assigned types are preserved and not overwritten.
 
 ---
 
@@ -320,6 +337,9 @@ Asset
     +---- CashMovements (when asset related)
 
     |
+    +---- AssetPrices
+
+    |
     +---- Position (derived)
 ```
 
@@ -340,18 +360,20 @@ Asset
 
 ### Imported from
 
-* Current Portfolio Report
-* Historical Orders Report
+* Current Portfolio Report (P_TOTALE)
+* Historical Orders Report (Movimenti)
 
 ### Updated by
 
-* Importer only
+* Importer only (metadata)
+* User (asset type via PATCH endpoint)
 
 ### Used by
 
 * Analytics Engine
 * Portfolio View
 * Dashboard
+* Movements View
 
 ---
 
@@ -399,7 +421,7 @@ Vendita
 * A MarketOrder cannot be modified after import.
 * A MarketOrder changes the derived Position quantity.
 * Fees and taxes are not MarketOrders.
-* Unique constraint on (orderReference, assetId, type, quantity) to prevent duplicates during re-import.
+* Duplicate MarketOrders are allowed (Directa may generate identical CSV rows for partial executions of the same order).
 
 ---
 
@@ -407,7 +429,7 @@ Vendita
 
 ### Imported from
 
-* Historical Orders Report
+* Historical Orders Report (Movimenti*.csv)
 
 ### Updated by
 
@@ -477,7 +499,7 @@ Tax withholding
 
 ### Imported from
 
-* Historical Orders Report
+* Historical Orders Report (Movimenti*.csv)
 
 ### Updated by
 
@@ -488,6 +510,57 @@ Tax withholding
 * Cash balance calculation
 * Performance calculation
 * Analytics Engine
+* Movements View
+
+---
+
+# AssetPrice
+
+## Purpose
+
+Represents a snapshot of an asset's market price and average book price at a specific extraction date.
+
+An AssetPrice is imported from the Directa portfolio report (P_TOTALE*.csv).
+
+---
+
+## AssetPrice Attributes
+
+| Attribute         | Required | Notes                                                        |
+| ----------------- | -------- | ------------------------------------------------------------ |
+| id                | Yes      | Internal database ID (UUID)                                  |
+| assetId           | Yes      | FK to Asset                                                  |
+| currentPrice      | Yes      | Current unit market price in the asset's currency            |
+| averagePrice      | Yes      | Average book cost per unit (valore di carico unitario)       |
+| extractionDate    | Yes      | Date when the portfolio report was generated                 |
+| importSessionId   | Yes      | FK to ImportSession                                          |
+
+---
+
+## Business Rules
+
+* Unique constraint on (assetId, extractionDate).
+* On re-import of the same report, the existing record is replaced.
+* An AssetPrice does not represent ownership or quantity.
+* Used exclusively by the Analytics Engine for position valuation.
+
+---
+
+## Ownership
+
+### Imported from
+
+* Current Portfolio Report (P_TOTALE*.csv)
+
+### Updated by
+
+* Importer only
+
+### Used by
+
+* Analytics Engine
+* Position valuation
+* Gain/Loss calculation
 
 ---
 
@@ -516,6 +589,33 @@ NO → CashMovement
 ```
 
 This keeps the model simple while preserving future evolution possibilities.
+
+---
+
+## BTP Quantity Handling
+
+BTPs (Italian government bonds) are quoted in percentage (e.g., 102.50 instead of 1.0250).
+
+The quantity imported from Directa is divided by 100 for display and calculation purposes.
+
+This transformation is applied:
+
+* In the Analytics Engine (`analyticsModel.js`) for allocation calculation
+* In the frontend (`Portfolio.tsx`) for display and sorting
+
+The raw quantity in the database is never modified.
+
+---
+
+## Date Format
+
+All dates are stored in ISO format (YYYY-MM-DD) in the database.
+
+This ensures:
+
+* Correct chronological comparisons in SQL queries
+* Consistent date handling across the application
+* Compatibility with HTML date inputs
 
 ---
 
