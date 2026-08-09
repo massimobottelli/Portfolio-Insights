@@ -131,9 +131,8 @@ export function getLatestSnapshot() {
  * @returns {Array<{snapshot_date: string, cumulative_deposits: number}>}
  */
 export function getDepositHistory() {
-  // Le date in cash_movements sono in formato DD-MM-YYYY (es. "05-06-2024")
-  // mentre snapshot_date è in YYYY-MM-DD (es. "2024-06-05").
-  // La conversione usa substr per riordinare: substr(operation_date,7,4)||'-'||substr(operation_date,4,2)||'-'||substr(operation_date,1,2)
+  // Le date sono già in formato ISO (YYYY-MM-DD) in entrambe le tabelle,
+  // quindi il confronto diretto è cronologicamente corretto.
   return db
     .prepare(`
       SELECT
@@ -142,7 +141,7 @@ export function getDepositHistory() {
       FROM daily_portfolio_snapshots d
       LEFT JOIN cash_movements c
         ON c.movement_type = 'DEPOSIT'
-        AND substr(c.operation_date,7,4) || '-' || substr(c.operation_date,4,2) || '-' || substr(c.operation_date,1,2) <= d.snapshot_date
+        AND c.operation_date <= d.snapshot_date
       GROUP BY d.snapshot_date
       ORDER BY d.snapshot_date ASC
     `)
@@ -157,15 +156,6 @@ export function getSnapshotHistory() {
   return db
     .prepare('SELECT * FROM daily_portfolio_snapshots ORDER BY snapshot_date ASC')
     .all();
-}
-
-/**
- * Converte una data Directa (DD-MM-YYYY) in formato ISO (YYYY-MM-DD).
- * @param {string} dateStr Data in formato DD-MM-YYYY
- * @returns {string} Data in formato YYYY-MM-DD
- */
-function toISODate(dateStr) {
-  return dateStr.substr(6, 4) + '-' + dateStr.substr(3, 2) + '-' + dateStr.substr(0, 2);
 }
 
 /**
@@ -197,13 +187,13 @@ export function calculateTWR() {
     };
   }
 
-  // Recupera tutti i depositi ordinati per data
+  // Recupera tutti i depositi ordinati per data.
+  // Le date sono già in formato ISO (YYYY-MM-DD), confrontabili con snapshot_date.
   const deposits = db
     .prepare("SELECT operation_date, euro_amount FROM cash_movements WHERE movement_type = 'DEPOSIT' ORDER BY operation_date ASC")
     .all()
     .map(d => ({
-      // Converte la data Directa in ISO per il confronto
-      date: toISODate(d.operation_date),
+      date: d.operation_date,
       amount: d.euro_amount
     }));
 
