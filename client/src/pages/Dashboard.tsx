@@ -256,9 +256,6 @@ export default function Dashboard() {
   const formatPercent = (value: number) =>
     `${value >= 0 ? '+' : ''}${(value * 100).toFixed(2)}%`;
 
-  const formatPctGainLoss = (value: number) =>
-    `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-
   // Funzione per attivare/disattivare una serie nella legenda
   const toggleSeries = (key: string) => {
     setHiddenSeries(prev => {
@@ -297,8 +294,7 @@ export default function Dashboard() {
               {formatEUR(dashboard.portfolioValue)}
             </p>
             <p className={`text-lg lg:text-2xl font-bold mt-2 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-              {isPositive ? '+' : ''}{formatEUR(dashboard.totalProfitLoss)}&nbsp;
-              <span>({formatPctGainLoss(dashboard.totalProfitLossPercent)})</span>
+              {isPositive ? '+' : ''}{formatEUR(dashboard.totalProfitLoss)}
             </p>
           </div>
           {/* Variazione del periodo selezionato */}
