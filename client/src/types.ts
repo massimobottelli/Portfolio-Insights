@@ -103,3 +103,46 @@ export interface MovementsResponse {
   data: CashMovementItem[];
   total: number;
 }
+
+export interface AssetDetailOrder {
+  date: string;
+  valueDate: string;
+  type: 'BUY' | 'SELL';
+  quantity: number;
+  price: number | null;
+  amount: number;
+  currency: string;
+  reference: string | null;
+}
+
+export interface AssetDetailDividend {
+  date: string;
+  amount: number;
+  currency: string;
+}
+
+export interface AssetDetailData {
+  asset: {
+    id: string;
+    isin: string;
+    ticker: string;
+    name: string;
+    assetType: string;
+    currency: string;
+  };
+  position: {
+    quantity: number;
+    currentPrice: number | null;
+    priceDate: string | null;
+    averagePrice: number | null;
+    bookValue: number | null;
+    currentValue: number | null;
+    pnl: number | null;
+    pnlPercent: number | null;
+    allocationPercent: number | null;
+    allocationTypePercent: number | null;
+  };
+  orders: AssetDetailOrder[];
+  dividends: AssetDetailDividend[];
+  coupons: AssetDetailDividend[];
+}

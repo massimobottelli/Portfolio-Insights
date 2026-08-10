@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, Loader2 } from 'lucide-react';
 import { ASSET_TYPES } from '@config/assetTypes.js';
 import type { PositionItem, PortfolioResponse } from '../types';
@@ -152,6 +153,7 @@ function AssetTypeDropdown({ assetId, assetType }: { assetId: string; assetType:
 }
 
 export default function Portfolio() {
+  const navigate = useNavigate();
   const [positions, setPositions] = useState<PositionItem[]>([]);
   const [priceDate, setPriceDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -376,10 +378,21 @@ export default function Portfolio() {
                 const gainPercent = calcGainPercent(pos);
                 const totalValue = calcTotalValue(pos);
                 return (
-                  <tr key={pos.asset_id} className="hover:bg-slate-700/30 transition-colors">
+                  <tr
+                    key={pos.asset_id}
+                    className="hover:bg-slate-700/30 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/asset/${pos.asset_id}`)}
+                  >
                     <td className="px-4 py-3 text-sm font-medium text-white">{pos.ticker}</td>
                     <td className="px-4 py-3 text-sm text-slate-400 font-mono">{pos.isin}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">{pos.name}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span
+                        className="text-slate-300 hover:text-white hover:underline cursor-pointer transition-colors"
+                        title="Click per Scheda Asset"
+                      >
+                        {pos.name}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-sm text-right text-white font-medium">
                       {pos.quantity.toLocaleString('it-IT')}
                     </td>

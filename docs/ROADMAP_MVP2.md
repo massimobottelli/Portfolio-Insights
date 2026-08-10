@@ -9,7 +9,6 @@
 Pagina dedicata per ogni singolo strumento finanziario, raggiungibile cliccando su un asset nella tabella Portfolio.
 
 ### Funzionalità
-- **Grafico andamento prezzo**: serie storica del prezzo corrente nel tempo (dai report P_TOTALE importati)
 - **Cronologia ordini**: lista completa degli ordini BUY/SELL per quell'asset
 - **Dividend history**: storico dei dividendi incassati
 - **Performance individuale**: P&L nel tempo per il singolo strumento

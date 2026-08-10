@@ -7,7 +7,8 @@ import {
   getLatestPriceDate,
   getSnapshotHistory,
   getDepositHistory,
-  calculateTWR
+  calculateTWR,
+  getAssetDetail
 } from '../models/analyticsModel.js';
 
 /**
@@ -114,5 +115,26 @@ export function getTWR(req, res) {
     res.json(twr);
   } catch (error) {
     res.status(500).json({ error: 'Errore nel calcolo del TWR', details: error.message });
+  }
+}
+
+/**
+ * GET /api/analytics/asset/:id
+ * Restituisce il dettaglio completo di un singolo asset:
+ * info anagrafiche, posizione corrente, P&L, allocazione,
+ * cronologia ordini e dividendi.
+ */
+export function getAssetDetailHandler(req, res) {
+  try {
+    const { id } = req.params;
+    const detail = getAssetDetail(id);
+
+    if (!detail) {
+      return res.status(404).json({ error: 'Asset non trovato' });
+    }
+
+    res.json(detail);
+  } catch (error) {
+    res.status(500).json({ error: 'Errore nel recupero del dettaglio asset', details: error.message });
   }
 }

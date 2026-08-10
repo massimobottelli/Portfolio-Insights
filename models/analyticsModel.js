@@ -159,6 +159,167 @@ export function getSnapshotHistory() {
 }
 
 /**
+ * Helper: verifica se un asset è un BTP (quotato in percentuale, quantità / 100).
+ * @param {string} name - Nome dell'asset
+ * @param {string} ticker - Ticker dell'asset
+ * @returns {boolean} true se è un BTP
+ */
+const isBtpAsset = (name, ticker) =>
+  name.toLowerCase().includes('btp') || ticker.toLowerCase().includes('btp');
+
+/**
+ * Recupera il dettaglio completo di un singolo asset per la pagina AssetDetail.
+ *
+ * Include:
+ * - Info anagrafiche dell'asset (nome, ISIN, ticker, tipo, valuta)
+ * - Posizione corrente (quantità netta, prezzo corrente, prezzo medio, P&L)
+ * - Percentuali di allocazione (rispetto al portafoglio totale e all'asset type)
+ * - Cronologia ordini BUY/SELL
+ * - Storico dividendi incassati
+ *
+ * @param {string} assetId - ID interno dell'asset (UUID)
+ * @returns {Object|null} Dettaglio completo o null se l'asset non esiste
+ */
+export function getAssetDetail(assetId) {
+  // 1. Info anagrafiche dell'asset
+  const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(assetId);
+  if (!asset) return null;
+
+  // 2. Posizione corrente: quantità netta (BUY - SELL) + ultimo prezzo da P_TOTALE
+  const position = db
+    .prepare(`
+      SELECT
+        SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) AS quantity,
+        ap.current_price,
+        ap.average_price,
+        ap.extraction_date AS price_date
+      FROM market_orders mo
+      LEFT JOIN (
+        SELECT asset_id, current_price, average_price, extraction_date
+        FROM asset_prices
+        WHERE (asset_id, extraction_date) IN (
+          SELECT asset_id, MAX(extraction_date)
+          FROM asset_prices
+          GROUP BY asset_id
+        )
+      ) ap ON ap.asset_id = mo.asset_id
+      WHERE mo.asset_id = ?
+      GROUP BY mo.asset_id, ap.current_price, ap.average_price, ap.extraction_date
+    `)
+    .get(assetId);
+
+  // 3. Cronologia ordini BUY/SELL (ordinata per data decrescente)
+  const orders = db
+    .prepare(`
+      SELECT operation_date, value_date, type, quantity, euro_amount, currency, order_reference
+      FROM market_orders
+      WHERE asset_id = ?
+      ORDER BY operation_date DESC
+    `)
+    .all(assetId);
+
+  // 4. Storico dividendi incassati (ordinato per data decrescente)
+  const dividends = db
+    .prepare(`
+      SELECT operation_date, euro_amount, currency
+      FROM cash_movements
+      WHERE asset_id = ? AND movement_type = 'DIVIDEND'
+      ORDER BY operation_date DESC
+    `)
+    .all(assetId);
+
+  // 4b. Storico cedole incassate (per BOND, mappate come INTEREST)
+  const coupons = db
+    .prepare(`
+      SELECT operation_date, euro_amount, currency
+      FROM cash_movements
+      WHERE asset_id = ? AND movement_type = 'INTEREST'
+      ORDER BY operation_date DESC
+    `)
+    .all(assetId);
+
+  // 5. Calcoli posizione con correzione BTP (quantità / 100)
+  const rawQuantity = position ? position.quantity : 0;
+  const displayQuantity = isBtpAsset(asset.name, asset.ticker) ? rawQuantity / 100 : rawQuantity;
+  const currentPrice = position ? position.current_price : null;
+  const averagePrice = position ? position.average_price : null;
+
+  const bookValue = averagePrice !== null ? displayQuantity * averagePrice : null;
+  const currentValue = currentPrice !== null ? displayQuantity * currentPrice : null;
+  const pnl = bookValue !== null && currentValue !== null ? currentValue - bookValue : null;
+  const pnlPercent =
+    averagePrice !== null && averagePrice > 0 && currentPrice !== null
+      ? ((currentPrice - averagePrice) / averagePrice) * 100
+      : null;
+
+  // 6. Percentuali di allocazione: rispetto al portafoglio totale e all'asset type
+  // Ricalcola i totali dalle posizioni attive (stessa logica di calculateAllocation)
+  const allPositions = calculatePositions();
+  let totalPortfolio = 0;
+  let totalType = 0;
+  for (const p of allPositions) {
+    if (p.current_price === null) continue;
+    const qty = isBtpAsset(p.name, p.ticker) ? p.quantity / 100 : p.quantity;
+    const value = qty * p.current_price;
+    totalPortfolio += value;
+    if (p.asset_type === asset.asset_type) totalType += value;
+  }
+
+  const allocationPercent =
+    currentValue !== null && totalPortfolio > 0
+      ? (currentValue / totalPortfolio) * 100
+      : null;
+  const allocationTypePercent =
+    currentValue !== null && totalType > 0
+      ? (currentValue / totalType) * 100
+      : null;
+
+  return {
+    asset: {
+      id: asset.id,
+      isin: asset.isin,
+      ticker: asset.ticker,
+      name: asset.name,
+      assetType: asset.asset_type,
+      currency: asset.currency
+    },
+    position: {
+      quantity: displayQuantity,
+      currentPrice,
+      priceDate: position ? position.price_date : null,
+      averagePrice,
+      bookValue,
+      currentValue,
+      pnl,
+      pnlPercent,
+      allocationPercent,
+      allocationTypePercent
+    },
+    orders: orders.map(o => ({
+      date: o.operation_date,
+      valueDate: o.value_date,
+      type: o.type,
+      quantity: o.quantity,
+      // Prezzo unitario implicito: importo totale / quantità (valore assoluto)
+      price: o.euro_amount !== 0 ? Math.abs(o.euro_amount / o.quantity) : null,
+      amount: o.euro_amount,
+      currency: o.currency,
+      reference: o.order_reference
+    })),
+    dividends: dividends.map(d => ({
+      date: d.operation_date,
+      amount: d.euro_amount,
+      currency: d.currency
+    })),
+    coupons: coupons.map(c => ({
+      date: c.operation_date,
+      amount: c.euro_amount,
+      currency: c.currency
+    }))
+  };
+}
+
+/**
  * Calcola il Time-Weighted Rate of Return (TWR) del portafoglio.
  * 
  * Metodo:
