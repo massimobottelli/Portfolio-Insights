@@ -157,6 +157,7 @@ export default function Portfolio() {
   const navigate = useNavigate();
   const [positions, setPositions] = useState<PositionItem[]>([]);
   const [priceDate, setPriceDate] = useState<string | null>(null);
+  const [availableCash, setAvailableCash] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -167,6 +168,7 @@ export default function Portfolio() {
       .then((data: PortfolioResponse) => {
         setPositions(data.positions);
         setPriceDate(data.priceDate);
+        setAvailableCash(data.availableCash);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -264,10 +266,12 @@ export default function Portfolio() {
       align === 'right' ? 'text-right' : 'text-left'
     } ${sortKey === key ? 'text-white' : 'text-slate-400'} hover:text-white`;
 
-  // Totali complessivi per la riga di riepilogo
+  // Totali complessivi per la riga di riepilogo.
+  // Il totale "attuale" include la liquidità disponibile (available_cash),
+  // così il totale Asset Class coincide con il Valore Portafoglio della Dashboard.
   const totals = useMemo(() => {
     const carico = assetTypeSummary.reduce((s, g) => s + g.carico, 0);
-    const attuale = assetTypeSummary.reduce((s, g) => s + g.attuale, 0);
+    const attuale = assetTypeSummary.reduce((s, g) => s + g.attuale, 0) + (availableCash ?? 0);
     const gain = attuale - carico;
     return {
       carico,
@@ -276,7 +280,7 @@ export default function Portfolio() {
       gainPercent: carico !== 0 ? (gain / carico) * 100 : null,
       count: assetTypeSummary.reduce((s, g) => s + g.count, 0),
     };
-  }, [assetTypeSummary]);
+  }, [assetTypeSummary, availableCash]);
 
   type SummarySortKey = 'assetType' | 'carico' | 'attuale' | 'gain' | 'gainPercent';
   const [summarySortKey, setSummarySortKey] = useState<SummarySortKey>('attuale');
@@ -509,6 +513,22 @@ export default function Portfolio() {
                     <td className="px-4 py-3 text-sm text-right text-slate-400">{count}</td>
                   </tr>
                 ))}
+                {/* Riga Liquidità: la liquidità disponibile fa parte del portafoglio
+                    e viene inclusa nel totale per coerenza con la Dashboard. */}
+                {availableCash !== null && availableCash > 0 && (
+                  <tr className="bg-slate-800/40">
+                    <td className="px-4 py-3 text-sm">
+                      <span className="inline-block px-2 py-1 rounded-md text-xs font-medium border bg-green-900/30 text-green-300 border-green-700/50">
+                        LIQUIDITÀ
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-slate-400">—</td>
+                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatAmount(availableCash)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-slate-300">—</td>
+                    <td className="px-4 py-3 text-sm text-right text-slate-300">—</td>
+                    <td className="px-4 py-3 text-sm text-right text-slate-400">—</td>
+                  </tr>
+                )}
               </tbody>
               {/* Riga totali complessivi */}
               <tfoot>

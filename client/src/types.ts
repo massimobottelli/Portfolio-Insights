@@ -41,6 +41,7 @@ export interface PositionItem {
 export interface PortfolioResponse {
   positions: PositionItem[];
   priceDate: string | null;
+  availableCash: number | null;
 }
 
 export interface ImportSession {

@@ -1,5 +1,6 @@
 import { db } from '../database.js';
 import { TARGETABLE_ASSET_TYPES } from '../config/assetTypes.js';
+import { calculateCashBalance } from './analyticsModel.js';
 
 /**
  * Helper: verifica se un asset è un BTP (quotato in percentuale, quantità / 100).
@@ -92,9 +93,9 @@ export function saveAllocationTarget(tolerance, targets) {
 /**
  * Calcola l'allocazione attuale del portafoglio per categoria.
  *
- * Base di calcolo: totale = somma(valore mercato posizioni).
- * Il cash disponibile (available_cash) NON viene aggiunto al totale.
- * La categoria CASH include solo asset con tipo CASH.
+ * Base di calcolo: totale = somma(valore mercato posizioni) + liquidità disponibile.
+ * La liquidità (available_cash) viene aggiunta alla categoria CASH e al totale,
+ * così il totale è coerente con il Valore Portafoglio della Dashboard.
  *
  * @returns {{totalValue: number, categories: Array<{assetType: string, value: number, percent: number}>}}
  */
@@ -138,8 +139,12 @@ export function calculateCurrentAllocation() {
     totalPositionsValue += marketValue;
   }
 
-  // 3. Totale = solo valore delle posizioni (il cash NON è incluso)
-  const totalValue = totalPositionsValue;
+  // 3. La liquidità disponibile (available_cash) viene aggiunta alla categoria CASH
+  // e al totale: il portafoglio è composto da posizioni + liquidità.
+  // Questo rende il totale coerente con la Dashboard (Valore Portafoglio).
+  const cashBalance = calculateCashBalance();
+  categoryValues['CASH'] = (categoryValues['CASH'] || 0) + cashBalance;
+  const totalValue = totalPositionsValue + cashBalance;
 
   if (totalValue === 0) {
     return { totalValue: 0, categories: [] };

@@ -446,11 +446,11 @@ export default function Allocation() {
         </div>
       )}
 
-      {/* Totale investito */}
+      {/* Totale portafoglio (posizioni + liquidità) */}
       {current && (
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
           <p className="text-sm text-slate-400">
-            Valore totale investito:{' '}
+            Valore totale portafoglio:{' '}
             <span className="font-semibold text-white">€{formatAmount(current.totalValue)}</span>
           </p>
         </div>

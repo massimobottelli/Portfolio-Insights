@@ -21,12 +21,16 @@ export function getDashboard(req, res) {
     const cashBalance = calculateCashBalance();
     const investedCapital = calculateInvestedCapital();
     const positions = calculatePositions();
+    const allocation = calculateAllocation();
 
-    // Calcolo del valore totale del portafoglio
-    // Se disponibile, usa l'ultimo snapshot; altrimenti calcola dalla liquidità
-    const portfolioValue = latestSnapshot
-      ? latestSnapshot.portfolio_value
-      : cashBalance;
+    // Calcolo del valore totale del portafoglio.
+    // Per coerenza con Portfolio (totale asset class) e Allocation (totale investito),
+    // usa la stessa base di calcolo: somma delle posizioni con correzione BTP (quantità / 100)
+    // più la liquidità disponibile (available_cash).
+    // In precedenza si usava lo snapshot Directa (portfolio_value), che poteva divergere
+    // perché Directa valuta le posizioni con prezzi propri e include la liquidità.
+    const positionsValue = allocation.reduce((sum, p) => sum + p.marketValue, 0);
+    const portfolioValue = positionsValue + cashBalance;
 
     // Profit/Loss assoluto = valore portafoglio - capitale investito
     const totalProfitLoss = portfolioValue - investedCapital;
@@ -57,7 +61,8 @@ export function getPortfolio(req, res) {
   try {
     const positions = calculatePositions();
     const priceDate = getLatestPriceDate();
-    res.json({ positions, priceDate });
+    const availableCash = calculateCashBalance();
+    res.json({ positions, priceDate, availableCash });
   } catch (error) {
     res.status(500).json({ error: 'Errore nel recupero del portafoglio', details: error.message });
   }
