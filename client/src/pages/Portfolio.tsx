@@ -389,20 +389,11 @@ export default function Portfolio() {
                 <th className={thClass('total_value', 'right')} onClick={() => handleSort('total_value')}>
                   Valore{sortArrow('total_value')}
                 </th>
-                <th className={thClass('total_value_eur', 'right')} onClick={() => handleSort('total_value_eur')}>
-                  Valore EUR{sortArrow('total_value_eur')}
-                </th>
                 <th className={thClass('gain_eur', 'right')} onClick={() => handleSort('gain_eur')}>
                   Gain/Loss{sortArrow('gain_eur')}
                 </th>
-                <th className={thClass('gain_eur_eur', 'right')} onClick={() => handleSort('gain_eur_eur')}>
-                  Gain/Loss EUR{sortArrow('gain_eur_eur')}
-                </th>
                 <th className={thClass('gain_percent', 'right')} onClick={() => handleSort('gain_percent')}>
                   Gain/Loss %{sortArrow('gain_percent')}
-                </th>
-                <th className={thClass('currency')} onClick={() => handleSort('currency')}>
-                  Valuta{sortArrow('currency')}
                 </th>
                 <th className={thClass('asset_type')} onClick={() => handleSort('asset_type')}>
                   Tipo{sortArrow('asset_type')}
@@ -412,10 +403,8 @@ export default function Portfolio() {
             <tbody className="divide-y divide-slate-700">
               {sortedPositions.map((pos) => {
                 const gainEur = calcGainEur(pos);
-                const gainEurEUR = calcGainEurEUR(pos);
                 const gainPercent = calcGainPercent(pos);
                 const totalValue = calcTotalValue(pos);
-                const totalValueEUR = calcTotalValueEUR(pos);
                 return (
                   <tr
                     key={pos.asset_id}
@@ -442,21 +431,14 @@ export default function Portfolio() {
                       {formatPrice(pos.average_price)}
                     </td>
                     <td className="px-4 py-3 text-sm text-right text-white font-medium">
-                      {formatAmount(totalValue)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right text-white font-medium">
-                      {formatAmount(totalValueEUR)}
+                      {formatAmount(totalValue)} {pos.currency}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainEur)}`}>
-                      {formatAmount(gainEur)}
-                    </td>
-                    <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainEurEUR)}`}>
-                      {formatAmount(gainEurEUR)}
+                      {formatAmount(gainEur)} 
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainPercent)}`}>
                       {formatPercent(gainPercent)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-400">{pos.currency}</td>
                     <td className="px-4 py-3 text-sm">
                       <AssetTypeDropdown
                         assetId={pos.asset_id}
