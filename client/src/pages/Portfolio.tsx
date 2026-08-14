@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Calendar, Loader2 } from 'lucide-react';
 import { ASSET_TYPES } from '@config/assetTypes.js';
 import type { PositionItem, PortfolioResponse } from '../types';
+import { apiFetch } from '../lib/api';
 
 type SortKey = 'ticker' | 'isin' | 'name' | 'quantity' | 'currency' | 'asset_type' | 'current_price' | 'average_price' | 'total_value' | 'gain_eur' | 'gain_percent';
 type SortDirection = 'asc' | 'desc';
@@ -97,7 +98,7 @@ function AssetTypeDropdown({ assetId, assetType }: { assetId: string; assetType:
     setCurrentType(newType);
     setSaving(true);
     try {
-      const res = await fetch(`/api/assets/${assetId}/type`, {
+      const res = await apiFetch(`/api/assets/${assetId}/type`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assetType: newType }),
@@ -161,7 +162,7 @@ export default function Portfolio() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   useEffect(() => {
-    fetch('/api/analytics/portfolio')
+    apiFetch('/api/analytics/portfolio')
       .then(r => r.json())
       .then((data: PortfolioResponse) => {
         setPositions(data.positions);

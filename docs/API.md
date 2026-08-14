@@ -14,12 +14,35 @@ L'applicazione espone un'API REST JSON per la gestione del portafoglio finanziar
 http://localhost:3000/api
 ```
 
+### Autenticazione
+
+Tutti gli endpoint `/api/*` (tranne `/api/auth/check`) richiedono un **API Token**:
+
+- Header: `Authorization: Bearer <token>`
+- Il token viene generato automaticamente all'avvio del server e stampato nella console (o configurato via variabile d'ambiente `API_TOKEN`)
+- Se il token non è valido o manca → `401 { "error": "Autenticazione richiesta" }`
+- Il token viene salvato in `db/.api-token` (permessi 600) se generato automaticamente
+
+**Esempio:**
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/analytics/dashboard
+```
+
+### Endpoint di Verifica Token
+
+| Metodo | Percorso | Descrizione |
+|---|---|---|
+| GET | `/api/auth/check` | Verifica se il token è valido (NON protetto, usato per il login) |
+
+**Rate limiting:** `/api/auth/check` è limitato a 5 richieste/minuto per IP (anti brute-force). Oltre il limite → `429`.
+
 ### Convenzioni
 
 - **Formato dati:** JSON (`Content-Type: application/json`)
 - **Date:** formato ISO `YYYY-MM-DD`
 - **Valori monetari:** numeri decimali (es. `230758.56`)
 - **Errori:** risposta JSON con campo `error` (e opzionalmente `details`)
+- **Cache:** tutte le risposte API includono `Cache-Control: no-store` (dati finanziari sensibili)
 
 ### Struttura delle Route
 
@@ -720,7 +743,9 @@ Restituisce la lista dei ticker distinti presenti nei `cash_movements`, utile pe
 |---|---|---|
 | `200` | Successo | Dati richiesti |
 | `400` | Richiesta non valida (parametri mancanti o non validi) | `{ "error": "...", "details": "..." }` |
+| `401` | Autenticazione richiesta o token non valido | `{ "error": "Autenticazione richiesta" }` |
 | `404` | Risorsa non trovata | `{ "error": "Asset non trovato" }` |
+| `429` | Troppe richieste (rate limit su `/api/auth/check`) | `{ "error": "Troppi tentativi di accesso..." }` |
 | `500` | Errore interno del server | `{ "error": "...", "details": "..." }` |
 
 ### Esempi di Errori
@@ -763,58 +788,68 @@ Restituisce la lista dei ticker distinti presenti nei `cash_movements`, utile pe
 
 ## 8. Esempi di Utilizzo (cURL)
 
+> **Nota:** Tutti gli endpoint richiedono l'header `Authorization: Bearer <token>`.
+> Sostituisci `<token>` con il token API generato all'avvio del server.
+
+### Verifica Token
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/auth/check
+```
+
 ### Dashboard
 
 ```bash
-curl http://localhost:3000/api/analytics/dashboard
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/analytics/dashboard
 ```
 
 ### Portafoglio
 
 ```bash
-curl http://localhost:3000/api/analytics/portfolio
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/analytics/portfolio
 ```
 
 ### Allocazione
 
 ```bash
-curl http://localhost:3000/api/analytics/allocation
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/analytics/allocation
 ```
 
 ### Storico
 
 ```bash
-curl http://localhost:3000/api/analytics/history
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/analytics/history
 ```
 
 ### TWR
 
 ```bash
-curl http://localhost:3000/api/analytics/twr
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/analytics/twr
 ```
 
 ### Dettaglio Asset
 
 ```bash
-curl http://localhost:3000/api/analytics/asset/<asset_id>
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/analytics/asset/<asset_id>
 ```
 
 ### Lista Asset
 
 ```bash
-curl http://localhost:3000/api/assets
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/assets
 ```
 
 ### Asset per ISIN
 
 ```bash
-curl http://localhost:3000/api/assets/by-isin/IE00BDFL4P12
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/assets/by-isin/IE00BDFL4P12
 ```
 
 ### Classificazione Manuale Asset
 
 ```bash
 curl -X PATCH http://localhost:3000/api/assets/<asset_id>/type \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"assetType": "ETF"}'
 ```
@@ -823,6 +858,7 @@ curl -X PATCH http://localhost:3000/api/assets/<asset_id>/type \
 
 ```bash
 curl -X POST http://localhost:3000/api/import \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"fileContent": "CSV text...", "filename": "Movimenti.csv"}'
 ```
@@ -830,13 +866,14 @@ curl -X POST http://localhost:3000/api/import \
 ### Sessioni di Import
 
 ```bash
-curl http://localhost:3000/api/import/sessions
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/import/sessions
 ```
 
 ### Svuota Database
 
 ```bash
 curl -X DELETE http://localhost:3000/api/import/clear \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"confirm": true}'
 ```
@@ -844,13 +881,13 @@ curl -X DELETE http://localhost:3000/api/import/clear \
 ### Movimenti con Filtri
 
 ```bash
-curl "http://localhost:3000/api/movements?type=DIVIDEND&startDate=2025-01-01&sortBy=euro_amount&sortOrder=desc"
+curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/movements?type=DIVIDEND&startDate=2025-01-01&sortBy=euro_amount&sortOrder=desc"
 ```
 
 ### Simboli Movimenti
 
 ```bash
-curl http://localhost:3000/api/movements/symbols
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/movements/symbols
 ```
 
 ---

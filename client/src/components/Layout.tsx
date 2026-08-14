@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, BarChart3, ArrowLeftRight, Download } from 'lucide-react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, BarChart3, ArrowLeftRight, Download, LogOut } from 'lucide-react';
+import { clearToken } from '../lib/api';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -21,6 +22,7 @@ function useIsMobile() {
 }
 
 export default function Layout() {
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState<boolean>(() =>
     localStorage.getItem('sidebarCollapsed') === 'true'
   );
@@ -38,6 +40,12 @@ export default function Layout() {
   // Chiudi il menu mobile quando si naviga
   const handleNavClick = () => {
     setMobileOpen(false);
+  };
+
+  // Logout: rimuove il token e reindirizza al login
+  const handleLogout = () => {
+    clearToken();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -117,8 +125,17 @@ export default function Layout() {
 
         {/* Footer — nascosto quando sidebar chiusa su desktop */}
         {showFull && (
-          <div className="p-4 border-t border-slate-700 text-xs text-slate-500">
-            MVP1 v1.0.0
+          <div className="p-4 border-t border-slate-700 space-y-2">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+            >
+              <LogOut size={18} />
+              <span>Esci</span>
+            </button>
+            <div className="text-xs text-slate-500">
+              MVP1 v1.0.0
+            </div>
           </div>
         )}
       </aside>

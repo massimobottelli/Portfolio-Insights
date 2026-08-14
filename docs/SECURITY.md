@@ -6,16 +6,40 @@ Ho analizzato l'intera codebase: backend Express (controllers, models, routes, p
 
 ## 🚨 CRITICITÀ GRAVI (Rischio Alto)
 
-### 1. Nessuna Autenticazione / Autorizzazione su TUTTI gli endpoint
-L'applicazione espone tutte le API **senza alcuna autenticazione**:
-- `GET /api/analytics/*`, `GET /api/assets`, `GET /api/movements` → **chiunque legge tutti i dati finanziari** (patrimonio, ISIN, quantità, P&L, nome utente del conto Directa)
-- `PATCH /api/assets/:id/type` → modifica dati
-- `POST /api/import` → **iniezione di dati falsi arbitrari** (ordini, depositi, prezzi) che corrompono tutti gli analytics
-- `DELETE /api/import/clear` → **cancellazione totale e irreversibile del database** con un semplice `{"confirm": true}`
+### 1. ~~Nessuna Autenticazione / Autorizzazione su TUTTI gli endpoint~~ ✅ RISOLTO
+**Stato:** Risolto il 14/08/2026.
 
-**Impatto:** Lo script `install-debian.sh` espone deliberatamente l'app su `http://<SERVER_IP>:3000` sulla rete. Qualsiasi host sulla rete (o su Internet se la porta è aperta) può leggere il patrimonio dell'utente e cancellare il database.
+**Soluzione implementata:**
+- **API Token** con header `Authorization: Bearer <token>` su TUTTI gli endpoint `/api/*` (tranne `/api/auth/check`)
+- Token generato automaticamente all'avvio (256 bit, salvato in `db/.api-token` con permessi 600) o configurato via env `API_TOKEN`
+- Confronto **timing-safe** (SHA-256 + `crypto.timingSafeEqual`) contro timing attacks
+- **Rate limiting** (5 richieste/minuto) su `/api/auth/check` per proteggere da brute-force
+- **`Cache-Control: no-store`** sulle risposte API (dati finanziari sensibili)
+- **Frontend:** pagina di login, routing protetto, `apiFetch` helper con redirect automatico a `/login` su 401, pulsante logout
+- **Deployment Debian:** token generato in `install-debian.sh` e caricato via `EnvironmentFile` nel systemd service
 
-**Severity: CRITICA**
+**File modificati:**
+- `config/auth.js` (nuovo) — gestione token
+- `middleware/authMiddleware.js` (nuovo) — verifica token
+- `middleware/rateLimit.js` (nuovo) — rate limiter nativo
+- `routes/authRoutes.js` (nuovo) — endpoint `/api/auth/check`
+- `app.js` — middleware applicato a tutte le rotte API
+- `client/src/lib/api.ts` (nuovo) — helper fetch con token
+- `client/src/pages/Login.tsx` (nuovo) — pagina di login
+- `client/src/App.tsx` — routing protetto
+- Tutte le pagine frontend — uso di `apiFetch`
+- `client/src/components/Layout.tsx` — pulsante logout
+- `scripts/install-debian.sh` / `scripts/update-debian.sh` — generazione token + systemd
+- `docs/API.md` — documentazione aggiornata
+
+**Test eseguiti:**
+- Senza token → `401`
+- Token valido → `200`
+- Token invalido → `401`
+- Rate limit: 5 richieste OK, 6ª → `429`
+- Tutti gli endpoint protetti rispondono `200` con token
+- Build frontend TypeScript senza errori
+- SPA fallback (`/login`) funzionante
 
 ---
 

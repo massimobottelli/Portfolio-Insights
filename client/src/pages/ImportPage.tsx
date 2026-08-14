@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import type { ImportSession, ImportResponse } from '../types';
+import { apiFetch } from '../lib/api';
 
 export default function ImportPage() {
   const [sessions, setSessions] = useState<ImportSession[]>([]);
@@ -10,7 +11,7 @@ export default function ImportPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadSessions = () => {
-    fetch('/api/import/sessions')
+    apiFetch('/api/import/sessions')
       .then(r => r.json())
       .then(data => setSessions(data))
       .catch(console.error);
@@ -30,7 +31,7 @@ export default function ImportPage() {
     try {
       const fileContent = await file.text();
 
-      const response = await fetch('/api/import', {
+      const response = await apiFetch('/api/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -72,7 +73,7 @@ export default function ImportPage() {
     setShowConfirm(false);
 
     try {
-      const response = await fetch('/api/import/clear', {
+      const response = await apiFetch('/api/import/clear', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ confirm: true }),
