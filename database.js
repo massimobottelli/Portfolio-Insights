@@ -150,6 +150,48 @@ export function initializeDatabase() {
       console.log(`🔄 Migrazione asset type: ${migrated.changes} asset con tipi decommissionati assegnati a UNKNOWN`);
     }
 
+    // Migrazione: aggiunge la FK da assets.asset_type a asset_types.name (se non già presente).
+    // SQLite non permette di aggiungere una FK a una tabella esistente senza ricrearla,
+    // quindi ricreiamo la tabella assets preservando i dati.
+    const fkList = db.prepare('PRAGMA foreign_key_list(assets)').all();
+    const hasAssetTypeFk = fkList.some(fk => fk.table === 'asset_types');
+    if (!hasAssetTypeFk) {
+      console.log('🔄 Migrazione tabella assets: aggiunta FK verso asset_types...');
+      // PRAGMA foreign_keys è un no-op dentro una transazione: va disabilitato PRIMA di BEGIN.
+      db.exec('PRAGMA foreign_keys = OFF;');
+      db.exec('BEGIN;');
+      try {
+        db.exec(`
+          CREATE TABLE assets_new (
+            id TEXT PRIMARY KEY,
+            isin TEXT UNIQUE NOT NULL,
+            ticker TEXT NOT NULL,
+            name TEXT NOT NULL,
+            currency TEXT NOT NULL,
+            asset_type TEXT NOT NULL DEFAULT 'UNKNOWN',
+            exchange TEXT,
+            directa_code TEXT,
+            FOREIGN KEY (asset_type) REFERENCES asset_types(name)
+          );
+        `);
+        db.exec(`
+          INSERT INTO assets_new (id, isin, ticker, name, currency, asset_type, exchange, directa_code)
+          SELECT id, isin, ticker, name, currency, asset_type, exchange, directa_code FROM assets;
+        `);
+        db.exec('DROP TABLE assets;');
+        db.exec('ALTER TABLE assets_new RENAME TO assets;');
+        db.exec('COMMIT;');
+      } catch (error) {
+        db.exec('ROLLBACK;');
+        throw error;
+      } finally {
+        db.exec('PRAGMA foreign_keys = ON;');
+      }
+      // Ricrea l'indice su isin (eliminato dal DROP TABLE)
+      db.exec('CREATE INDEX IF NOT EXISTS idx_assets_isin ON assets(isin);');
+      console.log('✅ Migrazione tabella assets completata');
+    }
+
     console.log('✅ Database pronto e tabelle/indici verificati con successo!');
   } catch (error) {
     console.error("❌ Errore durante l'inizializzazione del database:", error);

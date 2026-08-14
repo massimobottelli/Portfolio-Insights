@@ -1,4 +1,4 @@
-Taimport { db } from '../database.js';
+import { db } from '../database.js';
 import { TARGETABLE_ASSET_TYPES } from '../config/assetTypes.js';
 
 /**
