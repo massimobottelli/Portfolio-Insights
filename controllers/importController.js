@@ -9,9 +9,8 @@ import { parseDirectaCSV, parseDirectaHistoryCSV, parseDirectaPortfolioCSV, dete
  * Riceve un file CSV (come testo) e lo processa, creando automaticamente
  * gli asset, gli ordini e i movimenti di cassa necessari.
  *
- * Il body della richiesta può essere:
+ * Il body della richiesta deve essere:
  * - { fileContent: "CSV text...", filename: "report.csv" } — CSV come stringa
- * - { fileType: "orders", records: [...] } — formato legacy (JSON pre-parsato)
  */
 export function importFile(req, res) {
   try {
@@ -19,39 +18,39 @@ export function importFile(req, res) {
     let records;
     let filename = req.body.filename || 'unknown.csv';
 
-    // Se riceviamo fileContent, usiamo il parser CSV nativo
-    if (req.body.fileContent) {
-      const firstLines = req.body.fileContent.split(/\r?\n/).slice(0, 7);
-
-      // Rilevamento automatico: il report "Patrimonio Totale" ha una riga con "PATRIMONIO"
-      const isHistoryReport = firstLines.some(line => line.includes('PATRIMONIO'));
-      // Il report "Portafoglio Corrente" (P_TOTALE) inizia con "Portafoglio : TOTALE"
-      const isPortfolioReport = firstLines.some(line => line.includes('Portafoglio : TOTALE'));
-
-      if (isHistoryReport) {
-        const parsed = parseDirectaHistoryCSV(req.body.fileContent);
-        fileType = 'history';
-        records = parsed.snapshots;
-      } else if (isPortfolioReport) {
-        const parsed = parseDirectaPortfolioCSV(req.body.fileContent);
-        fileType = 'portfolio';
-        records = parsed.records;
-        // Salva la data di estrazione per usarla nel processPortfolioRecord
-        req._extractionDate = parsed.header.extractionDate;
-      } else {
-        const parsed = parseDirectaCSV(req.body.fileContent);
-        fileType = detectFileType(parsed.header);
-        records = parsed.records;
-      }
-    } else if (req.body.fileType && Array.isArray(req.body.records)) {
-      // Formato legacy: JSON pre-parsato
-      fileType = req.body.fileType;
-      records = req.body.records;
-    } else {
+    // Il formato legacy { fileType, records } è stato rimosso per motivi di sicurezza:
+    // accettava JSON arbitrario senza validazione, permettendo l'iniezione di
+    // dati corrotti (Infinity, tipi sbagliati, date non normalizzate) e DoS.
+    // Tutti i dati passano obbligatoriamente dal parser CSV che normalizza
+    // date, numeri e stringhe in modo deterministico.
+    if (!req.body.fileContent) {
       return res.status(400).json({
         error: 'Richiesta non valida',
-        details: 'Sono richiesti fileContent (CSV) oppure fileType e records (array)'
+        details: 'È richiesto fileContent (CSV come stringa)'
       });
+    }
+
+    const firstLines = req.body.fileContent.split(/\r?\n/).slice(0, 7);
+
+    // Rilevamento automatico: il report "Patrimonio Totale" ha una riga con "PATRIMONIO"
+    const isHistoryReport = firstLines.some(line => line.includes('PATRIMONIO'));
+    // Il report "Portafoglio Corrente" (P_TOTALE) inizia con "Portafoglio : TOTALE"
+    const isPortfolioReport = firstLines.some(line => line.includes('Portafoglio : TOTALE'));
+
+    if (isHistoryReport) {
+      const parsed = parseDirectaHistoryCSV(req.body.fileContent);
+      fileType = 'history';
+      records = parsed.snapshots;
+    } else if (isPortfolioReport) {
+      const parsed = parseDirectaPortfolioCSV(req.body.fileContent);
+      fileType = 'portfolio';
+      records = parsed.records;
+      // Salva la data di estrazione per usarla nel processPortfolioRecord
+      req._extractionDate = parsed.header.extractionDate;
+    } else {
+      const parsed = parseDirectaCSV(req.body.fileContent);
+      fileType = detectFileType(parsed.header);
+      records = parsed.records;
     }
 
     // Crea una sessione di import per tracciabilità
