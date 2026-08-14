@@ -1,4 +1,5 @@
 import { db } from '../database.js';
+import { getExchangeRate } from '../utils/currencyService.js';
 
 /**
  * Calcola la liquidità corrente leggendo il campo available_cash
@@ -29,8 +30,8 @@ export function calculateInvestedCapital() {
  * Include prezzo corrente e prezzo medio di carico dalla tabella asset_prices.
  * @returns {Array} Posizioni attive (solo quantità > 0)
  */
-export function calculatePositions() {
-  return db
+export async function calculatePositions() {
+  const positions = db
     .prepare(`
       SELECT
         a.id AS asset_id,
@@ -59,6 +60,25 @@ export function calculatePositions() {
       ORDER BY a.name ASC
     `)
     .all();
+
+  // Conversione prezzi in EUR con il tasso di cambio odierno (ECB).
+  // I prezzi originali restano invariati; vengono aggiunti i campi *_eur.
+  const currencies = [...new Set(positions.map(p => p.currency).filter(c => c && c !== 'EUR'))];
+  const rates = {};
+  for (const currency of currencies) {
+    const rate = await getExchangeRate(currency);
+    if (rate !== null) rates[currency] = rate;
+  }
+
+  return positions.map(p => {
+    const rate = p.currency && rates[p.currency] ? rates[p.currency] : null;
+    const convert = (value) => (value !== null && value !== undefined && rate) ? value / rate : null;
+    return {
+      ...p,
+      current_price_eur: p.current_price !== null ? convert(p.current_price) : null,
+      average_price_eur: p.average_price !== null ? convert(p.average_price) : null
+    };
+  });
 }
 
 /**
@@ -87,17 +107,22 @@ const isBtp = (pos) =>
  * (quantità × prezzo corrente), con la correzione BTP (quantità / 100).
  * @returns {Array} Posizioni con percentuale di allocazione
  */
-export function calculateAllocation() {
-  const positions = calculatePositions();
+export async function calculateAllocation() {
+  const positions = await calculatePositions();
 
-  // Trasforma le quantità (BTP / 100) e calcola il valore di mercato
+  // Trasforma le quantità (BTP / 100) e calcola il valore di mercato.
+  // marketValue è in EUR (prezzo convertito); marketValueOriginal mantiene
+  // il valore nella valuta di quotazione dell'asset per trasparenza.
   // Esclude gli asset senza prezzo corrente (current_price null)
   const enriched = positions
     .filter(p => p.current_price !== null)
     .map(p => {
       const quantity = isBtp(p) ? p.quantity / 100 : p.quantity;
-      const marketValue = quantity * p.current_price;
-      return { ...p, quantity, marketValue };
+      // Il prezzo convertito è quasi sempre disponibile; fallback al prezzo originale
+      const priceEUR = p.current_price_eur ?? p.current_price;
+      const marketValue = quantity * priceEUR;
+      const marketValueOriginal = quantity * p.current_price;
+      return { ...p, quantity, marketValue, marketValueOriginal };
     })
     // Ordina per valore di mercato decrescente
     .sort((a, b) => b.marketValue - a.marketValue);
@@ -180,7 +205,7 @@ const isBtpAsset = (name, ticker) =>
  * @param {string} assetId - ID interno dell'asset (UUID)
  * @returns {Object|null} Dettaglio completo o null se l'asset non esiste
  */
-export function getAssetDetail(assetId) {
+export async function getAssetDetail(assetId) {
   // 1. Info anagrafiche dell'asset
   const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(assetId);
   if (!asset) return null;
@@ -239,6 +264,8 @@ export function getAssetDetail(assetId) {
     .all(assetId);
 
   // 5. Calcoli posizione con correzione BTP (quantità / 100)
+  // I valori in valuta originale (bookValue, currentValue, pnl) restano invariati;
+  // vengono aggiunti i corrispondenti valori EUR convertiti col cambio odierno.
   const rawQuantity = position ? position.quantity : 0;
   const displayQuantity = isBtpAsset(asset.name, asset.ticker) ? rawQuantity / 100 : rawQuantity;
   const currentPrice = position ? position.current_price : null;
@@ -252,26 +279,40 @@ export function getAssetDetail(assetId) {
       ? ((currentPrice - averagePrice) / averagePrice) * 100
       : null;
 
-  // 6. Percentuali di allocazione: rispetto al portafoglio totale e all'asset type
-  // Ricalcola i totali dalle posizioni attive (stessa logica di calculateAllocation)
-  const allPositions = calculatePositions();
+  // Conversione in EUR dei valori di posizione (solo per asset non-EUR)
+  const rate = asset.currency && asset.currency !== 'EUR'
+    ? await getExchangeRate(asset.currency)
+    : 1;
+  const convert = (value) =>
+    (value !== null && value !== undefined && rate) ? value / rate : null;
+  const bookValueEUR = convert(bookValue);
+  const currentValueEUR = convert(currentValue);
+  const pnlEUR = bookValueEUR !== null && currentValueEUR !== null
+    ? currentValueEUR - bookValueEUR
+    : null;
+
+  // 6. Percentuali di allocazione: rispetto al portafoglio totale e all'asset type.
+  // I totali sono calcolati sui valori convertiti in EUR (stessa base di calculateAllocation).
+  const allPositions = await calculatePositions();
   let totalPortfolio = 0;
   let totalType = 0;
   for (const p of allPositions) {
     if (p.current_price === null) continue;
     const qty = isBtpAsset(p.name, p.ticker) ? p.quantity / 100 : p.quantity;
-    const value = qty * p.current_price;
+    // Usa il prezzo convertito in EUR (fallback al prezzo originale se non disponibile)
+    const priceEUR = p.current_price_eur ?? p.current_price;
+    const value = qty * priceEUR;
     totalPortfolio += value;
     if (p.asset_type === asset.asset_type) totalType += value;
   }
 
   const allocationPercent =
-    currentValue !== null && totalPortfolio > 0
-      ? (currentValue / totalPortfolio) * 100
+    currentValueEUR !== null && totalPortfolio > 0
+      ? (currentValueEUR / totalPortfolio) * 100
       : null;
   const allocationTypePercent =
-    currentValue !== null && totalType > 0
-      ? (currentValue / totalType) * 100
+    currentValueEUR !== null && totalType > 0
+      ? (currentValueEUR / totalType) * 100
       : null;
 
   return {
@@ -292,6 +333,10 @@ export function getAssetDetail(assetId) {
       currentValue,
       pnl,
       pnlPercent,
+      // Valori convertiti in EUR (solo per asset non-EUR)
+      bookValueEUR,
+      currentValueEUR,
+      pnlEUR,
       allocationPercent,
       allocationTypePercent
     },

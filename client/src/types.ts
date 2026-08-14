@@ -21,7 +21,10 @@ export interface AllocationItem {
   current_price: number;
   average_price: number;
   price_date: string;
+  current_price_eur: number | null;
+  average_price_eur: number | null;
   marketValue: number;
+  marketValueOriginal: number;
   allocationPercent: number;
 }
 
@@ -35,6 +38,8 @@ export interface PositionItem {
   quantity: number;
   current_price: number | null;
   average_price: number | null;
+  current_price_eur: number | null;
+  average_price_eur: number | null;
   price_date: string | null;
 }
 
@@ -174,6 +179,11 @@ export interface RebalanceResponse {
   suggestions: RebalanceSuggestion[];
 }
 
+export interface ExchangeRateResponse {
+  date: string;
+  rates: Record<string, number>;
+}
+
 export interface AssetDetailData {
   asset: {
     id: string;
@@ -192,6 +202,9 @@ export interface AssetDetailData {
     currentValue: number | null;
     pnl: number | null;
     pnlPercent: number | null;
+    bookValueEUR: number | null;
+    currentValueEUR: number | null;
+    pnlEUR: number | null;
     allocationPercent: number | null;
     allocationTypePercent: number | null;
   };

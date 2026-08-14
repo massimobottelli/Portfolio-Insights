@@ -10,25 +10,25 @@ import {
   calculateTWR,
   getAssetDetail
 } from '../models/analyticsModel.js';
+import { getRatesForCurrencies } from '../utils/currencyService.js';
 
 /**
  * GET /api/analytics/dashboard
  * Restituisce i KPI principali per la Dashboard.
  */
-export function getDashboard(req, res) {
+export async function getDashboard(req, res) {
   try {
     const latestSnapshot = getLatestSnapshot();
     const cashBalance = calculateCashBalance();
     const investedCapital = calculateInvestedCapital();
-    const positions = calculatePositions();
-    const allocation = calculateAllocation();
+    const positions = await calculatePositions();
+    const allocation = await calculateAllocation();
 
     // Calcolo del valore totale del portafoglio.
     // Per coerenza con Portfolio (totale asset class) e Allocation (totale investito),
     // usa la stessa base di calcolo: somma delle posizioni con correzione BTP (quantità / 100)
     // più la liquidità disponibile (available_cash).
-    // In precedenza si usava lo snapshot Directa (portfolio_value), che poteva divergere
-    // perché Directa valuta le posizioni con prezzi propri e include la liquidità.
+    // I marketValue sono già convertiti in EUR dal model.
     const positionsValue = allocation.reduce((sum, p) => sum + p.marketValue, 0);
     const portfolioValue = positionsValue + cashBalance;
 
@@ -57,9 +57,9 @@ export function getDashboard(req, res) {
  * Restituisce la lista delle posizioni attive nel portafoglio,
  * con prezzo corrente, prezzo medio di carico e data di aggiornamento.
  */
-export function getPortfolio(req, res) {
+export async function getPortfolio(req, res) {
   try {
-    const positions = calculatePositions();
+    const positions = await calculatePositions();
     const priceDate = getLatestPriceDate();
     const availableCash = calculateCashBalance();
     res.json({ positions, priceDate, availableCash });
@@ -72,9 +72,9 @@ export function getPortfolio(req, res) {
  * GET /api/analytics/allocation
  * Restituisce l'allocazione percentuale del portafoglio.
  */
-export function getAllocation(req, res) {
+export async function getAllocation(req, res) {
   try {
-    const allocation = calculateAllocation();
+    const allocation = await calculateAllocation();
     res.json(allocation);
   } catch (error) {
     res.status(500).json({ error: 'Errore nel calcolo dell\'allocazione', details: error.message });
@@ -129,10 +129,10 @@ export function getTWR(req, res) {
  * info anagrafiche, posizione corrente, P&L, allocazione,
  * cronologia ordini e dividendi.
  */
-export function getAssetDetailHandler(req, res) {
+export async function getAssetDetailHandler(req, res) {
   try {
     const { id } = req.params;
-    const detail = getAssetDetail(id);
+    const detail = await getAssetDetail(id);
 
     if (!detail) {
       return res.status(404).json({ error: 'Asset non trovato' });
@@ -141,5 +141,21 @@ export function getAssetDetailHandler(req, res) {
     res.json(detail);
   } catch (error) {
     res.status(500).json({ error: 'Errore nel recupero del dettaglio asset', details: error.message });
+  }
+}
+
+/**
+ * GET /api/analytics/rates
+ * Restituisce i tassi di cambio odierni usati per la conversione in EUR.
+ * Fonte: ECB Data Portal (SDMX 2.1).
+ */
+export async function getRates(req, res) {
+  try {
+    const positions = await calculatePositions();
+    const currencies = positions.map(p => p.currency);
+    const rates = await getRatesForCurrencies(currencies);
+    res.json(rates);
+  } catch (error) {
+    res.status(500).json({ error: 'Errore nel recupero dei tassi di cambio', details: error.message });
   }
 }

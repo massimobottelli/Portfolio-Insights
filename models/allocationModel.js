@@ -1,6 +1,7 @@
 import { db } from '../database.js';
 import { TARGETABLE_ASSET_TYPES } from '../config/assetTypes.js';
 import { calculateCashBalance } from './analyticsModel.js';
+import { getExchangeRate } from '../utils/currencyService.js';
 
 /**
  * Helper: verifica se un asset è un BTP (quotato in percentuale, quantità / 100).
@@ -99,7 +100,7 @@ export function saveAllocationTarget(tolerance, targets) {
  *
  * @returns {{totalValue: number, categories: Array<{assetType: string, value: number, percent: number}>}}
  */
-export function calculateCurrentAllocation() {
+export async function calculateCurrentAllocation() {
   // 1. Posizioni attive con prezzo corrente (stessa logica di analyticsModel.calculatePositions)
   const positions = db
     .prepare(`
@@ -108,6 +109,7 @@ export function calculateCurrentAllocation() {
         a.name,
         a.ticker,
         a.asset_type,
+        a.currency,
         SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) AS quantity,
         ap.current_price AS current_price
       FROM market_orders mo
@@ -121,19 +123,34 @@ export function calculateCurrentAllocation() {
           GROUP BY asset_id
         )
       ) ap ON ap.asset_id = a.id
-      GROUP BY a.id, a.name, a.ticker, a.asset_type, ap.current_price
+      GROUP BY a.id, a.name, a.ticker, a.asset_type, a.currency, ap.current_price
       HAVING quantity > 0
     `)
     .all();
 
-  // 2. Valore di mercato per posizione (con correzione BTP)
+  // 2. Valore di mercato per posizione (con correzione BTP), convertito in EUR.
+  // I prezzi sono in valuta di quotazione: per gli asset non-EUR si usa
+  // il tasso di cambio odierno ECB. Se il tasso non è disponibile,
+  // l'asset viene escluso dal totale (non distorce l'allocazione).
   const categoryValues = {};
   let totalPositionsValue = 0;
 
+  const nonEurCurrencies = [...new Set(positions.map(p => p.currency).filter(c => c && c !== 'EUR'))];
+  const rates = {};
+  for (const currency of nonEurCurrencies) {
+    const rate = await getExchangeRate(currency);
+    if (rate !== null) rates[currency] = rate;
+  }
+
   for (const pos of positions) {
     if (pos.current_price === null) continue;
+    // Se l'asset è in valuta estera ma il tasso non è disponibile, salta
+    if (pos.currency && pos.currency !== 'EUR' && !rates[pos.currency]) continue;
     const qty = isBtpAsset(pos.name, pos.ticker) ? pos.quantity / 100 : pos.quantity;
-    const marketValue = qty * pos.current_price;
+    const priceEUR = pos.currency && pos.currency !== 'EUR'
+      ? pos.current_price / rates[pos.currency]
+      : pos.current_price;
+    const marketValue = qty * priceEUR;
     const type = pos.asset_type || 'UNKNOWN';
     categoryValues[type] = (categoryValues[type] || 0) + marketValue;
     totalPositionsValue += marketValue;
@@ -173,8 +190,8 @@ export function calculateCurrentAllocation() {
  * Calcola le divergenze tra allocazione attuale e target.
  * @returns {Array<{assetType: string, currentPercent: number, targetPercent: number, divergencePercent: number, divergenceAmount: number}>}
  */
-export function calculateDivergences() {
-  const current = calculateCurrentAllocation();
+export async function calculateDivergences() {
+  const current = await calculateCurrentAllocation();
   const target = getAllocationTargets();
 
   const currentMap = {};
@@ -211,8 +228,8 @@ export function calculateDivergences() {
  *
  * @returns {Array<{assetType: string, action: 'BUY'|'SELL', amount: number, divergencePercent: number}>}
  */
-export function calculateRebalancingSuggestions() {
-  const divergences = calculateDivergences();
+export async function calculateRebalancingSuggestions() {
+  const divergences = await calculateDivergences();
   const { tolerance } = getAllocationTargets();
 
   return divergences

@@ -5,7 +5,7 @@ import { ASSET_TYPES } from '@config/assetTypes.js';
 import type { PositionItem, PortfolioResponse } from '../types';
 import { apiFetch } from '../lib/api';
 
-type SortKey = 'ticker' | 'isin' | 'name' | 'quantity' | 'currency' | 'asset_type' | 'current_price' | 'average_price' | 'total_value' | 'gain_eur' | 'gain_percent';
+type SortKey = 'ticker' | 'isin' | 'name' | 'quantity' | 'currency' | 'asset_type' | 'current_price' | 'average_price' | 'total_value' | 'total_value_eur' | 'gain_eur' | 'gain_eur_eur' | 'gain_percent';
 type SortDirection = 'asc' | 'desc';
 
 // I BTP (Buoni del Tesoro Poliennali) sono quotati in percentuale (es. 102.50),
@@ -54,11 +54,22 @@ const gainColorClass = (value: number | null) => {
 };
 
 /**
- * Calcola il gain in valuta: (prezzo_attuale - prezzo_medio) × quantità
+ * Calcola il gain in valuta originale: (prezzo_attuale - prezzo_medio) × quantità
  */
 const calcGainEur = (pos: PositionItem) => {
   if (pos.current_price === null || pos.average_price === null) return null;
   return (pos.current_price - pos.average_price) * pos.quantity;
+};
+
+/**
+ * Calcola il gain in EUR: usa i prezzi convertiti dal backend
+ * (fallback al prezzo originale se la conversione non è disponibile).
+ */
+const calcGainEurEUR = (pos: PositionItem) => {
+  const cur = pos.current_price_eur ?? pos.current_price;
+  const avg = pos.average_price_eur ?? pos.average_price;
+  if (cur === null || avg === null) return null;
+  return (cur - avg) * pos.quantity;
 };
 
 /**
@@ -70,11 +81,20 @@ const calcGainPercent = (pos: PositionItem) => {
 };
 
 /**
- * Calcola il valore totale: quantità × prezzo attuale
+ * Calcola il valore totale in valuta originale: quantità × prezzo attuale
  */
 const calcTotalValue = (pos: PositionItem) => {
   if (pos.current_price === null) return null;
   return pos.current_price * pos.quantity;
+};
+
+/**
+ * Calcola il valore totale in EUR: quantità × prezzo attuale convertito
+ */
+const calcTotalValueEUR = (pos: PositionItem) => {
+  const price = pos.current_price_eur ?? pos.current_price;
+  if (price === null) return null;
+  return price * pos.quantity;
 };
 
 /**
@@ -186,7 +206,9 @@ export default function Portfolio() {
             ...transformed,
             // Campi calcolati per ordinamento (usano la quantity già trasformata)
             total_value: calcTotalValue(transformed),
+            total_value_eur: calcTotalValueEUR(transformed),
             gain_eur: calcGainEur(transformed),
+            gain_eur_eur: calcGainEurEUR(transformed),
             gain_percent: calcGainPercent(transformed),
           };
         })
@@ -194,7 +216,9 @@ export default function Portfolio() {
     [positions]
   );
 
-  // Raggruppa per asset_type e calcola totali aggregati
+  // Raggruppa per asset_type e calcola totali aggregati.
+  // I valori di carico/attuale sono in EUR (prezzi convertiti dal backend)
+  // per essere coerenti con Dashboard e Allocazione, che ora usano marketValue EUR.
   const assetTypeSummary = useMemo(() => {
     const groups = new Map<string, { carico: number; attuale: number; count: number }>();
     for (const pos of visiblePositions) {
@@ -203,13 +227,15 @@ export default function Portfolio() {
         groups.set(type, { carico: 0, attuale: 0, count: 0 });
       }
       const g = groups.get(type)!;
-      // Valore di carico: prezzo medio × quantità (solo se prezzo medio disponibile)
-      if (pos.average_price !== null) {
-        g.carico += pos.average_price * pos.quantity;
+      // Valore di carico EUR: prezzo medio convertito × quantità
+      const avgPrice = pos.average_price_eur ?? pos.average_price;
+      if (avgPrice !== null) {
+        g.carico += avgPrice * pos.quantity;
       }
-      // Valore attuale: prezzo corrente × quantità (solo se prezzo corrente disponibile)
-      if (pos.current_price !== null) {
-        g.attuale += pos.current_price * pos.quantity;
+      // Valore attuale EUR: prezzo corrente convertito × quantità
+      const curPrice = pos.current_price_eur ?? pos.current_price;
+      if (curPrice !== null) {
+        g.attuale += curPrice * pos.quantity;
       }
       g.count++;
     }
@@ -228,7 +254,7 @@ export default function Portfolio() {
 
   // Chiavi che rappresentano valori numerici (per ordinamento numerico, non testuale)
   const numericSortKeys = new Set<SortKey>([
-    'quantity', 'current_price', 'average_price', 'total_value', 'gain_eur', 'gain_percent',
+    'quantity', 'current_price', 'average_price', 'total_value', 'total_value_eur', 'gain_eur', 'gain_eur_eur', 'gain_percent',
   ]);
 
   const sortedPositions = useMemo(() => {
@@ -363,8 +389,14 @@ export default function Portfolio() {
                 <th className={thClass('total_value', 'right')} onClick={() => handleSort('total_value')}>
                   Valore{sortArrow('total_value')}
                 </th>
+                <th className={thClass('total_value_eur', 'right')} onClick={() => handleSort('total_value_eur')}>
+                  Valore EUR{sortArrow('total_value_eur')}
+                </th>
                 <th className={thClass('gain_eur', 'right')} onClick={() => handleSort('gain_eur')}>
-                  Gain/Loss €{sortArrow('gain_eur')}
+                  Gain/Loss{sortArrow('gain_eur')}
+                </th>
+                <th className={thClass('gain_eur_eur', 'right')} onClick={() => handleSort('gain_eur_eur')}>
+                  Gain/Loss EUR{sortArrow('gain_eur_eur')}
                 </th>
                 <th className={thClass('gain_percent', 'right')} onClick={() => handleSort('gain_percent')}>
                   Gain/Loss %{sortArrow('gain_percent')}
@@ -380,8 +412,10 @@ export default function Portfolio() {
             <tbody className="divide-y divide-slate-700">
               {sortedPositions.map((pos) => {
                 const gainEur = calcGainEur(pos);
+                const gainEurEUR = calcGainEurEUR(pos);
                 const gainPercent = calcGainPercent(pos);
                 const totalValue = calcTotalValue(pos);
+                const totalValueEUR = calcTotalValueEUR(pos);
                 return (
                   <tr
                     key={pos.asset_id}
@@ -410,8 +444,14 @@ export default function Portfolio() {
                     <td className="px-4 py-3 text-sm text-right text-white font-medium">
                       {formatAmount(totalValue)}
                     </td>
+                    <td className="px-4 py-3 text-sm text-right text-white font-medium">
+                      {formatAmount(totalValueEUR)}
+                    </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainEur)}`}>
                       {formatAmount(gainEur)}
+                    </td>
+                    <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainEurEUR)}`}>
+                      {formatAmount(gainEurEUR)}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainPercent)}`}>
                       {formatPercent(gainPercent)}
@@ -428,7 +468,7 @@ export default function Portfolio() {
               })}
               {sortedPositions.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={13} className="px-4 py-8 text-center text-slate-500">
                     Nessuna posizione attiva
                   </td>
                 </tr>

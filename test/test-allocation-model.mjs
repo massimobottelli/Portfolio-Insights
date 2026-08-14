@@ -15,7 +15,7 @@ console.log(JSON.stringify(saved, null, 2));
 
 // Test suggerimenti dopo salvataggio
 console.log('=== Suggerimenti dopo salvataggio ===');
-console.log(JSON.stringify(calculateRebalancingSuggestions(), null, 2));
+console.log(JSON.stringify(await calculateRebalancingSuggestions(), null, 2));
 
 // Test validazione: categoria non target-abile
 console.log('=== Test categoria non target-abile ===');

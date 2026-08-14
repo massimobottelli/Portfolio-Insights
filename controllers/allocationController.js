@@ -31,9 +31,9 @@ export function getAssetTypesHandler(req, res) {
  * GET /api/allocation/current
  * Restituisce l'allocazione attuale calcolata a runtime.
  */
-export function getCurrentAllocationHandler(req, res) {
+export async function getCurrentAllocationHandler(req, res) {
   try {
-    const current = calculateCurrentAllocation();
+    const current = await calculateCurrentAllocation();
     const unknownCount = countUnknownAssets();
     res.json({ ...current, unknownAssets: unknownCount });
   } catch (error) {
@@ -100,10 +100,10 @@ export function putTargetHandler(req, res) {
  * GET /api/allocation/rebalance
  * Restituisce divergenze e suggerimenti di ribilanciamento.
  */
-export function getRebalanceHandler(req, res) {
+export async function getRebalanceHandler(req, res) {
   try {
-    const divergences = calculateDivergences();
-    const suggestions = calculateRebalancingSuggestions();
+    const divergences = await calculateDivergences();
+    const suggestions = await calculateRebalancingSuggestions();
     const { tolerance } = getAllocationTargets();
     res.json({ tolerance, divergences, suggestions });
   } catch (error) {

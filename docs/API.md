@@ -66,6 +66,7 @@ Le route sono organizzate per dominio e montate in `app.js`:
 | GET | `/api/analytics/allocation` | Allocazione percentuale del portafoglio |
 | GET | `/api/analytics/history` | Serie storica del valore portafoglio |
 | GET | `/api/analytics/twr` | Time-Weighted Rate of Return |
+| GET | `/api/analytics/rates` | Tassi di cambio odierni (ECB) per conversione EUR |
 | GET | `/api/analytics/asset/:id` | Dettaglio completo di un singolo asset |
 | GET | `/api/assets` | Lista completa degli asset |
 | GET | `/api/assets/by-isin/:isin` | Singolo asset per ISIN |
@@ -268,7 +269,37 @@ Restituisce il Time-Weighted Rate of Return (TWR) del portafoglio, calcolato con
 
 ---
 
-### 3.6 GET `/api/analytics/asset/:id`
+### 3.6 GET `/api/analytics/rates`
+
+Restituisce i tassi di cambio odierni usati para la conversión en EUR. Fuente: ECB Data Portal (SDMX 2.1 API).
+
+**Risposta 200 OK**
+
+```json
+{
+  "date": "2026-08-14",
+  "rates": {
+    "EUR": 1,
+    "USD": 1.1567
+  }
+}
+```
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `date` | string | Data odierna (YYYY-MM-DD) |
+| `rates` | object | Mappa valuta → tasso (unità di valuta per 1 EUR) |
+
+**Note:**
+- `EUR` è sempre presente con tasso `1` (identity, nessuna chiamata API).
+- I tassi sono recuperati on-demand da ECB e cachati in memoria per la giornata.
+- Se ECB non risponde y no hay caché, la valuta es omessa dalla mappa.
+
+**Errori:** `500` — Errore nel recupero dei tassi de cambio.
+
+---
+
+### 3.7 GET `/api/analytics/asset/:id`
 
 Restituisce il dettaglio completo di un singolo asset: info anagrafiche, posizione corrente, P&L, allocazione, cronologia ordini, dividendi e cedole.
 

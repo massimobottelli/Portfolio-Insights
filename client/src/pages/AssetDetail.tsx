@@ -193,14 +193,22 @@ export default function AssetDetail() {
         <KpiCard
           label="Valore Attuale"
           value={`${formatAmount(position.currentValue)} ${asset.currency}`}
-          sublabel={position.allocationTypePercent !== null ? `${formatPercentNoSign(position.allocationTypePercent)} della classe ${asset.assetType}` : null}
+          sublabel={
+            position.currentValueEUR !== null
+              ? `≈ ${formatAmount(position.currentValueEUR)} EUR`
+              : (position.allocationTypePercent !== null ? `${formatPercentNoSign(position.allocationTypePercent)} della classe ${asset.assetType}` : null)
+          }
         />
         <KpiCard
           label="P&L"
           value={`${formatAmount(position.pnl)} ${asset.currency}`}
-          sublabel={position.pnlPercent !== null ? formatPercent(position.pnlPercent) : null}
+          sublabel={
+            position.pnlEUR !== null
+              ? `≈ ${formatAmount(position.pnlEUR)} EUR`
+              : (position.pnlPercent !== null ? formatPercent(position.pnlPercent) : null)
+          }
           valueClass={gainColorClass(position.pnl)}
-          sublabelClass={gainColorClass(position.pnlPercent)}
+          sublabelClass={gainColorClass(position.pnlEUR ?? position.pnlPercent)}
         />
       </div>
 
@@ -218,7 +226,12 @@ export default function AssetDetail() {
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-slate-400">Valore totale di carico</span>
-              <span className="text-sm text-white font-medium">{formatAmount(position.bookValue)} {asset.currency}</span>
+              <span className="text-sm text-white font-medium">
+                {formatAmount(position.bookValue)} {asset.currency}
+                {position.bookValueEUR !== null && (
+                  <span className="text-slate-500 ml-1">(≈ {formatAmount(position.bookValueEUR)} EUR)</span>
+                )}
+              </span>
             </div>
           </div>
           {/* Colonna destra: valori attuali */}
@@ -229,7 +242,12 @@ export default function AssetDetail() {
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-slate-400">Valore totale attuale</span>
-              <span className="text-sm text-white font-medium">{formatAmount(position.currentValue)} {asset.currency}</span>
+              <span className="text-sm text-white font-medium">
+                {formatAmount(position.currentValue)} {asset.currency}
+                {position.currentValueEUR !== null && (
+                  <span className="text-slate-500 ml-1">(≈ {formatAmount(position.currentValueEUR)} EUR)</span>
+                )}
+              </span>
             </div>
           </div>
         </div>
