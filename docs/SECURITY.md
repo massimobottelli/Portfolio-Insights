@@ -43,25 +43,34 @@ Ho analizzato l'intera codebase: backend Express (controllers, models, routes, p
 
 ---
 
-### 2. Database SQLite Potenzialmente Esposto su GitHub Pubblico
-- La cartella **`db/` NON è nel `.gitignore`** (contiene solo `node_modules`, `dist`, `.vite`, `pnpm-lock`, `.env`, `.DS_Store`, `Directa/`)
-- Il file `db/portfolio.db` contiene tutti i dati finanziari reali dell'utente (nome "H4091 BOTTELLI MASSIMO", ISIN, quantità, valori di portafoglio)
-- Lo script `update-debian.sh` ha un blocco commentato che dice: *"if the SQLite database ... are still tracked from an older install (they were committed in the past)"* → **il DB è stato committato nel repository pubblico in passato**
+### 2. ~~Database SQLite Potenzialmente Esposto su GitHub Pubblico~~ ✅ RISOLTO
+**Stato:** Risolto il 14/08/2026.
 
-**Azione immediata necessaria:** verificare la history di git con `git log --all -- db/` e, se il file è mai stato committato, **ruotare/cancellare** i dati storici esposti.
+**Verifica eseguita:**
+- `db/` è nel `.gitignore` (righe 7-12)
+- `git ls-files db/` → nessun file tracciato
+- `git log --all -- db/` → solo `db/db.sql` (commit `65889d0` → `7d491cd`), un placeholder innocuo con un singolo punto, **mai** `db/portfolio.db` con dati reali
 
-**Severity: CRITICA**
+**Conclusione:** il database non è mai stato esposto su GitHub. Nessuna rotazione dati necessaria.
+
+**Severity: CRITICA** (risolta)
 
 ---
 
-### 3. Endpoint `POST /api/import` — Formato Legacy JSON Non Validato
-Il formato legacy `{ fileType, records }` (linee 46-49 di `importController.js`) accetta **JSON arbitrario senza alcuna validazione**:
-- Valori possono essere stringhe, oggetti, array, `Infinity`, `null`, numeri negativi
-- `processOrderRecord`/`processPortfolioRecord` leggono `record.euroAmount`, `record.quantity`, ecc. direttamente senza passare da `parseItalianNumber`
-- Un attaccante può iniettare quantità/importi astronomici o tipi sbagliati, corrompendo tutti i calcoli analytics (posizioni, allocazione, TWR)
-- Un volume enorme di record può riempire il database (DoS)
+### 3. ~~Endpoint `POST /api/import` — Formato Legacy JSON Non Validato~~ ✅ RISOLTO
+**Stato:** Risolto il 14/08/2026.
 
-**Severity: ALTA**
+**Soluzione implementata:**
+- **Rimosso completamente** il ramo legacy `{ fileType, records }` da `importController.js`
+- L'endpoint accetta ora **solo** `{ fileContent, filename }` (CSV come stringa)
+- Tutti i dati passano obbligatoriamente dal parser CSV (`utils/csvParser.js`) che normalizza date (`normalizeDate`), numeri (`parseItalianNumber`) e stringhe (`cleanString`/`nullableString`) in modo deterministico
+- Richiesta senza `fileContent` → `400` con messaggio chiaro
+- Il frontend (`ImportPage.tsx`) e i test script inviavano già solo `fileContent` — nessuna regressione attesa
+
+**File modificati:**
+- `controllers/importController.js` — rimozione ramo legacy + commento esplicativo
+
+**Severity: ALTA** (risolta)
 
 ---
 
