@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import type { AssetDetailData } from '../types';
+import { apiFetch } from '../lib/api';
 
 /**
  * Formatta un numero come prezzo con 2-4 decimali significativi.
@@ -117,7 +118,7 @@ export default function AssetDetail() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`/api/analytics/asset/${id}`)
+    apiFetch(`/api/analytics/asset/${id}`)
       .then(r => {
         if (!r.ok) throw new Error('Asset non trovato');
         return r.json();

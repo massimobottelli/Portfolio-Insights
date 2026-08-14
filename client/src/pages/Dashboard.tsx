@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, CartesianGrid, Line } from 'recharts';
 import { TrendingUp, BarChart3, Wallet, Droplets, Calendar } from 'lucide-react';
 import type { DashboardData, AllocationItem, SnapshotItem, TWRData } from '../types';
+import { apiFetch } from '../lib/api';
 
 // Tipi per il filtro temporale del grafico
 type TimeRange = '1m' | '3m' | '6m' | '1y' | 'ytd' | 'all';
@@ -150,10 +151,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/analytics/dashboard').then(r => r.json()),
-      fetch('/api/analytics/allocation').then(r => r.json()),
-      fetch('/api/analytics/history').then(r => r.json()),
-      fetch('/api/analytics/twr').then(r => r.json()),
+      apiFetch('/api/analytics/dashboard').then(r => r.json()),
+      apiFetch('/api/analytics/allocation').then(r => r.json()),
+      apiFetch('/api/analytics/history').then(r => r.json()),
+      apiFetch('/api/analytics/twr').then(r => r.json()),
     ])
       .then(([dashData, allocData, histData, twrData]) => {
         setDashboard(dashData);

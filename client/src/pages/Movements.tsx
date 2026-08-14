@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Search, X, ChevronDown } from 'lucide-react';
 import type { CashMovementItem, MovementsResponse } from '../types';
+import { apiFetch } from '../lib/api';
 
 type SortKey = 'operation_date' | 'movement_type' | 'ticker' | 'asset_name' | 'euro_amount' | 'currency';
 type SortDirection = 'asc' | 'desc';
@@ -112,7 +113,7 @@ export default function Movements() {
     if (search) query.set('search', search);
 
     setLoading(true);
-    fetch(`/api/movements?${query.toString()}`)
+    apiFetch(`/api/movements?${query.toString()}`)
       .then(r => {
         if (!r.ok) throw new Error('Errore nel caricamento dei movimenti');
         return r.json();
@@ -130,7 +131,7 @@ export default function Movements() {
 
   // Load dei simboli per il dropdown filtro
   useEffect(() => {
-    fetch('/api/movements/symbols')
+    apiFetch('/api/movements/symbols')
       .then(r => r.json())
       .then((data: string[]) => setSymbols(data))
       .catch(console.error);

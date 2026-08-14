@@ -162,6 +162,8 @@ StandardOutput=journal
 StandardError=journal
 Environment=NODE_ENV=production
 Environment=PORT=3000
+# Carica il token API dal file .env (generato in install-debian.sh)
+EnvironmentFile=${INSTALL_DIR}/.env
 
 # Security hardening
 NoNewPrivileges=true

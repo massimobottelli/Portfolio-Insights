@@ -6,7 +6,7 @@
 #  systemd service on a fresh Debian system.
 #
 #  What it does:
-#    1. Installs system prerequisites (curl, git, build-essential)
+#    1. Installs sysSecuritytem prerequisites (curl, git, build-essential)
 #    2. Adds the NodeSource APT repository for Node.js 22.x
 #    3. Installs Node.js 22 LTS system-wide via apt
 #    4. Clones the repository from GitHub
@@ -156,6 +156,39 @@ setup_data_directory() {
 }
 
 # -----------------------------------------------------------------------------
+# Phase 6b: Generate API token and create .env file
+# -----------------------------------------------------------------------------
+setup_api_token() {
+    local env_file="$INSTALL_DIR/.env"
+
+    # Se il file .env esiste già (re-install), preserva il token esistente
+    if [[ -f "$env_file" ]] && grep -q "API_TOKEN=" "$env_file"; then
+        log_info "Existing API token found in '$env_file'. Preserving it."
+        return
+    fi
+
+    log_info "Generating a new API token..."
+    local token
+    token=$(openssl rand -hex 32)
+
+    cat > "$env_file" <<EOF
+# Portfolio Insights - Environment configuration
+# This file contains the API token used to authenticate API requests.
+# Keep this file secret! It grants full access to the application data.
+API_TOKEN=${token}
+EOF
+
+    chown "$SERVICE_USER:$SERVICE_USER" "$env_file"
+    chmod 600 "$env_file"
+
+    log_info "API token generated and saved to '$env_file' (permissions 600)."
+    log_info "IMPORTANT: Save this token in a safe place. You will need it to access the application."
+    echo ""
+    echo "  🔐 API Token: ${token}"
+    echo ""
+}
+
+# -----------------------------------------------------------------------------
 # Phase 7: Create systemd service
 # -----------------------------------------------------------------------------
 create_systemd_service() {
@@ -181,6 +214,8 @@ StandardOutput=journal
 StandardError=journal
 Environment=NODE_ENV=production
 Environment=PORT=${APP_PORT}
+# Carica il token API dal file .env (generato in setup_api_token)
+EnvironmentFile=${INSTALL_DIR}/.env
 
 # Security hardening
 NoNewPrivileges=true
@@ -293,6 +328,7 @@ main() {
     setup_application
     install_dependencies
     setup_data_directory
+    setup_api_token
     create_systemd_service
     verify_installation
     print_summary
