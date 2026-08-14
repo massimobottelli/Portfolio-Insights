@@ -1,4 +1,4 @@
-export type AssetType = 'ETF' | 'ETC' | 'ETN' | 'STOCK' | 'BOND' | 'FUND' | 'COMMODITY' | 'CASH' | 'UNKNOWN';
+export type AssetType = 'BOND' | 'STOCK' | 'CASH' | 'FUND' | 'COMMODITY' | 'UNKNOWN';
 
 export interface DashboardData {
   portfolioValue: number;
@@ -119,6 +119,58 @@ export interface AssetDetailDividend {
   date: string;
   amount: number;
   currency: string;
+}
+
+export interface AssetTypeInfo {
+  name: string;
+  isTargetable: boolean;
+}
+
+export interface AssetTypesResponse {
+  assetTypes: AssetTypeInfo[];
+}
+
+export interface AllocationCategory {
+  assetType: string;
+  value: number;
+  percent: number;
+}
+
+export interface CurrentAllocationResponse {
+  totalValue: number;
+  categories: AllocationCategory[];
+  unknownAssets: number;
+}
+
+export interface AllocationTargetItem {
+  assetType: string;
+  targetPercent: number;
+}
+
+export interface AllocationTargetResponse {
+  tolerance: number;
+  targets: AllocationTargetItem[];
+}
+
+export interface DivergenceItem {
+  assetType: string;
+  currentPercent: number;
+  targetPercent: number;
+  divergencePercent: number;
+  divergenceAmount: number;
+}
+
+export interface RebalanceSuggestion {
+  assetType: string;
+  action: 'BUY' | 'SELL';
+  amount: number;
+  divergencePercent: number;
+}
+
+export interface RebalanceResponse {
+  tolerance: number;
+  divergences: DivergenceItem[];
+  suggestions: RebalanceSuggestion[];
 }
 
 export interface AssetDetailData {

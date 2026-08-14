@@ -9,10 +9,10 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 import importRoutes from './routes/importRoutes.js';
 import movementRoutes from './routes/movementRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+import allocationRoutes from './routes/allocationRoutes.js';
 
 // Middleware di autenticazione
 import { authMiddleware } from './middleware/authMiddleware.js';
-import { getApiToken } from './config/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -47,6 +47,7 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/movements', movementRoutes);
+app.use('/api', allocationRoutes);
 
 // 8. Servizio dei file statici del frontend React (build in public/)
 app.use(express.static(path.join(__dirname, 'public')));
@@ -55,20 +56,5 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
-// 10. Stampa del token API in console se generato automaticamente (non da env)
-//     Il token NON viene mai loggato nei log di sistema, solo stampato una volta all'avvio.
-const tokenSource = process.env.API_TOKEN ? 'API_TOKEN' : 'generato automaticamente';
-if (!process.env.API_TOKEN) {
-  console.log('==============================================');
-  console.log('  🔐 API Token (per accedere all\'applicazione):');
-  console.log(`  ${getApiToken()}`);
-  console.log('  Salva questo token in un luogo sicuro.');
-  console.log('  Puoi configurarlo in modo permanente con la');
-  console.log('  variabile d\'ambiente API_TOKEN.');
-  console.log('==============================================');
-} else {
-  console.log(`[auth] API Token configurato tramite ${tokenSource}`);
-}
 
 export default app;

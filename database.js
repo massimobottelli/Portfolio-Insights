@@ -98,6 +98,23 @@ export function initializeDatabase() {
         FOREIGN KEY (import_session_id) REFERENCES import_sessions(id) ON DELETE CASCADE,
         UNIQUE(asset_id, extraction_date)
       );
+
+      -- Catalogo asset type (nuovo): 5 tipi target-abili + UNKNOWN tecnico
+      CREATE TABLE IF NOT EXISTS asset_types (
+        id TEXT PRIMARY KEY,
+        name TEXT UNIQUE NOT NULL,
+        is_targetable INTEGER NOT NULL DEFAULT 0
+      );
+
+      -- Target di allocazione (configurazione utente)
+      CREATE TABLE IF NOT EXISTS allocation_targets (
+        id TEXT PRIMARY KEY,
+        asset_type_id TEXT NOT NULL,
+        target_percent REAL NOT NULL,
+        tolerance REAL NOT NULL DEFAULT 5.0,
+        FOREIGN KEY (asset_type_id) REFERENCES asset_types(id) ON DELETE CASCADE,
+        UNIQUE(asset_type_id)
+      );
     `);
 
     // Creazione Indici per ottimizzare le performance delle query di Analytics
@@ -112,6 +129,26 @@ export function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_asset_prices_asset ON asset_prices(asset_id);
       CREATE INDEX IF NOT EXISTS idx_asset_prices_date ON asset_prices(extraction_date);
     `);
+
+    // Popolamento del catalogo asset_types (idempotente: INSERT OR IGNORE)
+    db.exec(`
+      INSERT OR IGNORE INTO asset_types (id, name, is_targetable) VALUES
+        ('bond', 'BOND', 1),
+        ('stock', 'STOCK', 1),
+        ('cash', 'CASH', 1),
+        ('fund', 'FUND', 1),
+        ('commodity', 'COMMODITY', 1),
+        ('unknown', 'UNKNOWN', 0);
+    `);
+
+    // Migrazione: i tipi decommissionati (ETF, ETC, ETN) vengono assegnati a UNKNOWN.
+    // L'utente riclassificherà manualmente gli asset tramite il dropdown in Portfolio.
+    const migrated = db
+      .prepare("UPDATE assets SET asset_type = 'UNKNOWN' WHERE asset_type IN ('ETF', 'ETC', 'ETN')")
+      .run();
+    if (migrated.changes > 0) {
+      console.log(`🔄 Migrazione asset type: ${migrated.changes} asset con tipi decommissionati assegnati a UNKNOWN`);
+    }
 
     console.log('✅ Database pronto e tabelle/indici verificati con successo!');
   } catch (error) {
