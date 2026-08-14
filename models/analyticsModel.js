@@ -233,8 +233,10 @@ export async function getAssetDetail(assetId) {
     `)
     .get(assetId);
 
-  // 3. Cronologia ordini BUY/SELL (ordinata per data decrescente)
-  const orders = db
+  // 3. Cronologia ordini BUY/SELL (ordinata per data decrescente).
+  // Gli ordini con lo stesso order_reference (es. un ordine Directa eseguito in più tranche)
+  // vengono unificati in un'unica riga: quantità e importo totali, prezzo medio ponderato per quantità.
+  const rawOrders = db
     .prepare(`
       SELECT operation_date, value_date, type, quantity, euro_amount, currency, order_reference
       FROM market_orders
@@ -242,6 +244,36 @@ export async function getAssetDetail(assetId) {
       ORDER BY operation_date DESC
     `)
     .all(assetId);
+
+  // Raggruppa per order_reference (solo se non null). Gli ordini senza riferimento restano singoli.
+  const orders = [];
+  const groups = new Map();
+  for (const o of rawOrders) {
+    if (o.order_reference) {
+      if (!groups.has(o.order_reference)) {
+        groups.set(o.order_reference, {
+          operation_date: o.operation_date,
+          value_date: o.value_date,
+          type: o.type,
+          quantity: 0,
+          euro_amount: 0,
+          currency: o.currency,
+          order_reference: o.order_reference
+        });
+      }
+      const g = groups.get(o.order_reference);
+      g.quantity += o.quantity;
+      g.euro_amount += o.euro_amount;
+    } else {
+      orders.push(o);
+    }
+  }
+  // Aggiunge i gruppi aggregati (la prima riga del gruppo è la più recente, data la query DESC)
+  for (const g of groups.values()) {
+    orders.push(g);
+  }
+  // Riordina per data decrescente dopo l'aggregazione
+  orders.sort((a, b) => (a.operation_date < b.operation_date ? 1 : -1));
 
   // 4. Storico dividendi incassati (ordinato per data decrescente)
   const dividends = db
@@ -345,7 +377,8 @@ export async function getAssetDetail(assetId) {
       valueDate: o.value_date,
       type: o.type,
       quantity: o.quantity,
-      // Prezzo unitario implicito: importo totale / quantità (valore assoluto)
+      // Prezzo unitario implicito: importo totale / quantità (valore assoluto).
+      // Per gli ordini aggregati per riferimento è il prezzo medio ponderato per quantità.
       price: o.euro_amount !== 0 ? Math.abs(o.euro_amount / o.quantity) : null,
       amount: o.euro_amount,
       currency: o.currency,

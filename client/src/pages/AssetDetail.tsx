@@ -194,21 +194,17 @@ export default function AssetDetail() {
           label="Valore Attuale"
           value={`${formatAmount(position.currentValue)} ${asset.currency}`}
           sublabel={
-            position.currentValueEUR !== null
-              ? `≈ ${formatAmount(position.currentValueEUR)} EUR`
-              : (position.allocationTypePercent !== null ? `${formatPercentNoSign(position.allocationTypePercent)} della classe ${asset.assetType}` : null)
+            position.allocationTypePercent !== null
+              ? `${formatPercentNoSign(position.allocationTypePercent)} della classe ${asset.assetType}`
+              : null
           }
         />
         <KpiCard
           label="P&L"
           value={`${formatAmount(position.pnl)} ${asset.currency}`}
-          sublabel={
-            position.pnlEUR !== null
-              ? `≈ ${formatAmount(position.pnlEUR)} EUR`
-              : (position.pnlPercent !== null ? formatPercent(position.pnlPercent) : null)
-          }
+          sublabel={position.pnlPercent !== null ? formatPercent(position.pnlPercent) : null}
           valueClass={gainColorClass(position.pnl)}
-          sublabelClass={gainColorClass(position.pnlEUR ?? position.pnlPercent)}
+          sublabelClass={gainColorClass(position.pnlPercent)}
         />
       </div>
 
@@ -228,7 +224,7 @@ export default function AssetDetail() {
               <span className="text-sm text-slate-400">Valore totale di carico</span>
               <span className="text-sm text-white font-medium">
                 {formatAmount(position.bookValue)} {asset.currency}
-                {position.bookValueEUR !== null && (
+                {asset.currency !== 'EUR' && position.bookValueEUR !== null && (
                   <span className="text-slate-500 ml-1">(≈ {formatAmount(position.bookValueEUR)} EUR)</span>
                 )}
               </span>
@@ -244,7 +240,7 @@ export default function AssetDetail() {
               <span className="text-sm text-slate-400">Valore totale attuale</span>
               <span className="text-sm text-white font-medium">
                 {formatAmount(position.currentValue)} {asset.currency}
-                {position.currentValueEUR !== null && (
+                {asset.currency !== 'EUR' && position.currentValueEUR !== null && (
                   <span className="text-slate-500 ml-1">(≈ {formatAmount(position.currentValueEUR)} EUR)</span>
                 )}
               </span>
@@ -267,7 +263,6 @@ export default function AssetDetail() {
                 <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Quantità</th>
                 <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Prezzo</th>
                 <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Importo</th>
-                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-left">Riferimento</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
@@ -288,14 +283,14 @@ export default function AssetDetail() {
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-slate-300">{formatPrice(order.price)}</td>
                   <td className="px-4 py-3 text-sm text-right text-white font-medium">
-                    {formatAmount(order.amount)} {order.currency}
+                    {/* Importo con segno invertito: positivo per acquisto, negativo per vendita */}
+                    {formatAmount(order.type === 'BUY' ? Math.abs(order.amount) : -Math.abs(order.amount))} {order.currency}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-400 font-mono">{order.reference || '—'}</td>
                 </tr>
               ))}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
                     Nessun ordine registrato
                   </td>
                 </tr>
@@ -350,36 +345,29 @@ export default function AssetDetail() {
           </div>
         </div>
       ) : (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Dividend History</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700 bg-slate-800/50">
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-left">Data</th>
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Importo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700">
-                {dividends.map((div, idx) => (
-                  <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-3 text-sm text-slate-300">{formatDate(div.date)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-emerald-400 font-medium">
-                      +{formatAmount(div.amount)} {div.currency}
-                    </td>
+        dividends.length > 0 && (
+          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Dividend History</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-700 bg-slate-800/50">
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-left">Data</th>
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Importo</th>
                   </tr>
-                ))}
-                {dividends.length === 0 && (
-                  <tr>
-                    <td colSpan={2} className="px-4 py-8 text-center text-slate-500">
-                      Nessun dividendo incassato
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-              {dividends.length > 0 && (
+                </thead>
+                <tbody className="divide-y divide-slate-700">
+                  {dividends.map((div, idx) => (
+                    <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
+                      <td className="px-4 py-3 text-sm text-slate-300">{formatDate(div.date)}</td>
+                      <td className="px-4 py-3 text-sm text-right text-emerald-400 font-medium">
+                        +{formatAmount(div.amount)} {div.currency}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-slate-600 bg-slate-800/80">
                     <td className="px-4 py-3 text-sm font-semibold text-white uppercase tracking-wider">Totale</td>
@@ -388,10 +376,10 @@ export default function AssetDetail() {
                     </td>
                   </tr>
                 </tfoot>
-              )}
-            </table>
+              </table>
+            </div>
           </div>
-        </div>
+        )
       )}
     </div>
   );
