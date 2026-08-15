@@ -5,6 +5,36 @@ import { ASSET_TYPES } from '@config/assetTypes.js';
 import type { PositionItem, PortfolioResponse } from '../types';
 import { apiFetch } from '../lib/api';
 
+// Colori per gli asset type, coerenti con la pie chart in Allocation.tsx
+const TYPE_COLORS: Record<string, string> = {
+  STOCK: 'hsl(0, 70%, 50%)',        // rosso
+  BOND: 'hsl(145, 60%, 50%)',       // verde
+  COMMODITY: 'hsl(45, 85%, 50%)',   // giallo
+  FUND: 'hsl(28, 75%, 50%)',        // arancione
+  CASH: 'hsl(220, 65%, 50%)',       // blu
+};
+
+/** Restituisce lo stile della label per un asset type */
+const getAssetTypeStyle = (type: string) => {
+  const color = TYPE_COLORS[type] || 'hsl(0, 0%, 50%)';
+  // Parse HSL
+  const match = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+  if (!match) return { bg: '#1e293b40', border: color, text: color };
+  const [, h, s, l] = match;
+  const sat = parseInt(s);
+  const lum = parseInt(l);
+  // Background: stessa hue, stessa saturation, lightness più alta, con trasparenza
+  const bgLum = Math.min(lum + 25, 70);
+  const bg = `hsl(${h}, ${sat}%, ${bgLum}%, 0.15)`;
+  // Border: leggermente più scuro del colore originale
+  const borderLum = Math.max(lum - 8, 25);
+  const borderColor = `hsl(${h}, ${sat}%, ${borderLum}%)`;
+  // Text: più chiaro del bordo, quasi luminoso
+  const textLum = Math.min(lum + 30, 85);
+  const textColor = `hsl(${h}, ${Math.max(sat - 10, 20)}%, ${textLum}%)`;
+  return { bg, border: borderColor, text: textColor };
+};
+
 type SortKey = 'ticker' | 'isin' | 'name' | 'quantity' | 'currency' | 'asset_type' | 'current_price' | 'average_price' | 'total_value' | 'total_value_eur' | 'gain_eur' | 'gain_eur_eur' | 'gain_percent';
 type SortDirection = 'asc' | 'desc';
 
@@ -134,14 +164,8 @@ function AssetTypeDropdown({ assetId, assetType }: { assetId: string; assetType:
     }
   };
 
+  const style = getAssetTypeStyle(currentType);
   const isUnknown = currentType === 'UNKNOWN';
-  const bgColor = saving
-    ? 'bg-blue-900/50 border-blue-700'
-    : isUnknown
-      ? 'bg-amber-900/30 border-amber-700/50'
-      : 'bg-slate-700 border-slate-600';
-
-  const textColor = saving ? 'text-blue-200' : isUnknown ? 'text-amber-300' : 'text-slate-200';
 
   return (
     <div className="relative">
@@ -151,8 +175,21 @@ function AssetTypeDropdown({ assetId, assetType }: { assetId: string; assetType:
       <select
         value={currentType}
         onChange={handleChange}
-        className={`px-2 py-1 rounded-md text-xs font-medium border cursor-pointer appearance-none transition-colors ${bgColor} ${textColor} hover:border-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500`}
-        style={{ paddingRight: '1.25rem' }}
+        className="border cursor-pointer appearance-none transition-colors hover:border-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        style={{
+          borderRadius: '6px',
+          padding: '3px 32px 3px 10px',
+          lineHeight: 1.2,
+          fontSize: '11px',
+          fontWeight: 500,
+          letterSpacing: '0.4px',
+          textTransform: 'uppercase',
+          backgroundColor: isUnknown ? '#451a0340' : style.bg,
+          borderColor: isUnknown ? '#b4530980' : style.border,
+          borderWidth: '1px',
+          color: isUnknown ? '#fbbf24' : style.text,
+          paddingRight: '1.25rem',
+        }}
       >
         {ASSET_TYPES.map(type => (
           <option key={type} value={type} className="bg-slate-800 text-slate-200">
@@ -161,11 +198,12 @@ function AssetTypeDropdown({ assetId, assetType }: { assetId: string; assetType:
         ))}
       </select>
       <svg
-        className={`absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none ${textColor}`}
+        className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none"
         width="10"
         height="10"
         viewBox="0 0 10 10"
         fill="none"
+        style={{ color: isUnknown ? '#fbbf24' : style.text }}
       >
         <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -497,30 +535,25 @@ export default function Portfolio() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
-                {sortedSummary.map(({ assetType, carico, attuale, gain, gainPercent, count }) => (
+                {sortedSummary.map(({ assetType, carico, attuale, gain, gainPercent, count }) => {
+                  const style = getAssetTypeStyle(assetType);
+                  const isUnknown = assetType === 'UNKNOWN';
+                  return (
                   <tr key={assetType} className="hover:bg-slate-700/30 transition-colors">
                     <td className="px-4 py-3 text-sm">
-                      <span className={`inline-block px-2 py-1 rounded-md text-xs font-medium border ${
-                        assetType === 'UNKNOWN'
-                          ? 'bg-amber-900/30 text-amber-300 border-amber-700/50'
-                          : assetType === 'ETF'
-                          ? 'bg-blue-900/30 text-blue-300 border-blue-700/50'
-                          : assetType === 'ETC'
-                          ? 'bg-purple-900/30 text-purple-300 border-purple-700/50'
-                          : assetType === 'ETN'
-                          ? 'bg-indigo-900/30 text-indigo-300 border-indigo-700/50'
-                          : assetType === 'STOCK'
-                          ? 'bg-emerald-900/30 text-emerald-300 border-emerald-700/50'
-                          : assetType === 'BOND'
-                          ? 'bg-amber-900/30 text-amber-300 border-amber-700/50'
-                          : assetType === 'FUND'
-                          ? 'bg-cyan-900/30 text-cyan-300 border-cyan-700/50'
-                          : assetType === 'COMMODITY'
-                          ? 'bg-orange-900/30 text-orange-300 border-orange-700/50'
-                          : assetType === 'CASH'
-                          ? 'bg-green-900/30 text-green-300 border-green-700/50'
-                          : 'bg-slate-700 text-slate-200 border-slate-600'
-                      }`}>
+                      <span className="inline-block border font-medium uppercase tracking-wide"
+                        style={{
+                          borderRadius: '6px',
+                          padding: '3px 10px',
+                          lineHeight: 1.2,
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          letterSpacing: '0.4px',
+                          backgroundColor: isUnknown ? '#451a0340' : style.bg,
+                          borderColor: isUnknown ? '#b4530980' : style.border,
+                          borderWidth: '1px',
+                          color: isUnknown ? '#fbbf24' : style.text,
+                        }}>
                         {assetType}
                       </span>
                     </td>
@@ -534,13 +567,26 @@ export default function Portfolio() {
                     </td>
                     <td className="px-4 py-3 text-sm text-right text-slate-400">{count}</td>
                   </tr>
-                ))}
+                  );
+                })}
                 {/* Riga Liquidità: la liquidità disponibile fa parte del portafoglio
                     e viene inclusa nel totale per coerenza con la Dashboard. */}
                 {availableCash !== null && availableCash > 0 && (
                   <tr className="bg-slate-800/40">
                     <td className="px-4 py-3 text-sm">
-                      <span className="inline-block px-2 py-1 rounded-md text-xs font-medium border bg-green-900/30 text-green-300 border-green-700/50">
+                      <span className="inline-block border font-medium uppercase tracking-wide"
+                        style={{
+                          borderRadius: '6px',
+                          padding: '3px 10px',
+                          lineHeight: 1.2,
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          letterSpacing: '0.4px',
+                          backgroundColor: getAssetTypeStyle('CASH').bg,
+                          borderColor: getAssetTypeStyle('CASH').border,
+                          borderWidth: '1px',
+                          color: getAssetTypeStyle('CASH').text,
+                        }}>
                         LIQUIDITÀ
                       </span>
                     </td>
