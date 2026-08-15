@@ -174,7 +174,7 @@ export default function ImportPage() {
             </div>
             <div className="min-w-0">
               <h3 className="text-base font-semibold text-white truncate">Portafoglio</h3>
-              <p className="text-xs text-slate-500">Investimenti</p>
+              <p className="text-xs text-slate-500">Investimenti → Portfolio</p>
             </div>
           </div>
           <div className="space-y-2 text-sm text-slate-400">
