@@ -1,7 +1,7 @@
 import { createImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, insertAssetPrice, clearDatabase, getLatestOperationDate } from '../models/importModel.js';
 import { upsertAsset } from '../models/assetModel.js';
 import { randomUUID } from 'node:crypto';
-import { parseDirectaCSV, parseDirectaHistoryCSV, parseDirectaPortfolioCSV, detectFileType } from '../utils/csvParser.js';
+import { parseDirectaMovimentiCSV, parseDirectaHistoryCSV, parseDirectaPortfolioCSV, detectFileType } from '../utils/csvParser.js';
 
 /**
  * POST /api/import
@@ -48,7 +48,7 @@ export function importFile(req, res) {
       // Salva la data di estrazione per usarla nel processPortfolioRecord
       req._extractionDate = parsed.header.extractionDate;
     } else {
-      const parsed = parseDirectaCSV(req.body.fileContent);
+      const parsed = parseDirectaMovimentiCSV(req.body.fileContent);
       fileType = detectFileType(parsed.header);
       records = parsed.records;
     }

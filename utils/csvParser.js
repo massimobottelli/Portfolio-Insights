@@ -256,7 +256,22 @@ export function detectFileType(header) {
  *   header: metadati del report
  *   records: array di record normalizzati
  */
-export function parseDirectaCSV(csvText) {
+/**
+ * Marker che identifica un report "Movimenti" di Directa.
+ * Il report Movimenti contiene questa stringa nell'header (riga 9).
+ */
+const MOVIMENTI_REPORT_MARKER = 'Tutti i movimenti ordinati per Data Operazione';
+
+/**
+ * Parser principale per i file CSV Directa - Report Movimenti.
+ * Valida che il file contenga il marker "Tutti i movimenti ordinati per Data Operazione".
+ *
+ * @param {string} csvText - Contenuto testuale del file CSV
+ * @returns {{ header: Object, records: Array<Object> }}
+ *   header: metadati del report
+ *   records: array di record normalizzati
+ */
+export function parseDirectaMovimentiCSV(csvText) {
   if (!csvText || typeof csvText !== 'string') {
     throw new Error('Il contenuto CSV non è valido o è vuoto');
   }
@@ -276,6 +291,11 @@ export function parseDirectaCSV(csvText) {
   // Verifica che sia il formato Directa (primo campo = "Data operazione")
   if (headerFields[0] !== 'Data operazione') {
     throw new Error('File CSV non riconosciuto: header colonne non valido');
+  }
+
+  // Verifica il marker specifico del report Movimenti
+  if (!header.reportType.includes(MOVIMENTI_REPORT_MARKER)) {
+    throw new Error(`File non riconosciuto come report Movimenti: mancante marker "${MOVIMENTI_REPORT_MARKER}"`);
   }
 
   // Processa le righe dati (dalla riga 11 in poi)
