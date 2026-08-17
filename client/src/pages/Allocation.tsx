@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Save, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { apiFetch } from '../lib/api';
@@ -38,6 +38,25 @@ const divergenceColor = (value: number) => {
   if (value > 0) return 'text-emerald-400';
   if (value < 0) return 'text-red-400';
   return 'text-slate-300';
+};
+
+/** Restituisce lo stile della label per un asset type (coerente con Portfolio.tsx) */
+const getAssetTypeStyle = (type: string) => {
+  const color = TYPE_COLORS[type] || 'hsl(0, 0%, 50%)';
+  const match = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+  if (!match) return { bg: '#1e293b40', border: color, text: color };
+  const [, h, s, l] = match;
+  const sat = parseInt(s);
+  const lum = parseInt(l);
+  const bgLum = Math.min(lum + 100, 30);
+  const bg = `hsl(${h}, ${sat}%, ${bgLum}%, 0.15)`;
+  const borderLum = Math.max(lum - 10, 15);
+  const borderSat = Math.max(sat - 0, 0);
+  const borderColor = `hsl(${h}, ${borderSat}%, ${borderLum}%)`;
+  const textLum = Math.min(lum + 30, 85);
+  const textSat = Math.min(sat + 100, 100);
+  const textColor = `hsl(${h}, ${textSat}%, ${textLum}%)`;
+  return { bg, border: borderColor, text: textColor };
 };
 
 export default function Allocation() {
@@ -146,6 +165,56 @@ export default function Allocation() {
     setTargetInputs(prev => ({ ...prev, [type]: value }));
   };
 
+  // Auto-salva quando la somma raggiunge 100%
+  const lastSavedTargetsRef = useRef<string>('');
+  const hasInitializedRef = useRef(false);
+
+  // Inizializza il ref con i valori caricati dal server
+  useEffect(() => {
+    if (!hasInitializedRef.current && targetInputs[Object.keys(targetInputs)[0]]) {
+      lastSavedTargetsRef.current = TARGETABLE_TYPES.map(t => targetInputs[t] || '0').join(',');
+      hasInitializedRef.current = true;
+    }
+  }, [targetInputs]);
+
+  useEffect(() => {
+    if (!sumIsValid) return;
+
+    // Crea una stringa univoca dei target attuali per rilevare cambiamenti
+    const targetsKey = TARGETABLE_TYPES.map(t => targetInputs[t] || '0').join(',');
+
+    // Salva solo se i target sono cambiati dall'ultimo salvataggio
+    if (targetsKey !== lastSavedTargetsRef.current) {
+      lastSavedTargetsRef.current = targetsKey;
+      const timeoutId = setTimeout(async () => {
+        const tolerance = parseFloat(toleranceInput);
+        const targets = TARGETABLE_TYPES.map(type => ({
+          assetType: type,
+          targetPercent: parseFloat(targetInputs[type] || '0')
+        }));
+
+        try {
+          const res = await apiFetch('/api/allocation/target', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tolerance, targets }),
+          });
+
+          if (res.ok) {
+            const saved: AllocationTargetResponse = await res.json();
+            setTarget(saved);
+            setSaveMessage('Allocazione salvata');
+            setTimeout(() => setSaveMessage(null), 3000);
+          }
+        } catch (e) {
+          // Silenzioso per auto-save
+        }
+      }, 1000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [sumIsValid, targetInputs, toleranceInput]);
+
   const handleSave = async () => {
     if (!sumIsValid) {
       setError('La somma dei target deve essere 100%');
@@ -229,17 +298,7 @@ export default function Allocation() {
 
       {/* Editor target */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">Target Allocation</h2>
-          <button
-            onClick={handleSave}
-            disabled={saving || !sumIsValid}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
-          >
-            {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-            Salva
-          </button>
-        </div>
+        <h2 className="text-lg font-semibold text-white mb-4">Target Allocation</h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Colonna sinistra: input percentuali */}
@@ -262,6 +321,7 @@ export default function Allocation() {
                   </div>
                 </div>
               ))}
+              {/* Auto-save quando la somma fa 100% - nessun bottone */}
             </div>
 
             {/* Somma e validazione */}
@@ -292,6 +352,7 @@ export default function Allocation() {
                 <span className="text-sm text-slate-400">%</span>
               </div>
             </div>
+
           </div>
 
           {/* Colonna destra: diagramma a torta in tempo reale */}
@@ -326,13 +387,31 @@ export default function Allocation() {
               </ResponsiveContainer>
             </div>
             {/* Legenda */}
-            <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
-              {pieData.map(d => (
-                <div key={d.name} className="flex items-center gap-1.5 text-xs text-slate-300">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                  {d.name}
-                </div>
-              ))}
+            <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 max-w-[80%] mx-auto">
+              {pieData.map(d => {
+                const style = getAssetTypeStyle(d.name);
+                return (
+                  <div key={d.name} className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                    <span className="inline-block border font-medium uppercase tracking-wide"
+                      style={{
+                        borderRadius: '6px',
+                        padding: '2px 8px',
+                        lineHeight: 1.2,
+                        fontSize: '11px',
+                        fontWeight: 500,
+                        letterSpacing: '0.4px',
+                        backgroundColor: style.bg,
+                        borderColor: style.border,
+                        borderWidth: '1px',
+                        color: style.text,
+                      }}>
+                      {d.name}
+                    </span>
+                    <span className="text-xs text-slate-400">{Math.round(d.value)}%</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -375,9 +454,26 @@ export default function Allocation() {
                 const amount = div ? div.divergenceAmount : 0;
                 const isOver = Math.abs(divergence) > (rebalance?.tolerance || 5);
 
+                const style = getAssetTypeStyle(type);
                 return (
                   <tr key={type} className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-3 font-medium text-slate-200">{type}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-block border font-medium uppercase tracking-wide"
+                        style={{
+                          borderRadius: '6px',
+                          padding: '3px 10px',
+                          lineHeight: 1.2,
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          letterSpacing: '0.4px',
+                          backgroundColor: style.bg,
+                          borderColor: style.border,
+                          borderWidth: '1px',
+                          color: style.text,
+                        }}>
+                        {type}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-right text-slate-300">{formatPercent(currentPercent)}</td>
                     <td className="px-4 py-3 text-right text-slate-300">{formatPercent(targetPercent)}</td>
                     <td className={`px-4 py-3 text-right font-medium ${divergenceColor(divergence)}`}>

@@ -5,6 +5,15 @@ import { ASSET_TYPES } from '@config/assetTypes.js';
 import type { PositionItem, PortfolioResponse } from '../types';
 import { apiFetch } from '../lib/api';
 
+// Ordine delle asset type, coerente con Allocation.tsx
+const TYPE_ORDER = ['STOCK', 'BOND', 'COMMODITY', 'FUND', 'CASH'];
+
+/** Restituisce l'indice di ordinamento per un asset type (non classificati vanno alla fine) */
+const getTypeOrderIndex = (type: string): number => {
+  const idx = TYPE_ORDER.indexOf(type);
+  return idx === -1 ? Infinity : idx;
+};
+
 // Colori per gli asset type, coerenti con la pie chart in Allocation.tsx
 const TYPE_COLORS: Record<string, string> = {
   STOCK: 'hsl(0, 70%, 50%)',        // rosso
@@ -291,7 +300,7 @@ export default function Portfolio() {
       }
       g.count++;
     }
-    // Ordina per asset_type
+    // Ordina secondo TYPE_ORDER (STOCK, BOND, COMMODITY, FUND, CASH, poi altri)
     return Array.from(groups.entries())
       .map(([assetType, { carico, attuale, count }]) => ({
         assetType,
@@ -301,7 +310,7 @@ export default function Portfolio() {
         gainPercent: carico !== 0 ? ((attuale - carico) / carico) * 100 : null,
         count,
       }))
-      .sort((a, b) => a.assetType.localeCompare(b.assetType));
+      .sort((a, b) => getTypeOrderIndex(a.assetType) - getTypeOrderIndex(b.assetType));
   }, [visiblePositions]);
 
   // Chiavi che rappresentano valori numerici (per ordinamento numerico, non testuale)
@@ -383,18 +392,31 @@ export default function Portfolio() {
   const numericSummaryKeys = new Set<SummarySortKey>(['carico', 'attuale', 'gain', 'gainPercent']);
 
   const sortedSummary = useMemo(() => {
-    const dir = summarySortDirection === 'asc' ? 1 : -1;
-    return [...assetTypeSummary].sort((a, b) => {
-      const aVal = a[summarySortKey];
-      const bVal = b[summarySortKey];
-      if (aVal === null && bVal === null) return 0;
-      if (aVal === null) return 1;
-      if (bVal === null) return -1;
-      if (numericSummaryKeys.has(summarySortKey)) {
-        return ((aVal as number) - (bVal as number)) * dir;
+    // Se non si sta ordinando per assetType, mantieni l'ordine predefinito di assetTypeSummary (TYPE_ORDER)
+    if (summarySortKey !== 'assetType') {
+      // Se si ordina per una colonna numerica o gainPercent, applica quel sort
+      if (summarySortKey !== 'attuale') {
+        const dir = summarySortDirection === 'asc' ? 1 : -1;
+        return [...assetTypeSummary].sort((a, b) => {
+          const aVal = a[summarySortKey];
+          const bVal = b[summarySortKey];
+          if (aVal === null && bVal === null) return 0;
+          if (aVal === null) return 1;
+          if (bVal === null) return -1;
+          if (numericSummaryKeys.has(summarySortKey)) {
+            return ((aVal as number) - (bVal as number)) * dir;
+          }
+          return String(aVal).localeCompare(String(bVal)) * dir;
+        });
       }
-      return String(aVal).localeCompare(String(bVal)) * dir;
-    });
+      // Default: mantieni l'ordine di assetTypeSummary (TYPE_ORDER)
+      return assetTypeSummary;
+    }
+    // Ordinamento per nome asset type
+    const dir = summarySortDirection === 'asc' ? 1 : -1;
+    return [...assetTypeSummary].sort((a, b) =>
+      String(a.assetType).localeCompare(String(b.assetType)) * dir
+    );
   }, [assetTypeSummary, summarySortKey, summarySortDirection]);
 
   if (loading) {
