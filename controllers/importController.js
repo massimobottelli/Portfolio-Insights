@@ -1,5 +1,6 @@
 import { createImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, insertAssetPrice, clearDatabase, getLatestOperationDate } from '../models/importModel.js';
 import { upsertAsset } from '../models/assetModel.js';
+import { clearAnalyticsCache } from '../models/analyticsModel.js';
 import { randomUUID } from 'node:crypto';
 import { parseDirectaMovimentiCSV, parseDirectaHistoryCSV, parseDirectaPortfolioCSV, detectFileType } from '../utils/csvParser.js';
 
@@ -101,6 +102,9 @@ export function importFile(req, res) {
       }
     }
 
+    // Svuota la cache analytics dopo l'import per garantire dati freschi
+    clearAnalyticsCache();
+
     // Aggiorna la sessione con il conteggio finale
     res.json({
       success: true,
@@ -141,6 +145,8 @@ export function clearAllData(req, res) {
     }
 
     const result = clearDatabase();
+    // Svuota la cache analytics dopo la cancellazione
+    clearAnalyticsCache();
     res.json({ success: true, ...result });
   } catch (error) {
     res.status(500).json({ error: 'Errore durante la cancellazione', details: error.message });

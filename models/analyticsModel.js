@@ -1,6 +1,59 @@
 import { db } from '../database.js';
 import { getExchangeRate } from '../utils/currencyService.js';
 
+// =============================================================================
+// Cache in memoria per i risultati dei calcoli pesanti
+// TTL: 5 minuti per evitare ricalcoli ridondanti
+// =============================================================================
+const CACHE_TTL = 5 * 60 * 1000; // 5 minuti in millisecondi
+const analyticsCache = new Map();
+
+// =============================================================================
+// Cache helpers — versione sync per operazioni DB sincrone
+// =============================================================================
+const syncCache = new Map();
+
+function getSyncCached(key, fn) {
+  const cached = syncCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  const data = fn();
+  syncCache.set(key, { data, timestamp: Date.now() });
+  return data;
+}
+
+// =============================================================================
+// Cache helpers — versione async per operazioni con I/O esterno (ECB rates)
+// =============================================================================
+
+/**
+ * Recupera un valore dalla cache o calcolandolo con la funzione fornita.
+ * Supporta solo funzioni asincrone (I/O esterno).
+ */
+async function getCached(key, fn) {
+  const cached = analyticsCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  const data = await fn();
+  analyticsCache.set(key, { data, timestamp: Date.now() });
+  return data;
+}
+
+/**
+ * Svuota tutta la cache analytics (sia sync che async).
+ * Da chiamare dopo import o modifiche.
+ */
+export function clearAnalyticsCache() {
+  analyticsCache.clear();
+  syncCache.clear();
+}
+
+// =============================================================================
+// Funzioni di calcolo base
+// =============================================================================
+
 /**
  * Calcola la liquidità corrente leggendo il campo available_cash
  * dall'ultimo snapshot Directa (daily_portfolio_snapshots).
@@ -28,56 +81,58 @@ export function calculateInvestedCapital() {
  * Calcola le posizioni correnti: per ogni asset, la quantità netta
  * derivante dalla somma di tutti i MarketOrder (BUY = +qty, SELL = -qty).
  * Include prezzo corrente e prezzo medio di carico dalla tabella asset_prices.
- * @returns {Array} Posizioni attive (solo quantità > 0)
+ * @returns {Promise<Array>} Posizioni attive (solo quantità > 0) con prezzi convertiti in EUR
  */
 export async function calculatePositions() {
-  const positions = db
-    .prepare(`
-      SELECT
-        a.id AS asset_id,
-        a.isin,
-        a.ticker,
-        a.name,
-        a.currency,
-        a.asset_type,
-        SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) AS quantity,
-        ap.current_price AS current_price,
-        ap.average_price AS average_price,
-        ap.extraction_date AS price_date
-      FROM market_orders mo
-      JOIN assets a ON a.id = mo.asset_id
-      LEFT JOIN (
-        SELECT asset_id, current_price, average_price, extraction_date
-        FROM asset_prices
-        WHERE (asset_id, extraction_date) IN (
-          SELECT asset_id, MAX(extraction_date)
+  return getCached('positions', async () => {
+    const positions = db
+      .prepare(`
+        SELECT
+          a.id AS asset_id,
+          a.isin,
+          a.ticker,
+          a.name,
+          a.currency,
+          a.asset_type,
+          SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) AS quantity,
+          ap.current_price AS current_price,
+          ap.average_price AS average_price,
+          ap.extraction_date AS price_date
+        FROM market_orders mo
+        JOIN assets a ON a.id = mo.asset_id
+        LEFT JOIN (
+          SELECT asset_id, current_price, average_price, extraction_date
           FROM asset_prices
-          GROUP BY asset_id
-        )
-      ) ap ON ap.asset_id = a.id
-      GROUP BY a.id, a.isin, a.ticker, a.name, a.currency, a.asset_type, ap.current_price, ap.average_price, ap.extraction_date
-      HAVING quantity > 0
-      ORDER BY a.name ASC
-    `)
-    .all();
+          WHERE (asset_id, extraction_date) IN (
+            SELECT asset_id, MAX(extraction_date)
+            FROM asset_prices
+            GROUP BY asset_id
+          )
+        ) ap ON ap.asset_id = a.id
+        GROUP BY a.id, a.isin, a.ticker, a.name, a.currency, a.asset_type, ap.current_price, ap.average_price, ap.extraction_date
+        HAVING quantity > 0
+        ORDER BY a.name ASC
+      `)
+      .all();
 
-  // Conversione prezzi in EUR con il tasso di cambio odierno (ECB).
-  // I prezzi originali restano invariati; vengono aggiunti i campi *_eur.
-  const currencies = [...new Set(positions.map(p => p.currency).filter(c => c && c !== 'EUR'))];
-  const rates = {};
-  for (const currency of currencies) {
-    const rate = await getExchangeRate(currency);
-    if (rate !== null) rates[currency] = rate;
-  }
+    // Conversione prezzi in EUR con il tasso di cambio odierno (ECB).
+    // I prezzi originali restano invariati; vengono aggiunti i campi *_eur.
+    const currencies = [...new Set(positions.map(p => p.currency).filter(c => c && c !== 'EUR'))];
+    const rates = {};
+    for (const currency of currencies) {
+      const rate = await getExchangeRate(currency);
+      if (rate !== null) rates[currency] = rate;
+    }
 
-  return positions.map(p => {
-    const rate = p.currency && rates[p.currency] ? rates[p.currency] : null;
-    const convert = (value) => (value !== null && value !== undefined && rate) ? value / rate : null;
-    return {
-      ...p,
-      current_price_eur: p.current_price !== null ? convert(p.current_price) : null,
-      average_price_eur: p.average_price !== null ? convert(p.average_price) : null
-    };
+    return positions.map(p => {
+      const rate = p.currency && rates[p.currency] ? rates[p.currency] : null;
+      const convert = (value) => (value !== null && value !== undefined && rate) ? value / rate : null;
+      return {
+        ...p,
+        current_price_eur: p.current_price !== null ? convert(p.current_price) : null,
+        average_price_eur: p.average_price !== null ? convert(p.average_price) : null
+      };
+    });
   });
 }
 
@@ -102,12 +157,26 @@ const isBtp = (pos) =>
   pos.name.toLowerCase().includes('btp') || pos.ticker.toLowerCase().includes('btp');
 
 /**
+ * Helper: verifica se un asset è un BTP (quotato in percentuale, quantità / 100).
+ * @param {string} name - Nome dell'asset
+ * @param {string} ticker - Ticker dell'asset
+ * @returns {boolean} true se è un BTP
+ */
+const isBtpAsset = (name, ticker) =>
+  name.toLowerCase().includes('btp') || ticker.toLowerCase().includes('btp');
+
+// =============================================================================
+// Allocazione portafoglio
+// =============================================================================
+
+/**
  * Calcola l'allocazione percentuale del portafoglio.
  * Per ogni posizione attiva, calcola il peso percentuale basato sul valore di mercato
  * (quantità × prezzo corrente), con la correzione BTP (quantità / 100).
- * @returns {Array} Posizioni con percentuale di allocazione
+ * @returns {Promise<Array>} Posizioni con percentuale di allocazione
  */
 export async function calculateAllocation() {
+  // Le posizioni sono già cacheate da calculatePositions()
   const positions = await calculatePositions();
 
   // Trasforma le quantità (BTP / 100) e calcola il valore di mercato.
@@ -137,6 +206,10 @@ export async function calculateAllocation() {
   }));
 }
 
+// =============================================================================
+// Snapshot e storico
+// =============================================================================
+
 /**
  * Ottiene lo snapshot di portafoglio più recente.
  * @returns {Object|undefined} Ultimo snapshot disponibile
@@ -149,10 +222,10 @@ export function getLatestSnapshot() {
 
 /**
  * Calcola il totale cumulativo dei depositi per ogni data di snapshot.
- * 
+ *
  * Per ogni snapshot_date, somma tutti i DEPOSIT con operation_date <= snapshot_date.
  * Questo permette di tracciare una linea "capitale versato" nel grafico storico.
- * 
+ *
  * @returns {Array<{snapshot_date: string, cumulative_deposits: number}>}
  */
 export function getDepositHistory() {
@@ -178,19 +251,16 @@ export function getDepositHistory() {
  * @returns {Array} Snapshot ordinati per data crescente
  */
 export function getSnapshotHistory() {
-  return db
-    .prepare('SELECT * FROM daily_portfolio_snapshots ORDER BY snapshot_date ASC')
-    .all();
+  return getSyncCached('snapshotHistory', () => {
+    return db
+      .prepare('SELECT * FROM daily_portfolio_snapshots ORDER BY snapshot_date ASC')
+      .all();
+  });
 }
 
-/**
- * Helper: verifica se un asset è un BTP (quotato in percentuale, quantità / 100).
- * @param {string} name - Nome dell'asset
- * @param {string} ticker - Ticker dell'asset
- * @returns {boolean} true se è un BTP
- */
-const isBtpAsset = (name, ticker) =>
-  name.toLowerCase().includes('btp') || ticker.toLowerCase().includes('btp');
+// =============================================================================
+// Dettaglio asset
+// =============================================================================
 
 /**
  * Recupera il dettaglio completo di un singolo asset per la pagina AssetDetail.
@@ -325,10 +395,11 @@ export async function getAssetDetail(assetId) {
 
   // 6. Percentuali di allocazione: rispetto al portafoglio totale e all'asset type.
   // I totali sono calcolati sui valori convertiti in EUR (stessa base di calculateAllocation).
-  const allPositions = await calculatePositions();
+  // Usa la cache per evitare ricalcoli duplicati delle posizioni.
+  const allPositionsCached = await calculatePositions();
   let totalPortfolio = 0;
   let totalType = 0;
-  for (const p of allPositions) {
+  for (const p of allPositionsCached) {
     if (p.current_price === null) continue;
     const qty = isBtpAsset(p.name, p.ticker) ? p.quantity / 100 : p.quantity;
     // Usa il prezzo convertito in EUR (fallback al prezzo originale se non disponibile)
@@ -397,18 +468,22 @@ export async function getAssetDetail(assetId) {
   };
 }
 
+// =============================================================================
+// TWR (Time-Weighted Rate of Return)
+// =============================================================================
+
 /**
  * Calcola il Time-Weighted Rate of Return (TWR) del portafoglio.
- * 
+ *
  * Metodo:
  * 1. Recupera tutti gli snapshot giornalieri ordinati per data
  * 2. Recupera tutti i depositi (flussi di cassa esterni)
  * 3. Identifica i sottoperiodi delimitati dai depositi
  * 4. Per ogni sottoperiodo calcola il rendimento: (V_end - V_start) / V_start
  * 5. Compatta geometricamente: TWR = ∏(1 + r_i) - 1
- * 
+ *
  * I depositi sono l'unico flusso di cassa esterno considerato (nessun WITHDRAWAL).
- * 
+ *
  * @returns {Object} TWR totale, YTD, annuali e serie storica
  */
 export function calculateTWR() {
