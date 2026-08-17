@@ -38,6 +38,20 @@ const getAssetTypeStyle = (type: string) => {
 };
 type SortDirection = 'asc' | 'desc';
 
+type SortKey = 
+  | 'ticker' | 'isin' | 'name' | 'quantity' | 'current_price' 
+  | 'average_price' | 'asset_type' | 'total_value' | 'total_value_eur' 
+  | 'gain_eur' | 'gain_eur_eur' | 'gain_percent';
+
+/** Position with calculated fields for sorting */
+type ExtendedPosition = PositionItem & {
+  total_value: number | null;
+  total_value_eur: number | null;
+  gain_eur: number | null;
+  gain_eur_eur: number | null;
+  gain_percent: number | null;
+};
+
 // I BTP (Buoni del Tesoro Poliennali) sono quotati in percentuale (es. 102.50),
 // quindi la quantità importata da Directa va divisa per 100 per riflettere il valore nominale effettivo.
 const isBtp = (pos: PositionItem) =>
@@ -296,11 +310,13 @@ export default function Portfolio() {
   ]);
 
   const sortedPositions = useMemo(() => {
-    if (!sortKey) return visiblePositions;
+    if (!sortKey) return visiblePositions as ExtendedPosition[];
     const dir = sortDirection === 'asc' ? 1 : -1;
     return [...visiblePositions].sort((a, b) => {
-      const aVal = a[sortKey];
-      const bVal = b[sortKey];
+      const aPos = a as ExtendedPosition;
+      const bPos = b as ExtendedPosition;
+      const aVal = aPos[sortKey];
+      const bVal = bPos[sortKey];
       if (aVal === null && bVal === null) return 0;
       if (aVal === null) return 1;
       if (bVal === null) return -1;
