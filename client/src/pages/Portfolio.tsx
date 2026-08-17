@@ -9,8 +9,8 @@ import { apiFetch } from '../lib/api';
 const TYPE_COLORS: Record<string, string> = {
   STOCK: 'hsl(0, 70%, 50%)',        // rosso
   BOND: 'hsl(145, 60%, 50%)',       // verde
-  COMMODITY: 'hsl(45, 85%, 50%)',   // giallo
-  FUND: 'hsl(28, 75%, 50%)',        // arancione
+  COMMODITY: 'hsl(45, 90%, 40%)',   // giallo
+  FUND: 'hsl(28, 100%, 34%)',        // arancione
   CASH: 'hsl(220, 65%, 50%)',       // blu
 };
 
@@ -24,18 +24,18 @@ const getAssetTypeStyle = (type: string) => {
   const sat = parseInt(s);
   const lum = parseInt(l);
   // Background: stessa hue, stessa saturation, lightness più alta, con trasparenza
-  const bgLum = Math.min(lum + 25, 70);
+  const bgLum = Math.min(lum + 100, 30);
   const bg = `hsl(${h}, ${sat}%, ${bgLum}%, 0.15)`;
-  // Border: leggermente più scuro del colore originale
-  const borderLum = Math.max(lum - 8, 25);
-  const borderColor = `hsl(${h}, ${sat}%, ${borderLum}%)`;
-  // Text: più chiaro del bordo, quasi luminoso
+  // Border: leggermente più scuro, meno saturo
+  const borderLum = Math.max(lum - 10, 15);
+  const borderSat = Math.max(sat - 0, 0);
+  const borderColor = `hsl(${h}, ${borderSat}%, ${borderLum}%)`;
+  // Text: più chiaro, più saturo
   const textLum = Math.min(lum + 30, 85);
-  const textColor = `hsl(${h}, ${Math.max(sat - 10, 20)}%, ${textLum}%)`;
+  const textSat = Math.min(sat + 100, 100);
+  const textColor = `hsl(${h}, ${textSat}%, ${textLum}%)`;
   return { bg, border: borderColor, text: textColor };
 };
-
-type SortKey = 'ticker' | 'isin' | 'name' | 'quantity' | 'currency' | 'asset_type' | 'current_price' | 'average_price' | 'total_value' | 'total_value_eur' | 'gain_eur' | 'gain_eur_eur' | 'gain_percent';
 type SortDirection = 'asc' | 'desc';
 
 // I BTP (Buoni del Tesoro Poliennali) sono quotati in percentuale (es. 102.50),
