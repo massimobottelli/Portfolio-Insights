@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Save, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { apiFetch } from '../lib/api';
 import type {
@@ -66,7 +66,6 @@ export default function Allocation() {
   const [targetInputs, setTargetInputs] = useState<Record<string, string>>({});
   const [toleranceInput, setToleranceInput] = useState('5');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -214,55 +213,6 @@ export default function Allocation() {
       return () => clearTimeout(timeoutId);
     }
   }, [sumIsValid, targetInputs, toleranceInput]);
-
-  const handleSave = async () => {
-    if (!sumIsValid) {
-      setError('La somma dei target deve essere 100%');
-      return;
-    }
-
-    const tolerance = parseFloat(toleranceInput);
-    if (isNaN(tolerance) || tolerance <= 0) {
-      setError('La soglia di tolleranza deve essere un numero maggiore di 0');
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
-    setSaveMessage(null);
-
-    try {
-      const targets = TARGETABLE_TYPES.map(type => ({
-        assetType: type,
-        targetPercent: parseFloat(targetInputs[type] || '0')
-      }));
-
-      const res = await apiFetch('/api/allocation/target', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tolerance, targets }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Errore nel salvataggio del target');
-      }
-
-      const saved: AllocationTargetResponse = await res.json();
-      setTarget(saved);
-      setSaveMessage('Target salvato');
-
-      // Ricarica il ribilanciamento
-      const rebalanceRes = await apiFetch('/api/allocation/rebalance');
-      if (rebalanceRes.ok) {
-        setRebalance(await rebalanceRes.json());
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Errore sconosciuto');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (loading) {
     return (
