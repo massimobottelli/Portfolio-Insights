@@ -477,12 +477,24 @@ export async function getAssetDetail(assetId) {
  *
  * Metodo:
  * 1. Recupera tutti gli snapshot giornalieri ordinati per data
- * 2. Recupera tutti i depositi (flussi di cassa esterni)
- * 3. Identifica i sottoperiodi delimitati dai depositi
- * 4. Per ogni sottoperiodo calcola il rendimento: (V_end - V_start) / V_start
+ * 2. Recupera SOLO i flussi di cassa esterni REALI (DEPOSIT, WITHDRAWAL, OTHER)
+ * 3. Identifica i sottoperiodi delimitati dai flussi di cassa
+ * 4. Per ogni sottoperiodo calcola il rendimento normalizzato:
+ *    (V_end + netFlow - V_start) / V_start
  * 5. Compatta geometricamente: TWR = ∏(1 + r_i) - 1
  *
- * I depositi sono l'unico flusso di cassa esterno considerato (nessun WITHDRAWAL).
+ * Perché solo DEPOSIT, WITHDRAWAL, OTHER:
+ * - Il portfolio_value usato è il "patrimonio" di Directa, che include GIA'
+ *   liquidità + titoli. Quando arriva un DIVIDEND o INTEREST, l'importo entra
+ *   in available_cash ed è quindi GIA' riflesso nel portfolio_value.
+ * - Normalizzare anche DIVIDEND/INTEREST causerebbe doppio conteggio.
+ * - DEPOSIT/WITHDRAWAL/OTHER rappresentano veri flussi tra conto corrente e portafoglio
+ *   che non sono ancora inclusi nel valore degli asset.
+ *
+ * Normalizzazione dei flussi:
+ * - DEPOSIT → negativo (soldi versati dal proprietario, escono dal conto corrente)
+ * - WITHDRAWAL → positivo (prelievi, entrano nel conto corrente)
+ * - OTHER → positivo/negativo (movimenti vari, es. trasferimenti, rimborsi)
  *
  * @returns {Object} TWR totale, YTD, annuali e serie storica
  */
@@ -501,24 +513,41 @@ export function calculateTWR() {
     };
   }
 
-  // Recupera tutti i depositi ordinati per data.
-  // Le date sono già in formato ISO (YYYY-MM-DD), confrontabili con snapshot_date.
-  const deposits = db
-    .prepare("SELECT operation_date, euro_amount FROM cash_movements WHERE movement_type = 'DEPOSIT' ORDER BY operation_date ASC")
+  // Recupera SOLO i flussi di cassa esterni REALI, ordinati per data.
+  //
+  // Inclusioni:
+  //   - DEPOSIT: versamenti contanti (segno negativo, escono dal conto corrente)
+  //   - WITHDRAWAL: prelievi contanti (segno positivo, entrano nel conto corrente)
+  //   - OTHER: movimenti vari con impatto reale sul patrimonio (es. trasferimenti,
+  //     rimborsi, line di trading) — può avere segno positivo o negativo
+  //
+  // Esclusioni (gia' inclusi nel portfolio_value "patrimonio" di Directa):
+  //   - DIVIDEND: gia' in available_cash → gia' nel patrimonio
+  //   - INTEREST: gia' in available_cash → gia' nel patrimonio
+  //   - COMMISSION, TAX, STAMP_DUTY: costi interni gia' nel prezzo degli asset
+  //
+  // I DEPOSIT hanno segno negativo (versamenti), gli altri hanno segno positivo (incassi).
+  const cashFlows = db
+    .prepare(
+      "SELECT operation_date, euro_amount, movement_type FROM cash_movements " +
+      "WHERE movement_type IN ('DEPOSIT', 'WITHDRAWAL', 'OTHER') " +
+      "ORDER BY operation_date ASC"
+    )
     .all()
-    .map(d => ({
-      date: d.operation_date,
-      amount: d.euro_amount
+    .map(cf => ({
+      date: cf.operation_date,
+      amount: cf.movement_type === 'DEPOSIT' ? -cf.euro_amount : cf.euro_amount,
+      type: cf.movement_type
     }));
 
-  // Costruisce la mappa dei depositi per data (somma se multipli nello stesso giorno)
-  const depositMap = {};
-  for (const d of deposits) {
-    depositMap[d.date] = (depositMap[d.date] || 0) + d.amount;
+  // Costruisce la mappa dei flussi di cassa per data (somma se multipli nello stesso giorno)
+  const flowMap = {};
+  for (const f of cashFlows) {
+    flowMap[f.date] = (flowMap[f.date] || 0) + f.amount;
   }
 
-  // Calcola il TWR per sottoperiodi delimitati dai depositi
-  // Un sottoperiodo inizia dopo un deposito e termina al deposito successivo (o alla fine)
+  // Calcola il TWR per sottoperiodi delimitati dai flussi di cassa
+  // Un sottoperiodo inizia dopo un flusso e termina al flusso successivo (o alla fine)
   let twrHistory = [];
   let cumulativeTWR = 1; // Fattore moltiplicativo cumulato
   let subperiodStartValue = snapshots[0].portfolio_value;
@@ -535,17 +564,18 @@ export function calculateTWR() {
     const currentDate = current.snapshot_date;
     const currentValue = current.portfolio_value;
 
-    // Verifica se in questa data c'è un deposito
-    const depositAmount = depositMap[currentDate] || 0;
+    // Verifica se in questa data ci sono flussi di cassa
+    const netFlow = flowMap[currentDate] || 0;
 
-    if (depositAmount > 0) {
-      // C'è un deposito: chiude il sottoperiodo corrente
-      // Il valore finale del sottoperiodo è il valore prima del deposito
-      // Il rendimento del sottoperiodo: (V_end - V_start) / V_start
-      const subperiodReturn = (currentValue - depositAmount - subperiodStartValue) / subperiodStartValue;
+    if (netFlow !== 0) {
+      // C'è almeno un flusso di cassa: chiude il sottoperiodo corrente
+      // Il rendimento del sottoperiodo normalizza i flussi:
+      //   - netFlow > 0 (incassi): il portafoglio ha ricevuto denaro, va aggiunto
+      //   - netFlow < 0 (depositi): il portafoglio ha perso liquidità, va sottratto
+      const subperiodReturn = (currentValue + netFlow - subperiodStartValue) / subperiodStartValue;
       cumulativeTWR *= (1 + subperiodReturn);
 
-      // Il nuovo sottoperiodo inizia dopo il deposito
+      // Il nuovo sottoperiodo inizia dopo il flusso
       subperiodStartValue = currentValue;
       subperiodStartDate = currentDate;
     }

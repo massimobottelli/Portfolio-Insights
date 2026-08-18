@@ -228,8 +228,12 @@ export default function Dashboard() {
     const last = filteredChartData[filteredChartData.length - 1];
     const change = last.portfolio_value - first.portfolio_value;
     const changePct = first.portfolio_value > 0 ? (change / first.portfolio_value) * 100 : 0;
-    // TWR del periodo: differenza tra TWR finale e iniziale (approssimazione)
-    const twrPeriod = first.twr !== null && last.twr !== null ? (last.twr - first.twr) * 100 : null;
+    // TWR del periodo: calcolo geometrico corretto
+    // Formula: ((1 + TWR_finale) / (1 + TWR_iniziale) - 1) * 100
+    // Non una semplice differenza, perché il TWR è cumulato geometricamente
+    const twrPeriod = first.twr !== null && last.twr !== null
+      ? ((1 + last.twr) / (1 + first.twr) - 1) * 100
+      : null;
     return { change, changePct, twrPeriod };
   }, [filteredChartData, timeRange]);
 
