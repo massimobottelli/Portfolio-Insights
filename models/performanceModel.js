@@ -330,6 +330,51 @@ export function calculateCAGR(returnSeries) {
 export const ANNUALIZATION_FACTOR = Math.sqrt(365);
 
 // ──────────────────────────────────────────────
+// calculateVolatility
+// ──────────────────────────────────────────────
+
+/**
+ * Calculate daily standard deviation and annualized volatility from the canonical return series.
+ *
+ * Formula:
+ *   dailyStdDev    = sample stddev(dailyReturns)   [Bessel correction: n-1]
+ *   annualizedVol  = dailyStdDev × √365            (ANNUALIZATION_FACTOR)
+ *
+ * Uses sample standard deviation with Bessel's correction (n-1), which is the
+ * financial industry standard when working with a sample of returns rather than
+ * the full population.
+ *
+ * Does NOT filter weekends/holidays — Directa provides snapshots on all calendar
+ * days, so √365 (not √252) is the correct annualization factor.
+ *
+ * Edge cases:
+ *   - < 2 points → { daily: null, annualized: null }  (cannot compute stddev)
+ *   - all returns identical (stdDev = 0) → { daily: 0, annualized: 0 }  (valid zero-vol case)
+ *
+ * @param {PortfolioReturnPoint[]} returnSeries - output of buildReturnSeries()
+ * @returns {{ daily: number|null, annualized: number|null }}
+ */
+export function calculateVolatility(returnSeries) {
+  if (!returnSeries || returnSeries.length < 2) {
+    return { daily: null, annualized: null };
+  }
+
+  const returns = returnSeries.map((r) => r.periodReturn);
+  const n = returns.length;
+  const mean = returns.reduce((s, v) => s + v, 0) / n;
+
+  // Sample variance with Bessel correction (n - 1)
+  const squaredDiffs = returns.map((r) => Math.pow(r - mean, 2));
+  const variance = squaredDiffs.reduce((s, v) => s + v, 0) / (n - 1);
+  const dailyStdDev = Math.sqrt(variance);
+
+  return {
+    daily: dailyStdDev,
+    annualized: dailyStdDev * ANNUALIZATION_FACTOR,
+  };
+}
+
+// ──────────────────────────────────────────────
 // calculateAnnualReturns
 // ──────────────────────────────────────────────
 
@@ -547,6 +592,7 @@ export default {
   twrFromReturns,
   calculateCumulativePerformance,
   calculateCAGR,
+  calculateVolatility,
   calculateAnnualReturns,
   calculateMonthlyReturns,
   calculateBestWorst,

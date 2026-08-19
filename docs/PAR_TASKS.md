@@ -151,7 +151,44 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 ## Fase 5 — Volatilità
 **Obiettivo:** Calcolare deviazione standard daily e volatilità annualizzata (× √365).
 
-- [ ] Fase 5 — Volatilità
+- [x] Fase 5 — Volatilità ✅
+
+**Esito dettagliato:**
+- **Funzione aggiunta a `models/performanceModel.js`:**
+  - `calculateVolatility(returnSeries)` → calcola sample standard deviation dei rendimenti giornalieri con correzione di Bessel (n-1)
+  - Annualizzazione: `annualized = dailyStdDev × √365` (costante `ANNUALIZATION_FACTOR` già esistente)
+  - Edge cases: < 2 punti → `{ daily: null, annualized: null }`; tutti i rendimenti identici → `{ daily: 0, annualized: 0 }`
+- **Export aggiornato:** funzione aggiunta al `default export` del modulo
+- **Test creati:** 10 nuovi test in `models/__tests__/performanceModel.test.js`
+  - empty array → nulls
+  - single point → nulls
+  - two-point series (calcolo manuale verificato)
+  - zero volatilità (rendimenti identici)
+  - constant positive returns → zero vol
+  - constant negative returns → zero vol
+  - deterministic 3-return dataset (con calcolo expected dinamico)
+  - annualization factor verification (ratio = √365)
+  - integration con buildReturnSeries su dati reali
+  - alternating high volatility (+5%, -5%, +5%, -5%)
+- **Test risultati:** 71/71 passati ✅
+  - 6 twrFromReturns
+  - 3 buildReturnSeries no-flows
+  - 3 buildReturnSeries with flows
+  - 1 buildReturnSeries withdrawals
+  - 4 buildReturnSeries edge cases
+  - 1 regression TWR
+  - 6 calculateCumulativePerformance
+  - 9 calculateCAGR
+  - 8 calculateMonthlyReturns
+  - 2 Integration pipeline (Fase 2)
+  - 6 calculateAnnualReturns
+  - 5 calculateBestWorst
+  - 5 calculatePeriodStatsFromSeries
+  - 2 Integration pipeline Fase 4
+  - 10 calculateVolatility (nuovi)
+- **Build frontend:** ✅ PASSA (2.39s, 2614 modules)
+- **DB cleanup:** test data rimosso (7 cash movements, 46 snapshots, 1 session)
+- **DB schema:** nessuna modifica ✅
 
 ## Fase 6 — Sharpe Ratio
 **Obiettivo:** Calcolare Sharpe ratio con risk-free rate configurabile come parametro HTTP.

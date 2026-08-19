@@ -14,10 +14,12 @@ import {
   twrFromReturns,
   calculateCumulativePerformance,
   calculateCAGR,
+  calculateVolatility,
   calculateAnnualReturns,
   calculateMonthlyReturns,
   calculateBestWorst,
   calculatePeriodStatsFromSeries,
+  ANNUALIZATION_FACTOR,
 } from '../performanceModel.js';
 import { calculateTWR } from '../analyticsModel.js';
 import { db, initializeDatabase } from '../../database.js';
@@ -1050,5 +1052,162 @@ describe('Integration: Phase 4 — annual + monthly + stats + best/worst', () =>
     // Total months should match expected
     expect(monthly.length).toBeGreaterThan(0);
     expect(stats.months.total).toBe(monthly.length);
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 16: calculateVolatility
+// ──────────────────────────────────────────────
+
+describe('calculateVolatility', () => {
+  it('should return null for empty array', () => {
+    const result = calculateVolatility([]);
+    expect(result.daily).toBeNull();
+    expect(result.annualized).toBeNull();
+  });
+
+  it('should return null for single point', () => {
+    const series = [
+      { date: '2099-01-01', periodReturn: 0 },
+    ];
+    const result = calculateVolatility(series);
+    expect(result.daily).toBeNull();
+    expect(result.annualized).toBeNull();
+  });
+
+  it('should calculate correct volatility for two-point series', () => {
+    // returns = [0, 0.02]
+    // mean = 0.01
+    // squaredDiffs = [(0-0.01)², (0.02-0.01)²] = [0.0001, 0.0001]
+    // variance = 0.0002 / (2-1) = 0.0002
+    // daily = √0.0002 ≈ 0.014142
+    const series = [
+      { date: '2099-01-01', periodReturn: 0 },
+      { date: '2099-01-02', periodReturn: 0.02 },
+    ];
+    const result = calculateVolatility(series);
+
+    expect(result.daily).toBeCloseTo(Math.sqrt(0.0002), 10);
+    expect(result.annualized).toBeCloseTo(Math.sqrt(0.0002) * ANNUALIZATION_FACTOR, 10);
+  });
+
+  it('should produce zero volatility when all returns are identical', () => {
+    // All returns = 0.01 → stddev = 0
+    const series = [
+      { date: '2099-01-01', periodReturn: 0.01 },
+      { date: '2099-01-02', periodReturn: 0.01 },
+      { date: '2099-01-03', periodReturn: 0.01 },
+    ];
+    const result = calculateVolatility(series);
+    expect(result.daily).toBe(0);
+    expect(result.annualized).toBe(0);
+  });
+
+  it('should handle constant positive returns (zero vol)', () => {
+    const series = [
+      { date: '2099-01-01', periodReturn: 0.005 },
+      { date: '2099-01-02', periodReturn: 0.005 },
+      { date: '2099-01-03', periodReturn: 0.005 },
+      { date: '2099-01-04', periodReturn: 0.005 },
+    ];
+    const result = calculateVolatility(series);
+    expect(result.daily).toBe(0);
+    expect(result.annualized).toBe(0);
+  });
+
+  it('should handle constant negative returns (zero vol)', () => {
+    const series = [
+      { date: '2099-01-01', periodReturn: -0.002 },
+      { date: '2099-01-02', periodReturn: -0.002 },
+      { date: '2099-01-03', periodReturn: -0.002 },
+    ];
+    const result = calculateVolatility(series);
+    expect(result.daily).toBe(0);
+    expect(result.annualized).toBe(0);
+  });
+
+  it('should calculate correct volatility for deterministic 3-return dataset', () => {
+    // returns = [0.01, -0.01, 0.02]
+    // mean = 0.02/3 = 0.006667
+    // squaredDiffs = [(0.01-0.006667)², (-0.01-0.006667)², (0.02-0.006667)²]
+    //              = [0.00001111, 0.00027778, 0.00017778]
+    // variance = 0.00046667 / 2 = 0.00023333
+    // daily = √0.00023333 ≈ 0.015275
+    const series = [
+      { date: '2099-01-01', periodReturn: 0.01 },
+      { date: '2099-01-02', periodReturn: -0.01 },
+      { date: '2099-01-03', periodReturn: 0.02 },
+    ];
+    const result = calculateVolatility(series);
+
+    // Compute expected from the same returns to avoid floating-point mismatch
+    const returns = [0.01, -0.01, 0.02];
+    const mean = returns.reduce((s, v) => s + v, 0) / returns.length;
+    const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / (returns.length - 1);
+    const expectedDaily = Math.sqrt(variance);
+
+    expect(result.daily).toBeCloseTo(expectedDaily, 5);
+    expect(result.annualized).toBeCloseTo(expectedDaily * ANNUALIZATION_FACTOR, 5);
+  });
+
+  it('should verify annualization factor is exactly √365', () => {
+    // Use a series with known non-zero volatility
+    const series = [
+      { date: '2099-01-01', periodReturn: 0.01 },
+      { date: '2099-01-02', periodReturn: -0.01 },
+      { date: '2099-01-03', periodReturn: 0.005 },
+      { date: '2099-01-04', periodReturn: -0.005 },
+      { date: '2099-01-05', periodReturn: 0.02 },
+    ];
+    const result = calculateVolatility(series);
+
+    expect(result.daily).not.toBe(0);
+    expect(result.annualized).not.toBe(0);
+    // Ratio must equal √365 exactly
+    expect(result.annualized / result.daily).toBeCloseTo(Math.sqrt(365), 10);
+  });
+
+  it('should integrate correctly with buildReturnSeries on real data', () => {
+    seedSnapshot('2099-01-02', 10000);
+    seedSnapshot('2099-01-03', 10100);
+    seedSnapshot('2099-01-04', 10050);
+    seedSnapshot('2099-01-05', 10200);
+    seedSnapshot('2099-01-06', 10150);
+    seedSnapshot('2099-01-07', 10300);
+
+    const series = buildReturnSeries({ from: '2099-01-02', to: '2099-01-07' });
+    const vol = calculateVolatility(series);
+
+    expect(series.length).toBe(6);
+    expect(vol.daily).not.toBeNull();
+    expect(vol.annualized).not.toBeNull();
+    expect(Number.isFinite(vol.daily)).toBe(true);
+    expect(Number.isFinite(vol.annualized)).toBe(true);
+    expect(vol.daily).toBeGreaterThanOrEqual(0);
+    expect(vol.annualized).toBeGreaterThanOrEqual(0);
+
+    // Verify no NaN or Infinity
+    expect(Number.isNaN(vol.daily)).toBe(false);
+    expect(Number.isNaN(vol.annualized)).toBe(false);
+    expect(Number.isFinite(vol.daily)).toBe(true);
+    expect(Number.isFinite(vol.annualized)).toBe(true);
+  });
+
+  it('should handle alternating positive/negative returns (high vol)', () => {
+    // Large swings: +5%, -5%, +5%, -5%
+    const series = [
+      { date: '2099-01-01', periodReturn: 0.05 },
+      { date: '2099-01-02', periodReturn: -0.05 },
+      { date: '2099-01-03', periodReturn: 0.05 },
+      { date: '2099-01-04', periodReturn: -0.05 },
+    ];
+    const result = calculateVolatility(series);
+
+    // mean = 0
+    // variance = (4 × 0.0025) / 3 = 0.003333
+    // daily = √0.003333 ≈ 0.057735
+    const expectedDaily = Math.sqrt((4 * 0.0025) / 3);
+    expect(result.daily).toBeCloseTo(expectedDaily, 10);
+    expect(result.annualized).toBeCloseTo(expectedDaily * ANNUALIZATION_FACTOR, 10);
   });
 });
