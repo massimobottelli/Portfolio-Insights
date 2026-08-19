@@ -856,13 +856,19 @@ describe('calculateAnnualReturns', () => {
 describe('calculateBestWorst', () => {
   it('should return nulls for empty arrays', () => {
     const result = calculateBestWorst([], []);
-    expect(result.month.best).toBeNull();
-    expect(result.month.worst).toBeNull();
-    expect(result.year.best).toBeNull();
-    expect(result.year.worst).toBeNull();
+    expect(result.month.year).toBeNull();
+    expect(result.month.month).toBeNull();
+    expect(result.month.return).toBeNull();
+    expect(result.worst.year).toBeNull();
+    expect(result.worst.month).toBeNull();
+    expect(result.worst.return).toBeNull();
+    expect(result.year.year).toBeNull();
+    expect(result.year.return).toBeNull();
+    expect(result.worstYear.year).toBeNull();
+    expect(result.worstYear.return).toBeNull();
   });
 
-  it('should find best and worst month', () => {
+  it('should find best and worst month with period identifiers', () => {
     const monthly = [
       { year: 2024, month: 1, return: 0.05 },
       { year: 2024, month: 2, return: -0.03 },
@@ -870,29 +876,41 @@ describe('calculateBestWorst', () => {
       { year: 2024, month: 4, return: -0.06 },
     ];
     const result = calculateBestWorst(monthly, []);
-    expect(result.month.best).toBeCloseTo(0.08, 10);
-    expect(result.month.worst).toBeCloseTo(-0.06, 10);
+    expect(result.month.return).toBeCloseTo(0.08, 10);
+    expect(result.month.year).toBe(2024);
+    expect(result.month.month).toBe(3);
+    expect(result.worst.return).toBeCloseTo(-0.06, 10);
+    expect(result.worst.year).toBe(2024);
+    expect(result.worst.month).toBe(4);
   });
 
-  it('should find best and worst year', () => {
+  it('should find best and worst year with period identifier', () => {
     const annual = [
       { year: 2022, return: -0.09 },
       { year: 2023, return: 0.14 },
       { year: 2024, return: 0.09 },
     ];
     const result = calculateBestWorst([], annual);
-    expect(result.year.best).toBeCloseTo(0.14, 10);
-    expect(result.year.worst).toBeCloseTo(-0.09, 10);
+    expect(result.year.return).toBeCloseTo(0.14, 10);
+    expect(result.year.year).toBe(2023);
+    expect(result.worstYear.return).toBeCloseTo(-0.09, 10);
+    expect(result.worstYear.year).toBe(2022);
   });
 
   it('should handle single element arrays', () => {
     const monthly = [{ year: 2024, month: 1, return: 0.05 }];
     const annual = [{ year: 2024, return: 0.10 }];
     const result = calculateBestWorst(monthly, annual);
-    expect(result.month.best).toBeCloseTo(0.05, 10);
-    expect(result.month.worst).toBeCloseTo(0.05, 10);
-    expect(result.year.best).toBeCloseTo(0.10, 10);
-    expect(result.year.worst).toBeCloseTo(0.10, 10);
+    expect(result.month.return).toBeCloseTo(0.05, 10);
+    expect(result.month.year).toBe(2024);
+    expect(result.month.month).toBe(1);
+    expect(result.worst.return).toBeCloseTo(0.05, 10);
+    expect(result.worst.year).toBe(2024);
+    expect(result.worst.month).toBe(1);
+    expect(result.year.return).toBeCloseTo(0.10, 10);
+    expect(result.year.year).toBe(2024);
+    expect(result.worstYear.return).toBeCloseTo(0.10, 10);
+    expect(result.worstYear.year).toBe(2024);
   });
 
   it('should return first chronologically when ties exist', () => {
@@ -903,8 +921,12 @@ describe('calculateBestWorst', () => {
       { year: 2024, month: 3, return: 0.05 },
     ];
     const result = calculateBestWorst(monthly, []);
-    expect(result.month.best).toBeCloseTo(0.05, 10);
-    expect(result.month.worst).toBeCloseTo(0.05, 10);
+    expect(result.month.return).toBeCloseTo(0.05, 10);
+    expect(result.month.year).toBe(2024);
+    expect(result.month.month).toBe(1);
+    expect(result.worst.return).toBeCloseTo(0.05, 10);
+    expect(result.worst.year).toBe(2024);
+    expect(result.worst.month).toBe(1);
   });
 });
 
@@ -1013,8 +1035,8 @@ describe('Integration: Phase 4 — annual + monthly + stats + best/worst', () =>
     expect(Number.isFinite(annual[0].return)).toBe(true);
     expect(Number.isFinite(annual[1].return)).toBe(true);
 
-    // Best should be >= worst
-    expect(bestWorst.year.best).toBeGreaterThanOrEqual(bestWorst.year.worst);
+    // Best should be >= worst (using year identifiers for best/worst year)
+    expect(bestWorst.year.return).toBeGreaterThanOrEqual(bestWorst.worstYear.return);
 
     // Stats totals should match array lengths
     expect(stats.months.total).toBe(monthly.length);
@@ -1048,8 +1070,8 @@ describe('Integration: Phase 4 — annual + monthly + stats + best/worst', () =>
 
     // 2099: 10000 → 10200 (positive), 2100: 10200 → 10800 (positive)
     // But intermediate dips may create negative months
-    expect(bestWorst.year.best).toBeGreaterThan(0);
-    expect(bestWorst.year.worst).toBeGreaterThan(-1);
+    expect(bestWorst.year.return).toBeGreaterThan(0);
+    expect(bestWorst.worstYear.return).toBeGreaterThan(-1);
 
     // Total months should match expected
     expect(monthly.length).toBeGreaterThan(0);

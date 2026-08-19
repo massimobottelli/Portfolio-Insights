@@ -532,27 +532,37 @@ function calculatePeriodStats(returns) {
  *
  * @param {MonthlyReturn[]} monthlyReturns
  * @param {AnnualReturn[]} annualReturns
- * @returns {{ month: { best: number|null, worst: number|null }, year: { best: number|null, worst: number|null } }}
+ * @returns {{ month: { year: number|null, month: number|null, return: number|null }, worst: { year: number|null, month: number|null, return: number|null }, year: { year: number|null, return: number|null }, worstYear: { year: number|null, return: number|null } }}
  */
 export function calculateBestWorst(monthlyReturns, annualReturns) {
-  let bestMonth = null;
+  let bestMonth = null;   // { year, month, return }
   let worstMonth = null;
-  let bestYear = null;
+  let bestYear = null;    // { year, return }
   let worstYear = null;
 
   for (const m of monthlyReturns) {
-    if (bestMonth === null || m.return > bestMonth) bestMonth = m.return;
-    if (worstMonth === null || m.return < worstMonth) worstMonth = m.return;
+    if (bestMonth === null || m.return > bestMonth.return) bestMonth = m;
+    if (worstMonth === null || m.return < worstMonth.return) worstMonth = m;
   }
 
   for (const a of annualReturns) {
-    if (bestYear === null || a.return > bestYear) bestYear = a.return;
-    if (worstYear === null || a.return < worstYear) worstYear = a.return;
+    if (bestYear === null || a.return > bestYear.return) bestYear = a;
+    if (worstYear === null || a.return < worstYear.return) worstYear = a;
   }
 
   return {
-    month: { best: bestMonth, worst: worstMonth },
-    year: { best: bestYear, worst: worstYear },
+    month: bestMonth
+      ? { year: bestMonth.year, month: bestMonth.month, return: bestMonth.return }
+      : { year: null, month: null, return: null },
+    worst: worstMonth
+      ? { year: worstMonth.year, month: worstMonth.month, return: worstMonth.return }
+      : { year: null, month: null, return: null },
+    year: bestYear
+      ? { year: bestYear.year, return: bestYear.return }
+      : { year: null, return: null },
+    worstYear: worstYear
+      ? { year: worstYear.year, return: worstYear.return }
+      : { year: null, return: null },
   };
 }
 

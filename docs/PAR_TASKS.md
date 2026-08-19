@@ -269,9 +269,44 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 ## Fase 8 — API aggregata + integration test
 **Obiettivo:** Consolidare tutte le metriche in un unico endpoint `GET /api/analytics/performance` con integration test su dataset noto.
 
-- [ ] Fase 8 — API aggregata + integration test
+- [x] Fase 8 — API aggregata + integration test ✅
+
+**Esito dettagliato:**
+- **Modifica `calculateBestWorst()`:** restituisce ora `{ month: { year, month, return }, worst: { year, month, return }, year: { year, return }, worstYear: { year, return } }` (prima restituiva solo valori numerici)
+- **Nuovo endpoint aggregato:** `GET /api/analytics/performance?from=&to=&riskFreeRate=0`
+  - Restituisce TUTTE le metriche in una singola response JSON
+  - Parametri: `from` (opzionale), `to` (opzionale), `riskFreeRate` (default: 0, range -100 < rate < 100)
+  - Validazione RF → HTTP 400 se invalido
+  - Sanitizzazione: nessun NaN/Infinity nella response (safeNum wrapper)
+  - Metadata aggiuntivi: dataPoints, hasGaps, periodLessThanOneYear
+- **File modificati:**
+  - `models/performanceModel.js` — aggiornata `calculateBestWorst()` per includere year/month identifiers
+  - `controllers/performanceController.js` — aggiunta funzione `getPerformanceAnalytics()`
+  - `routes/performanceRoutes.js` — aggiunta route `GET /performance`
+- **Test creati:** `models/__tests__/performanceAPI.test.js` — 12 integration test
+  - Empty/insufficient data (2 test)
+  - Deterministic growth CAGR (1 test)
+  - Risk-free rate effects (2 test)
+  - Monthly/Annual returns structure (1 test)
+  - Best/Worst with period identifiers (1 test)
+  - Drawdown detection (2 test)
+  - No NaN/Infinity guarantee (1 test)
+  - Period statistics (1 test)
+  - Full pipeline buildReturnSeries (1 test)
+- **Test risultati:** 103/103 passati ✅
+  - 91 unit test (performanceModel.test.js)
+  - 12 integration test (performanceAPI.test.js)
+- **Build frontend:** ✅ PASSA (2.11s, 2614 modules)
+- **DB cleanup:** test data rimosso ✅
+- **DB schema:** nessuna modifica ✅
+- **Endpoint individuali mantenuti:** `/volatility` e `/sharpe` rimangono per debugging
+
+---
 
 ## Fase 9 — UI: Performance
+**Obiettivo:** Pagina con KPI cumulative return, CAGR e grafico performance cumulativa con period filter.
+
+- [ ] Fase 9 — UI: Performance
 **Obiettivo:** Pagina con KPI cumulative return, CAGR e grafico performance cumulativa con period filter.
 
 - [ ] Fase 9 — UI: Performance

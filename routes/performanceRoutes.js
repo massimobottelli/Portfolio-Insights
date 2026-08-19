@@ -6,11 +6,15 @@
  */
 
 import { Router } from 'express';
-import { getVolatility, getSharpe } from '../controllers/performanceController.js';
+import { getVolatility, getSharpe, getPerformanceAnalytics } from '../controllers/performanceController.js';
 
 const router = Router();
 
+// Individual debugging endpoints (Phases 5/6)
 router.get('/volatility', getVolatility);
 router.get('/sharpe', getSharpe);
+
+// Consolidated aggregated endpoint (Phase 8)
+router.get('/performance', getPerformanceAnalytics);
 
 export default router;
