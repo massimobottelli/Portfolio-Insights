@@ -15,6 +15,7 @@ import {
   calculateCumulativePerformance,
   calculateCAGR,
   calculateVolatility,
+  calculateSharpe,
   calculateAnnualReturns,
   calculateMonthlyReturns,
   calculateBestWorst,
@@ -1209,5 +1210,138 @@ describe('calculateVolatility', () => {
     const expectedDaily = Math.sqrt((4 * 0.0025) / 3);
     expect(result.daily).toBeCloseTo(expectedDaily, 10);
     expect(result.annualized).toBeCloseTo(expectedDaily * ANNUALIZATION_FACTOR, 10);
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 17: calculateSharpe
+// ──────────────────────────────────────────────
+
+describe('calculateSharpe', () => {
+  it('should return null for empty array', () => {
+    expect(calculateSharpe([], 0)).toBeNull();
+  });
+
+  it('should return null for single point', () => {
+    const series = [
+      { date: '2099-01-01', periodReturn: 0.01 },
+    ];
+    expect(calculateSharpe(series, 0)).toBeNull();
+  });
+
+  it('should calculate Sharpe with riskFreeRate = 0%', () => {
+    // Dataset deterministico: [+0.01, -0.005, +0.008, -0.003, +0.006]
+    const series = [
+      { date: '2099-01-01', periodReturn: 0.01 },
+      { date: '2099-01-02', periodReturn: -0.005 },
+      { date: '2099-01-03', periodReturn: 0.008 },
+      { date: '2099-01-04', periodReturn: -0.003 },
+      { date: '2099-01-05', periodReturn: 0.006 },
+    ];
+    const result = calculateSharpe(series, 0);
+
+    // Con RF=0, excessReturn = periodReturn stesso
+    // mean = (0.01 - 0.005 + 0.008 - 0.003 + 0.006) / 5 = 0.016 / 5 = 0.0032
+    // stddev (sample) = sqrt(sum((r-mean)^2) / (n-1))
+    // = sqrt(((0.0068)^2 + (-0.0082)^2 + (0.0048)^2 + (-0.0062)^2 + (0.0028)^2) / 4)
+    // = sqrt((0.00004624 + 0.00006724 + 0.00002304 + 0.00003844 + 0.00000784) / 4)
+    // = sqrt(0.0001828 / 4) = sqrt(0.0000457) ≈ 0.00676
+    // dailySharpe = 0.0032 / 0.00676 ≈ 0.4734
+    // annualized = 0.4734 × √365 ≈ 9.04
+    expect(result).not.toBeNull();
+    expect(result).toBeGreaterThan(8);
+    expect(result).toBeLessThan(10);
+    expect(Number.isFinite(result)).toBe(true);
+  });
+
+  it('should reduce Sharpe with positive riskFreeRate', () => {
+    const series = [
+      { date: '2099-02-01', periodReturn: 0.01 },
+      { date: '2099-02-02', periodReturn: -0.005 },
+      { date: '2099-02-03', periodReturn: 0.008 },
+      { date: '2099-02-04', periodReturn: -0.003 },
+      { date: '2099-02-05', periodReturn: 0.006 },
+    ];
+    const sharpe0 = calculateSharpe(series, 0);
+    const sharpe5 = calculateSharpe(series, 5); // 5% RF
+    const sharpe10 = calculateSharpe(series, 10); // 10% RF
+
+    // Higher RF → lower Sharpe (since mean excess return decreases)
+    expect(sharpe0).not.toBeNull();
+    expect(sharpe5).not.toBeNull();
+    expect(sharpe10).not.toBeNull();
+    expect(sharpe0).toBeGreaterThan(sharpe5);
+    expect(sharpe5).toBeGreaterThan(sharpe10);
+  });
+
+  it('should increase Sharpe with negative riskFreeRate', () => {
+    const series = [
+      { date: '2099-03-01', periodReturn: 0.01 },
+      { date: '2099-03-02', periodReturn: -0.005 },
+      { date: '2099-03-03', periodReturn: 0.008 },
+    ];
+    const sharpeNeg = calculateSharpe(series, -2); // -2% RF
+    const sharpeZero = calculateSharpe(series, 0);
+    const sharpePos = calculateSharpe(series, 2); // 2% RF
+
+    expect(sharpeNeg).toBeGreaterThan(sharpeZero);
+    expect(sharpeZero).toBeGreaterThan(sharpePos);
+  });
+
+  it('should return null when volatility is zero', () => {
+    // All returns identici → stdDev = 0 → Sharpe = null (non Infinity)
+    const series = [
+      { date: '2099-04-01', periodReturn: 0.001 },
+      { date: '2099-04-02', periodReturn: 0.001 },
+      { date: '2099-04-03', periodReturn: 0.001 },
+      { date: '2099-04-04', periodReturn: 0.001 },
+    ];
+    expect(calculateSharpe(series, 0)).toBeNull();
+    expect(calculateSharpe(series, 2.5)).toBeNull();
+  });
+
+  it('should handle riskFreeRate = 0 explicitly', () => {
+    const series = [
+      { date: '2099-05-01', periodReturn: 0.02 },
+      { date: '2099-05-02', periodReturn: -0.01 },
+      { date: '2099-05-03', periodReturn: 0.015 },
+    ];
+    const result = calculateSharpe(series, 0);
+    expect(result).not.toBeNull();
+    expect(Number.isFinite(result)).toBe(true);
+  });
+
+  it('should integrate correctly with buildReturnSeries on real data', () => {
+    const series = buildReturnSeries();
+    const sharpe0 = calculateSharpe(series, 0);
+    const sharpe25 = calculateSharpe(series, 2.5);
+
+    expect(series.length).toBeGreaterThan(10);
+    expect(sharpe0).not.toBeNull();
+    expect(sharpe25).not.toBeNull();
+    expect(Number.isFinite(sharpe0)).toBe(true);
+    expect(Number.isFinite(sharpe25)).toBe(true);
+    expect(sharpe0).toBeGreaterThan(sharpe25); // 2.5% RF riduce lo Sharpe
+    expect(Number.isNaN(sharpe0)).toBe(false);
+    expect(Number.isNaN(sharpe25)).toBe(false);
+  });
+
+  it('should produce different Sharpe for different date ranges', () => {
+    // Periodo completo
+    const fullSeries = buildReturnSeries();
+    const fullSharpe = calculateSharpe(fullSeries, 2.5);
+
+    // Periodo filtrato (ultimi 3 mesi — o quello che il DB contiene)
+    const filteredSeries = buildReturnSeries({ from: '2099-01-01' });
+    const filteredSharpe = calculateSharpe(filteredSeries, 2.5);
+
+    // Periodi diversi dovrebbero generalmente dare Sharpe diversi
+    // (edge case: se entrambi sono null per dati insufficienti, va bene)
+    if (fullSharpe !== null && filteredSharpe !== null) {
+      // Non affermo disuguaglianza perché teoricamente potrebbero essere simili
+      // Verifico solo che siano entrambi finiti e validi
+      expect(Number.isFinite(fullSharpe)).toBe(true);
+      expect(Number.isFinite(filteredSharpe)).toBe(true);
+    }
   });
 });

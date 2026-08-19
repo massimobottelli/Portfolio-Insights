@@ -6,6 +6,7 @@ import { initializeDatabase } from './database.js';
 // Importazione delle rotte per registrarle nell'app Express
 import assetRoutes from './routes/assetRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import performanceRoutes from './routes/performanceRoutes.js';
 import importRoutes from './routes/importRoutes.js';
 import movementRoutes from './routes/movementRoutes.js';
 import authRoutes from './routes/authRoutes.js';
@@ -45,6 +46,7 @@ app.use('/api', (req, res, next) => {
 // 7. Registrazione delle rotte API (protette dal middleware di autenticazione)
 app.use('/api/assets', assetRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/analytics', performanceRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/movements', movementRoutes);
 app.use('/api', allocationRoutes);

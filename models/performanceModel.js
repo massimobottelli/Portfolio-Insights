@@ -375,6 +375,61 @@ export function calculateVolatility(returnSeries) {
 }
 
 // ──────────────────────────────────────────────
+// calculateSharpe
+// ──────────────────────────────────────────────
+
+/**
+ * Calculate Sharpe ratio with configurable annual risk-free rate.
+ *
+ * Formula (per design doc section 9):
+ *   dailyRf      = (1 + annualRf)^(1/365) - 1
+ *   excessReturn = dailyPortfolioReturn - dailyRf
+ *   Sharpe       = mean(excessReturns) / stddev(dailyReturns) × √365
+ *
+ * The risk-free rate is provided as an annual percentage (e.g. 2.5 = 2.5%).
+ * It is NOT persisted to DB — it is a purely analytical parameter.
+ *
+ * Edge cases:
+ *   - < 2 points → null  (cannot compute stddev)
+ *   - stdDev = 0   → null  (avoid Infinity)
+ *   - RF = 0%      → valid Sharpe with excessReturn = periodReturn
+ *
+ * @param {PortfolioReturnPoint[]} returnSeries - output of buildReturnSeries()
+ * @param {number} annualRf - annual risk-free rate in percent (e.g. 2.5 = 2.5%)
+ * @returns {number|null} Annualized Sharpe ratio, or null if not calculable
+ */
+export function calculateSharpe(returnSeries, annualRf) {
+  if (!returnSeries || returnSeries.length < 2) {
+    return null;
+  }
+
+  // Convert annual RF (percentage) to daily decimal rate
+  const dailyRf = Math.pow(1 + annualRf / 100, 1 / 365) - 1;
+
+  // Excess returns: portfolio return minus daily risk-free rate
+  const excessReturns = returnSeries.map((r) => r.periodReturn - dailyRf);
+
+  // Mean of excess returns
+  const meanExcess = excessReturns.reduce((s, v) => s + v, 0) / excessReturns.length;
+
+  // Std dev of portfolio returns (same logic as calculateVolatility)
+  const returns = returnSeries.map((r) => r.periodReturn);
+  const n = returns.length;
+  const mean = returns.reduce((s, v) => s + v, 0) / n;
+  const squaredDiffs = returns.map((r) => Math.pow(r - mean, 2));
+  const variance = squaredDiffs.reduce((s, v) => s + v, 0) / (n - 1);
+  const stdDev = Math.sqrt(variance);
+
+  // Avoid division by zero — when volatility is zero, Sharpe is undefined
+  if (stdDev === 0 || stdDev === null) {
+    return null;
+  }
+
+  // Annualized Sharpe ratio
+  return (meanExcess / stdDev) * ANNUALIZATION_FACTOR;
+}
+
+// ──────────────────────────────────────────────
 // calculateAnnualReturns
 // ──────────────────────────────────────────────
 
@@ -593,6 +648,7 @@ export default {
   calculateCumulativePerformance,
   calculateCAGR,
   calculateVolatility,
+  calculateSharpe,
   calculateAnnualReturns,
   calculateMonthlyReturns,
   calculateBestWorst,

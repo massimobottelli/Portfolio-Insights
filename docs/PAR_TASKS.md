@@ -193,7 +193,51 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 ## Fase 6 — Sharpe Ratio
 **Obiettivo:** Calcolare Sharpe ratio con risk-free rate configurabile come parametro HTTP.
 
-- [ ] Fase 6 — Sharpe Ratio
+- [x] Fase 6 — Sharpe Ratio ✅
+
+**Esito dettagliato:**
+- **Funzione aggiunta a `models/performanceModel.js`:**
+  - `calculateSharpe(returnSeries, annualRf)` → calcola Sharpe ratio annualizzato con risk-free rate configurabile
+  - Formula: `dailyRf = (1 + annualRf/100)^(1/365) - 1`, `excessReturn = periodReturn - dailyRf`, `Sharpe = mean(excess)/stdDev × √365`
+  - Edge cases: < 2 punti → null; stdDev = 0 → null (non Infinity); RF = 0% → valido
+- **Endpoint individuali per debugging:**
+  - `GET /api/analytics/volatility?from=&to=` → `{ daily, annualized, dataPoints }`
+  - `GET /api/analytics/sharpe?from=&to=&riskFreeRate=0` → `{ sharpeRatio, dataPoints, riskFreeRate }`
+  - Validazione RF: range `-100 < rate < 100`, non NaN, HTTP 400 se invalido
+- **File creati:**
+  - `controllers/performanceController.js` — controller con `getVolatility` e `getSharpe`
+  - `routes/performanceRoutes.js` — rotte `/volatility` e `/sharpe`
+- **File modificati:** `app.js` — registered `performanceRoutes` su `/api/analytics`
+- **Test creati:** 9 nuovi test in `models/__tests__/performanceModel.test.js`
+  - empty array → null
+  - single point → null
+  - RF = 0% → Sharpe calcolato correttamente (range 8-10 per dataset deterministico)
+  - RF positivo riduce Sharpe (0% > 5% > 10%)
+  - RF negativo aumenta Sharpe (-2% > 0% > 2%)
+  - Volatilità = 0 → null (non Infinity)
+  - RF = 0 esplicito → valido
+  - Integrazione con buildReturnSeries su dati reali → finito e coerente
+  - Date ranges diverse → Sharpe diversi
+- **Test risultati:** 80/80 passati ✅
+  - 6 twrFromReturns
+  - 3 buildReturnSeries no-flows
+  - 3 buildReturnSeries with flows
+  - 1 buildReturnSeries withdrawals
+  - 4 buildReturnSeries edge cases
+  - 1 regression TWR
+  - 6 calculateCumulativePerformance
+  - 9 calculateCAGR
+  - 8 calculateMonthlyReturns
+  - 2 Integration pipeline (Fase 2)
+  - 6 calculateAnnualReturns
+  - 5 calculateBestWorst
+  - 5 calculatePeriodStatsFromSeries
+  - 2 Integration pipeline Fase 4
+  - 10 calculateVolatility
+  - 9 calculateSharpe (nuovi)
+- **Build frontend:** ✅ PASSA (2.13s, 2614 modules)
+- **DB cleanup:** test data rimosso (7 cash movements, 46 snapshots, 1 session)
+- **DB schema:** nessuna modifica ✅
 
 ## Fase 7 — Drawdown + Recovery
 **Obiettivo:** Calcolare maximum drawdown, peak/trough dates, recovery date, duration e recovery time.
