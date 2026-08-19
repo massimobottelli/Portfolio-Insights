@@ -1420,6 +1420,75 @@ Gestire correttamente i cash flow secondo la logica TWR esistente:
 
 La funzione deve anche restituire `cumulativeReturn` nella output, per riutilizzo nella Fase 2.
 
+
+`buildReturnSeries()` è il **single source of truth** da cui tutte le funzioni di calcolo derivano i dati.
+
+---
+
+### Architettura dati
+
+```
+                    buildReturnSeries()
+                         ↓
+         ┌─────────────────────────────────┐
+         │   series = [{                   │
+         │     date,                       │
+         │     portfolioValue,             │  ← Serie canonica
+         │     externalFlow,               │  ← Letta UNA SOLA VOLTA
+         │     periodReturn,               │  ← dal DB
+         │     cumulativeReturn            │
+         │   }, ...]                        │
+         └──────────────┬──────────────────┘
+                        │
+        ┌───────────────┼───────────────┬───────────────┬──────────┐
+        ↓               ↓               ↓               ↓          ↓
+   twrFromReturns()  calculateCAGR()  calculateVolatility()  calculateSharpe()  calculateDrawdown()
+        ↓               ↓               ↓               ↓          ↓
+    number           number           {daily,       {ratio}     {maxDD,
+                                  annualized}                  peak, trough,
+                                                                  recovery...}
+```
+
+---
+
+### Principio chiave: leggere il DB UNA SOLA VOLTA
+
+Prima della Fase 1, ogni metrica avrebbe dovuto fare la propria query al database:
+- TWR legge snapshots + cash flows
+- CAGR leggerebbe snapshots
+- Volatilità leggerebbe snapshots
+- Drawdown leggerebbe snapshots
+
+Risultato: **4 letture diverse**, con rischio di formule incoerenti.
+
+Con `buildReturnSeries()`:
+- **Una sola lettura** al database
+- Tutti i calcoli successivi operano su un array in memoria
+- **Coerenza assoluta** perché tutti partono dagli stessi dati
+
+---
+
+### Esempio pratico
+
+```js
+// Una volta, una sola volta
+const series = buildReturnSeries({ from: '2024-01-01', to: '2026-08-19' });
+
+// Poi: tutte le metriche dalla stessa serie
+const twr = twrFromReturns(series);
+const cagr = calculateCAGR(series);        // Fase 2
+const volatility = calculateVolatility(series);  // Fase 5
+const sharpe = calculateSharpe(series, 2.5);   // Fase 6
+const drawdown = calculateDrawdown(series);     // Fase 7
+```
+
+Questo è esattamente ciò che il design document descrive al punto 5:
+
+> *"Creare prima una funzione/motore che costruisca una canonical return series, poi usare quella serie per tutte le metriche."*
+
+> *"Questo riduce drasticamente il rischio di avere formule incoerenti tra dashboard, CAGR, volatilità e drawdown."*
+
+
 ### Test
 
 Creare dataset artificiali con:
@@ -1466,6 +1535,249 @@ Output:
   cumulativeSeries
 }
 ```
+
+# Dettaglio Funzioni Fase 2
+
+---
+
+## 1. `calculateCumulativePerformance(returnSeries)`
+
+### Scopo
+Trasforma la serie canonica di rendimenti giornalieri in una **serie temporale normalizzata** che rappresenta l'andamento cumulativo del portafoglio, partendo dal valore base 1 (o 100 se moltiplicato per 100).
+
+Questa serie è fondamentale perché:
+- Alimenta il **grafico cumulative performance** (Fase 9 UI)
+- È la base per calcolare il **drawdown** (Fase 7)
+- Permette di visualizzare l'evoluzione nel tempo in modo leggibile
+
+### Definizione
+
+```ts
+function calculateCumulativePerformance(returnSeries): PerformanceSeries
+```
+
+### Tipo di ritorno
+
+```ts
+interface PerformanceSeries {
+  points: PerformancePoint[];
+  cumulativeReturn: number; // valore finale - 1 (es. 0.7421 = +74.21%)
+}
+
+interface PerformancePoint {
+  date: string;        // YYYY-MM-DD
+  value: number;       // fattore cumulativo (1 = punto di partenza)
+}
+```
+
+### Formula
+
+Due approcci equivalenti — si usa il secondo perché più diretto (la serie ha già `cumulativeReturn`):
+
+**Approccio A** (da `periodReturn`, iterativo):
+```
+points[0].value = 1
+points[n].value = points[n-1].value × (1 + periodReturn[n])
+```
+
+**Approccio B** (da `cumulativeReturn`, diretto) ← **USATO**:
+```
+points[n].value = 1 + returnSeries[n].cumulativeReturn
+```
+
+Poiché `buildReturnSeries()` calcola già `cumulativeReturn` come TWR cumulativo, l'approccio B è esatto e più efficiente (un solo passaggio, nessuna propagazione di errori floating-point).
+
+### Esempio
+
+Input: serie con 5 punti, cumulativeReturn = [0, 0.02, 0.05, 0.03, 0.08]
+
+Output:
+```json
+{
+  "points": [
+    { "date": "2024-01-01", "value": 1.0000 },
+    { "date": "2024-01-02", "value": 1.0200 },
+    { "date": "2024-01-03", "value": 1.0500 },
+    { "date": "2024-01-04", "value": 1.0300 },
+    { "date": "2024-01-05", "value": 1.0800 }
+  ],
+  "cumulativeReturn": 0.08
+}
+```
+
+Visualizzazione grafica (line chart):
+```
+value
+1.08 ┤                              ╭───
+1.05 ┤                      ╭───────╯
+1.02 ┤              ╭───────╯
+1.00 ┼──────────────╯
+     └──────────────────────────────────
+     01/01   01/02   01/03   01/04   01/05
+```
+
+### Edge cases
+
+| Caso | Comportamento |
+|------|---------------|
+| Serie vuota `[]` | `{ points: [], cumulativeReturn: 0 }` |
+| Single point | `{ points: [{ value: 1 }], cumulativeReturn: 0 }` |
+| Valore invariato | Tutti i `value = 1`, `cumulativeReturn = 0` |
+| Perdita cumulativa | `value < 1`, `cumulativeReturn` negativo |
+
+### Uso nel codice
+
+```js
+// Nel controller o direttamente chiamato dai test
+const series = buildReturnSeries({ from: '2024-01-01', to: '2026-08-18' });
+const perf = calculateCumulativePerformance(series);
+
+// perf.points → alimente il grafico React
+// perf.cumulativeReturn → KPI "Cumulative Return" nella dashboard
+```
+
+---
+
+## 2. `calculateCAGR(returnSeries)`
+
+### Scopo
+Calcolare il **Compound Annual Growth Rate**, ovvero il tasso di crescita annuo composto del portafoglio nel periodo analizzato. Il CAGR risponde alla domanda: *"A che tasso annuo sarebbe cresciuto il portafoglio se fosse cresciuto in modo costante?"*
+
+### Definizione
+
+```ts
+function calculateCAGR(returnSeries): CAGRResult
+```
+
+### Tipo di ritorno
+
+```ts
+interface CAGRResult {
+  cagr: number | null;             // Tasso annuo composto (es. 0.0834 = 8.34% annui)
+  years: number | null;            // Durata in anni decimali (days / 365.2425)
+  periodLessThanOneYear: boolean;  // true se years < 1
+}
+```
+
+### Formula
+
+```
+// Calcola durata del periodo
+firstDate = returnSeries[0].date
+lastDate = returnSeries[returnSeries.length - 1].date
+elapsedDays = (lastDate - firstDate) in giorni
+
+years = elapsedDays / 365.2425
+
+// Ottieni cumulative return dall'ultimo punto
+cumulativeReturn = returnSeries[lastIndex].cumulativeReturn
+
+// CAGR
+CAGR = (1 + cumulativeReturn) ^ (1 / years) - 1
+```
+
+**Perché 365.2425?** Tiene conto degli anni bisestili (media di 365.2425 giorni/anno).
+
+### Esempio deterministico (test case)
+
+Dataset:
+```
+data          portfolio_value  cumulativeReturn
+2022-01-01    10000            0
+2024-01-02    12100            0.21
+```
+
+Calcolo:
+```
+elapsedDays = 731 (approssimato, ~2 anni)
+years = 731 / 365.2425 ≈ 2.0017
+
+CAGR = (1 + 0.21) ^ (1 / 2.0017) - 1
+     = 1.21 ^ 0.4996 - 1
+     ≈ 0.10 (10% annui)
+```
+
+Il design doc specifica questo caso esatto: **100→121 in 2 anni = 10% CAGR**.
+
+### Output JSON atteso
+
+```json
+{
+  "cagr": 0.0834,
+  "years": 2.45,
+  "periodLessThanOneYear": false
+}
+```
+
+UI mostrerebbe: **"CAGR: 8.34%"**
+
+### Edge cases
+
+| Caso | `cagr` | `years` | `periodLessThanOneYear` | Note UI |
+|------|--------|---------|------------------------|---------|
+| Serie vuota | `null` | `null` | `false` | "No data" |
+| Single point | `null` | `null` | `false` | "Insufficient data" |
+| Periodo < 1 anno | calcolato | < 1 | `true` | "CAGR: X% (period < 1 yr)" |
+| `cumulativeReturn ≤ -1` | `null` | calcolato | flag | CAGR non definito |
+| Periodo molto corto (< 30gg) | calcolato | << 1 | `true` | Warning visivo |
+
+### Perché non usare semplicemente `(end/start)^(1/years) - 1`?
+
+Perché il CAGR deve essere basato sul **TWR cumulativo** (che normalizza i flussi esterni), non sul semplice rapporto tra valori finali e iniziali. Usare `cumulativeReturn` dalla serie canonica garantisce coerenza con tutte le altre metriche che dipendono dallo stesso motore TWR.
+
+Formula alternativa equivalente ma meno coerente:
+```
+(endValue - externalFlows) / startValue → NON USATO
+```
+
+La formula corretta usa il TWR:
+```
+CAGR = (1 + TWR_cumulative) ^ (1 / years) - 1
+```
+
+### Uso nel codice
+
+```js
+// Nel controller
+const series = buildReturnSeries({ from: '2024-01-01', to: '2026-08-18' });
+const cagr = calculateCAGR(series);
+
+// cagr.cagr → KPI "CAGR" nella dashboard
+// cagr.periodLessThanOneYear → flag per messaggio informativo UI
+```
+
+---
+
+## Relazione tra le due funzioni
+
+```
+buildReturnSeries()
+       │
+       ▼
+  { periodReturn, cumulativeReturn }
+       │
+       ├──────────────────────────────────┐
+       │                                  │
+       ▼                                  ▼
+calculateCumulativePerformance    calculateCAGR
+       │                                  │
+       ▼                                  ▼
+  { points[], cumulativeReturn }    { cagr, years, flag }
+       │                                  │
+       └──────────┬───────────────────────┘
+                  │
+                  ▼
+         Dati per la UI (Fase 9)
+         - Cumulative Return KPI ← da cumulativeReturn
+         - CAGR KPI              ← da cagr.cagr
+         - Line chart            ← da points[]
+```
+
+Entrambe le funzioni operano sulla **stessa input** (`buildReturnSeries()`) e producono output complementari per la stessa sezione UI.
+
+---
+
+Se il livello di dettaglio è sufficiente, **toggle to Act mode** e procedo con l'implementazione.
 
 ### Test
 

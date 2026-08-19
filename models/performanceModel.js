@@ -225,6 +225,101 @@ export function twrFromReturns(returns) {
 }
 
 // ──────────────────────────────────────────────
+// calculateCumulativePerformance
+// ──────────────────────────────────────────────
+
+/**
+ * Build a normalized cumulative performance series from the canonical return series.
+ *
+ * The output series starts at value 1 (base) and compounds each periodReturn
+ * multiplicatively. This is the primary input for both the UI line chart
+ * (Phase 9) and the drawdown calculation (Phase 7).
+ *
+ * Uses the already-computed cumulativeReturn from buildReturnSeries() directly:
+ *   value[n] = 1 + cumulativeReturn[n]
+ *
+ * @param {PortfolioReturnPoint[]} returnSeries - output of buildReturnSeries()
+ * @returns {{ points: PerformancePoint[], cumulativeReturn: number }}
+ */
+export function calculateCumulativePerformance(returnSeries) {
+  if (!returnSeries || returnSeries.length === 0) {
+    return { points: [], cumulativeReturn: 0 };
+  }
+
+  /** @type {PerformancePoint[]} */
+  const points = [];
+
+  for (const r of returnSeries) {
+    points.push({
+      date: r.date,
+      // 1 + cumulativeReturn gives us the multiplicative factor starting at 1
+      value: 1 + r.cumulativeReturn,
+    });
+  }
+
+  // cumulativeReturn is the last point's return relative to base (1)
+  const cumulativeReturn = returnSeries[returnSeries.length - 1].cumulativeReturn;
+
+  return { points, cumulativeReturn };
+}
+
+/**
+ * @typedef {Object} PerformancePoint
+ * @property {string} date    - YYYY-MM-DD
+ * @property {number} value   - cumulative factor (1 = starting point)
+ */
+
+// ──────────────────────────────────────────────
+// calculateCAGR
+// ──────────────────────────────────────────────
+
+/**
+ * Calculate Compound Annual Growth Rate from the canonical return series.
+ *
+ * CAGR answers: "At what constant annual rate would the portfolio have grown?"
+ * It uses the TWR-based cumulativeReturn (not raw end/start ratio) to normalize
+ * external cash flows, ensuring consistency with all other metrics.
+ *
+ * Formula:
+ *   years     = elapsedDays / 365.2425
+ *   CAGR      = (1 + cumulativeTWR) ^ (1 / years) - 1
+ *
+ * @param {PortfolioReturnPoint[]} returnSeries - output of buildReturnSeries()
+ * @returns {{ cagr: number|null, years: number|null, periodLessThanOneYear: boolean }}
+ */
+export function calculateCAGR(returnSeries) {
+  // Edge case: need at least 2 points to compute a rate over time
+  if (!returnSeries || returnSeries.length < 2) {
+    return { cagr: null, years: null, periodLessThanOneYear: false };
+  }
+
+  const firstDate = new Date(returnSeries[0].date);
+  const lastDate = new Date(returnSeries[returnSeries.length - 1].date);
+  const elapsedDays = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+
+  // If all snapshots are on the same day, no time elapsed → cannot annualize
+  if (elapsedDays <= 0) {
+    return { cagr: null, years: 0, periodLessThanOneYear: true };
+  }
+
+  const years = elapsedDays / 365.2425;
+  const cumulativeReturn = returnSeries[returnSeries.length - 1].cumulativeReturn;
+
+  // CAGR undefined if cumulativeReturn ≤ -1 (portfolio lost 100%+ — mathematically invalid)
+  if (cumulativeReturn <= -1) {
+    return { cagr: null, years, periodLessThanOneYear: years < 1 };
+  }
+
+  const cagr = Math.pow(1 + cumulativeReturn, 1 / years) - 1;
+
+  return {
+    cagr,
+    years,
+    periodLessThanOneYear: years < 1,
+  };
+}
+
+// ──────────────────────────────────────────────
 // Annualization constant (centralized for all phases)
 // ──────────────────────────────────────────────
 
@@ -234,4 +329,10 @@ export function twrFromReturns(returns) {
  */
 export const ANNUALIZATION_FACTOR = Math.sqrt(365);
 
-export default { buildReturnSeries, twrFromReturns, ANNUALIZATION_FACTOR };
+export default {
+  buildReturnSeries,
+  twrFromReturns,
+  calculateCumulativePerformance,
+  calculateCAGR,
+  ANNUALIZATION_FACTOR,
+};

@@ -52,7 +52,28 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 ## Fase 2 — Cumulative Performance + CAGR
 **Obiettivo:** Calcolare cumulative return, cumulative performance series e CAGR usando esclusivamente la serie della Fase 1.
 
-- [ ] Fase 2 — Cumulative Performance + CAGR
+- [x] Fase 2 — Cumulative Performance + CAGR ✅
+
+**Esito dettagliato:**
+- **Funzioni aggiunte a `models/performanceModel.js`:**
+  - `calculateCumulativePerformance(returnSeries)` → restituisce `{ points: [{ date, value }], cumulativeReturn }`
+  - `calculateCAGR(returnSeries)` → restituisce `{ cagr, years, periodLessThanOneYear }`
+- **Formula CAGR:** `years = elapsedDays / 365.2425`, `CAGR = (1 + cumulativeTWR) ^ (1/years) - 1`
+- **Edge cases gestiti:** empty array, single point, same-day snapshots, cumulativeReturn ≤ -1
+- **Test creati:** 18 nuovi test (6 per cumulativePerformance, 9 per CAGR, 2 integration, 1 regression update)
+- **DB cleanup:** aggiunto `cleanupAllTestSessions()` con LIKE pattern per evitare dati stale tra runs
+- **Test risultati:** 35/35 passati ✅
+  - 6 twrFromReturns
+  - 3 buildReturnSeries no-flows
+  - 3 buildReturnSeries with flows
+  - 1 buildReturnSeries withdrawals
+  - 4 buildReturnSeries edge cases
+  - 1 regression TWR
+  - 6 calculateCumulativePerformance
+  - 9 calculateCAGR
+  - 2 Integration pipeline
+- **Build frontend:** ✅ PASSA (2.29s, 2614 modules)
+- **DB schema:** nessuna modifica ✅
 
 ## Fase 3 — Rendimenti mensili
 **Obiettivo:** Aggregare daily returns in rendimenti mensili tramite compounding (non somma aritmetica).

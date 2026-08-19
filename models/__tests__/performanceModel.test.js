@@ -9,14 +9,30 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import { buildReturnSeries, twrFromReturns } from '../performanceModel.js';
+import {
+  buildReturnSeries,
+  twrFromReturns,
+  calculateCumulativePerformance,
+  calculateCAGR,
+} from '../performanceModel.js';
 import { calculateTWR } from '../analyticsModel.js';
 import { db, initializeDatabase } from '../../database.js';
 
 // Ensure DB exists
 initializeDatabase();
 
-const SESSION_ID = 'test_session_p1';
+// Unique session ID per test file load to avoid stale data from previous runs
+const SESSION_ID = `test_session_p1_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+// Clean up ALL test data from previous runs (by prefix pattern)
+function cleanupAllTestSessions() {
+  db.prepare("DELETE FROM cash_movements WHERE import_session_id LIKE 'test_session_%'").run();
+  db.prepare("DELETE FROM daily_portfolio_snapshots WHERE import_session_id LIKE 'test_session_%'").run();
+  db.prepare("DELETE FROM import_sessions WHERE id LIKE 'test_session_%'").run();
+}
+
+// Run cleanup immediately on module load to ensure fresh state
+cleanupAllTestSessions();
 
 // ──────────────────────────────────────────────
 // Helper: seed/cleanup for isolated test data
@@ -70,6 +86,12 @@ function cleanupAll() {
   db.prepare('DELETE FROM daily_portfolio_snapshots WHERE import_session_id = ?', SESSION_ID).run();
   db.prepare('DELETE FROM import_sessions WHERE id = ?', SESSION_ID).run();
 }
+
+// Clean before AND after each test to prevent stale data from persisting
+// between test runs (database file survives process restarts)
+beforeEach(() => {
+  cleanupAll();
+});
 
 afterEach(() => {
   cleanupAll();
@@ -356,5 +378,266 @@ describe('Regression: buildReturnSeries TWR vs calculateTWR()', () => {
 
     // Allow tiny floating-point tolerance (6 decimal places matches calculateTWR precision)
     expect(twrFromSeries).toBeCloseTo(twrFromExisting.twrTotal, 4);
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 7: calculateCumulativePerformance
+// ──────────────────────────────────────────────
+
+describe('calculateCumulativePerformance', () => {
+  it('should return empty result for empty array', () => {
+    const result = calculateCumulativePerformance([]);
+    expect(result.points).toEqual([]);
+    expect(result.cumulativeReturn).toBe(0);
+  });
+
+  it('should return single point with value 1 for single-element series', () => {
+    const series = [
+      { date: '2099-01-01', portfolioValue: 10000, externalFlow: 0, periodReturn: 0, cumulativeReturn: 0 },
+    ];
+    const result = calculateCumulativePerformance(series);
+    expect(result.points.length).toBe(1);
+    expect(result.points[0].value).toBe(1);
+    expect(result.cumulativeReturn).toBe(0);
+  });
+
+  it('should produce correct cumulative values for steady growth', () => {
+    // 100 → 110 → 121, no flows → cumulative returns: 0, 0.10, 0.21
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+      { date: '2099-01-02', cumulativeReturn: 0.10 },
+      { date: '2099-01-03', cumulativeReturn: 0.21 },
+    ];
+    const result = calculateCumulativePerformance(series);
+
+    expect(result.points.length).toBe(3);
+    expect(result.points[0].value).toBe(1);
+    expect(result.points[1].value).toBeCloseTo(1.10, 10);
+    expect(result.points[2].value).toBeCloseTo(1.21, 10);
+    expect(result.cumulativeReturn).toBeCloseTo(0.21, 10);
+  });
+
+  it('should handle declining series correctly', () => {
+    // 100 → 90 → 81, no flows → cumulative returns: 0, -0.10, -0.19
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+      { date: '2099-01-02', cumulativeReturn: -0.10 },
+      { date: '2099-01-03', cumulativeReturn: -0.19 },
+    ];
+    const result = calculateCumulativePerformance(series);
+
+    expect(result.points[0].value).toBe(1);
+    expect(result.points[1].value).toBeCloseTo(0.90, 10);
+    expect(result.points[2].value).toBeCloseTo(0.81, 10);
+    expect(result.cumulativeReturn).toBeCloseTo(-0.19, 10);
+  });
+
+  it('should handle unchanged values (all returns zero)', () => {
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+      { date: '2099-01-02', cumulativeReturn: 0 },
+      { date: '2099-01-03', cumulativeReturn: 0 },
+    ];
+    const result = calculateCumulativePerformance(series);
+
+    expect(result.points.every((p) => p.value === 1)).toBe(true);
+    expect(result.cumulativeReturn).toBe(0);
+  });
+
+  it('should integrate correctly with buildReturnSeries (no flows)', () => {
+    seedSnapshot('2099-06-01', 10000);
+    seedSnapshot('2099-06-02', 10200);
+    seedSnapshot('2099-06-03', 10500);
+
+    const series = buildReturnSeries({ from: '2099-06-01', to: '2099-06-03' });
+    const perf = calculateCumulativePerformance(series);
+
+    expect(perf.points.length).toBe(3);
+    // First point always starts at 1
+    expect(perf.points[0].value).toBe(1);
+    // Last cumulativeReturn should match series last point
+    expect(perf.cumulativeReturn).toBeCloseTo(series[series.length - 1].cumulativeReturn, 10);
+    // Each point value = 1 + cumulativeReturn
+    for (let i = 0; i < series.length; i++) {
+      expect(perf.points[i].value).toBeCloseTo(1 + series[i].cumulativeReturn, 10);
+    }
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 8: calculateCAGR
+// ──────────────────────────────────────────────
+
+describe('calculateCAGR', () => {
+  it('should return null for empty array', () => {
+    const result = calculateCAGR([]);
+    expect(result.cagr).toBeNull();
+    expect(result.years).toBeNull();
+    expect(result.periodLessThanOneYear).toBe(false);
+  });
+
+  it('should return null for single point', () => {
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+    ];
+    const result = calculateCAGR(series);
+    expect(result.cagr).toBeNull();
+    expect(result.years).toBeNull();
+  });
+
+  it('should return cagr=null and years=0 for same-day snapshots', () => {
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0.10 },
+      { date: '2099-01-01', cumulativeReturn: 0.10 },
+    ];
+    const result = calculateCAGR(series);
+    expect(result.cagr).toBeNull();
+    expect(result.years).toBe(0);
+    expect(result.periodLessThanOneYear).toBe(true);
+  });
+
+  it('should calculate CAGR = 10% for 100→121 in exactly 2 years', () => {
+    // 2 years = 2 × 365.2425 = 730.485 days
+    // Using dates that span exactly 730 days (~2.00 years)
+    // 100 → 121, cumulativeReturn = 0.21
+    // CAGR = (1.21)^(1/2) - 1 = 0.10
+    const series = [
+      { date: '2022-01-01', cumulativeReturn: 0 },
+      { date: '2024-01-01', cumulativeReturn: 0.21 },
+    ];
+    const result = calculateCAGR(series);
+
+    // 2022-01-01 to 2024-01-01 = 731 days (2022 is not bisestile, 2023 non bisestile)
+    // Actually 2022-01-01 to 2024-01-01 = 365 + 365 = 730 days
+    // years = 730 / 365.2425 ≈ 1.9987
+    // CAGR = 1.21^(1/1.9987) - 1 ≈ 0.1001...
+    expect(result.cagr).toBeCloseTo(0.10, 2);
+    expect(result.years).toBeGreaterThan(1.9);
+    expect(result.years).toBeLessThan(2.1);
+    expect(result.periodLessThanOneYear).toBe(false);
+  });
+
+  it('should calculate CAGR = 10% for 1 year exactly', () => {
+    // 100 → 110 in exactly 365.2425 days (1 year)
+    // CAGR = 1.10^(1/1) - 1 = 0.10
+    const series = [
+      { date: '2022-01-01', cumulativeReturn: 0 },
+      { date: '2023-01-02', cumulativeReturn: 0.10 },
+    ];
+    const result = calculateCAGR(series);
+
+    // 2022-01-01 to 2023-01-02 = 366 days (2022 is not bisestile, so 365 days actually)
+    // 2022 has 365 days, so 2022-01-01 to 2023-01-01 = 365 days
+    // 2022-01-01 to 2023-01-02 = 366 days
+    // years = 366 / 365.2425 ≈ 1.002
+    // CAGR = 1.10^(1/1.002) - 1 ≈ 0.0998...
+    expect(result.cagr).toBeCloseTo(0.10, 2);
+    expect(result.periodLessThanOneYear).toBe(false);
+  });
+
+  it('should set periodLessThanOneYear flag for short periods', () => {
+    // 100 → 105 in ~30 days
+    const series = [
+      { date: '2024-06-01', cumulativeReturn: 0 },
+      { date: '2024-07-01', cumulativeReturn: 0.05 },
+    ];
+    const result = calculateCAGR(series);
+
+    expect(result.cagr).not.toBeNull();
+    expect(result.years).toBeLessThan(1);
+    expect(result.periodLessThanOneYear).toBe(true);
+    // CAGR should still be calculable as annualization: 1.05^(1/0.082) - 1 ≈ large number
+    // because 30 days ≈ 0.082 years, so 1.05^(12.2) - 1 ≈ 0.80 = 80% annualized
+    expect(result.cagr).toBeGreaterThan(0.5);
+  });
+
+  it('should return cagr=null when cumulativeReturn ≤ -1', () => {
+    // 2024 is a leap year, so 2024-01-01 to 2025-01-01 = 366 days
+    // years = 366 / 365.2425 ≈ 1.002
+    const series = [
+      { date: '2024-01-01', cumulativeReturn: 0 },
+      { date: '2025-01-01', cumulativeReturn: -1 },
+    ];
+    const result = calculateCAGR(series);
+    expect(result.cagr).toBeNull();
+    expect(result.years).toBeCloseTo(1.002, 3);
+  });
+
+  it('should return cagr=null when cumulativeReturn < -1 (impossible loss)', () => {
+    const series = [
+      { date: '2024-01-01', cumulativeReturn: 0 },
+      { date: '2025-01-01', cumulativeReturn: -1.5 },
+    ];
+    const result = calculateCAGR(series);
+    expect(result.cagr).toBeNull();
+  });
+
+  it('should handle positive CAGR over multi-year period', () => {
+    // 100 → 133.10 in 3 years → CAGR = 10%
+    // (1.10)^3 = 1.331, so cumulativeReturn = 0.331
+    const series = [
+      { date: '2021-01-01', cumulativeReturn: 0 },
+      { date: '2024-01-01', cumulativeReturn: 0.331 },
+    ];
+    const result = calculateCAGR(series);
+
+    // 2021-01-01 to 2024-01-01 = 365+365+365 = 1095 days (no leap years in between)
+    // Actually 2024 is a leap year but Feb 29 is after Jan 1, so still 1095 days
+    // years = 1095 / 365.2425 ≈ 2.998
+    // CAGR = 1.331^(1/2.998) - 1 ≈ 0.1001...
+    expect(result.cagr).toBeCloseTo(0.10, 2);
+    expect(result.years).toBeCloseTo(3, 1);
+    expect(result.periodLessThanOneYear).toBe(false);
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 9: Integration — full pipeline
+// ──────────────────────────────────────────────
+
+describe('Integration: buildReturnSeries → calculateCumulativePerformance + calculateCAGR', () => {
+  it('should produce coherent results through the full pipeline on real data', () => {
+    // Use real data without date filter
+    const series = buildReturnSeries();
+    expect(series.length).toBeGreaterThan(1);
+
+    const perf = calculateCumulativePerformance(series);
+    expect(perf.points.length).toBe(series.length);
+    expect(perf.cumulativeReturn).toBeCloseTo(series[series.length - 1].cumulativeReturn, 10);
+
+    const cagr = calculateCAGR(series);
+    // With ~2 years of real data, CAGR should be a finite number
+    expect(cagr.cagr).not.toBeNull();
+    expect(Number.isFinite(cagr.cagr)).toBe(true);
+    expect(cagr.years).toBeGreaterThan(0);
+    expect(cagr.periodLessThanOneYear).toBe(false);
+
+    // Verify no NaN or Infinity in any output
+    for (const p of perf.points) {
+      expect(Number.isFinite(p.value)).toBe(true);
+      expect(Number.isNaN(p.value)).toBe(false);
+    }
+    expect(Number.isFinite(cagr.cagr)).toBe(true);
+    expect(Number.isNaN(cagr.cagr)).toBe(false);
+  });
+
+  it('should handle filtered date range consistently', () => {
+    seedSnapshot('2099-01-01', 10000);
+    seedSnapshot('2099-01-02', 10200);
+    seedSnapshot('2099-01-03', 10500);
+    seedSnapshot('2099-01-04', 10300);
+    seedSnapshot('2099-01-05', 10800);
+
+    const series = buildReturnSeries({ from: '2099-01-02', to: '2099-01-04' });
+    const perf = calculateCumulativePerformance(series);
+    const cagr = calculateCAGR(series);
+
+    expect(series.length).toBe(3);
+    expect(perf.points.length).toBe(3);
+    // Period is only 3 days (< 1 year), so flag should be true
+    expect(cagr.periodLessThanOneYear).toBe(true);
+    expect(cagr.cagr).not.toBeNull();
+    expect(Number.isFinite(cagr.cagr)).toBe(true);
   });
 });
