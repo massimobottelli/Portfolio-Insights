@@ -5,10 +5,15 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "test": "vitest",
+    "test:run": "vitest run",
     "typecheck": "cd client && npm run typecheck",
     "build:all": "cd client && npm run build"
   },
   "dependencies": {
     "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
   }
 }

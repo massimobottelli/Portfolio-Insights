@@ -1,0 +1,105 @@
+# Performance & Risk — Task Tracking
+
+Checklist per tracciare l'avanzamento delle fasi di implementazione.
+
+## Fase 0 — Baseline e analisi del codice
+**Obiettivo:** Verificare che tutto funzioni PRIMA di qualsiasi cambiamento. Test, build, lint esistenti passano. TWR esistente identificato. Semantica cash flow documentata.
+
+- [x] Fase 0 — Baseline e analisi del codice ✅
+
+**Esito dettagliato:**
+- **Snapshot in DB:** 805 record, periodo 2024-06-05 → 2026-08-18 (~2 anni)
+- **Build frontend:** `npm run build:all` ✅ PASSA (2.34s, 2614 modules)
+- **TypeScript:** `npm run typecheck` ✅ PASSA (zero errori)
+- **Test esistenti:** ❌ Nessuno nel progetto (né Jest, Vitest, Mocha; solo test dipendenze terze party)
+- **Linter:** ❌ Nessuno configurato
+- **TWR identificato:** `calculateTWR()` in `analyticsModel.js` linee ~501-629
+- **Semantica cash flow:** DEPOSIT/WITHDRAWAL/OTHER = flussi esterni reali; DIVIDEND/INTEREST/COMMISSION/TAX/STAMP_DUTY = già inclusi nel portfolio_value
+- **Movement type in DB:** COMMISSION✅, DEPOSIT✅, DIVIDEND✅, INTEREST✅, OTHER✅, STAMP_DUTY✅, TAX✅, WITHDRAWAL❌ (supportato ma nessun record)
+- **Endpoint analytics:** 7 endpoint (`/dashboard`, `/portfolio`, `/allocation`, `/history`, `/twr`, `/rates`, `/asset/:id`)
+- **Schema snapshots:** 6 colonne (`id`, `snapshot_date`, `portfolio_value`, `available_cash`, `invested_capital`, `import_session_id`)
+- **Problemi rilevati:** Nessun test suite (critico per Fase 1), nessun linter
+- **File creati:** `docs/FASE0-BASELINE.md` (report completo), `docs/PAR_TASKS.md` (aggiornato)
+
+
+## Fase 1 — Canonical Daily Return Series
+**Obiettivo:** Costruire la serie canonica dei rendimenti giornalieri da `daily_portfolio_snapshots` + `cash_movements`. Il TWR calcolato dalla serie deve essere identico a `calculateTWR()` esistente.
+
+- [x] Fase 1 — Canonical Daily Return Series ✅
+
+**Esito dettagliato:**
+- **File creati:**
+  - `models/performanceModel.js` — motore principale con `buildReturnSeries({ from, to })` e `twrFromReturns(returns)`
+  - `models/__tests__/performanceModel.test.js` — 18 test unit/integration
+  - `vitest.config.js` — configurazione Vitest
+- **Costanti centralizzate:** `ANNUALIZATION_FACTOR = Math.sqrt(365)`
+- **Cash flow semantics:** DEPOSIT → negativo, WITHDRAWAL → positivo, OTHER → come da DB; DIVIDEND/INTEREST/COMMISSION/TAX/STAMP_DUTY esclusi
+- **Algoritmo TWR:** Sub-periodi delimitati da flussi esterni; `periodReturn` su flusso = sub-period return; `periodReturn` senza flusso = day-to-day incrementale
+- **Regression test:** `twrFromReturns(buildReturnSeries())` matches `calculateTWR().twrTotal` entro tolleranza 4 decimali ✅
+- **Test risultati:** 18/18 passati ✅
+  - 7 test `twrFromReturns` (pure function)
+  - 3 test no-flow (crescita, declino, unchanged)
+  - 3 test con deposit/witdrawal
+  - 4 test edge cases (single point, same-day flow, multi-movement, date filter)
+  - 1 regression test vs calculateTWR()
+- **Build frontend:** ✅ PASSA
+- **DB schema:** nessuna modifica ✅
+
+---
+
+## TO DO:
+
+## Fase 2 — Cumulative Performance + CAGR
+**Obiettivo:** Calcolare cumulative return, cumulative performance series e CAGR usando esclusivamente la serie della Fase 1.
+
+- [ ] Fase 2 — Cumulative Performance + CAGR
+
+## Fase 3 — Rendimenti mensili
+**Obiettivo:** Aggregare daily returns in rendimenti mensili tramite compounding (non somma aritmetica).
+
+- [ ] Fase 3 — Rendimenti mensili
+
+## Fase 4 — Rendimenti annuali + statistiche
+**Obiettivo:** Calcolare rendimenti annuali, conteggio periodi positivi/negativi/flat, best/worst month e year.
+
+- [ ] Fase 4 — Rendimenti annuali + statistiche
+
+## Fase 5 — Volatilità
+**Obiettivo:** Calcolare deviazione standard daily e volatilità annualizzata (× √365).
+
+- [ ] Fase 5 — Volatilità
+
+## Fase 6 — Sharpe Ratio
+**Obiettivo:** Calcolare Sharpe ratio con risk-free rate configurabile come parametro HTTP.
+
+- [ ] Fase 6 — Sharpe Ratio
+
+## Fase 7 — Drawdown + Recovery
+**Obiettivo:** Calcolare maximum drawdown, peak/trough dates, recovery date, duration e recovery time.
+
+- [ ] Fase 7 — Drawdown + Recovery
+
+## Fase 8 — API aggregata + integration test
+**Obiettivo:** Consolidare tutte le metriche in un unico endpoint `GET /api/analytics/performance` con integration test su dataset noto.
+
+- [ ] Fase 8 — API aggregata + integration test
+
+## Fase 9 — UI: Performance
+**Obiettivo:** Pagina con KPI cumulative return, CAGR e grafico performance cumulativa con period filter.
+
+- [ ] Fase 9 — UI: Performance
+
+## Fase 10 — UI: Monthly & Annual Returns
+**Obiettivo:** Grafico annual returns (bar chart) e heatmap mensile con Recharts/CSS grid.
+
+- [ ] Fase 10 — UI: Monthly & Annual Returns
+
+## Fase 11 — UI: Risk & Drawdown
+**Obiettivo:** Sezione risk metrics (volatilità, Sharpe, drawdown) con input risk-free rate interattivo.
+
+- [ ] Fase 11 — UI: Risk & Drawdown
+
+## Fase 12 — Hardening
+**Obiettivo:** Edge cases, regression test TWR, frontend build, lint, documentazione aggiornata.
+
+- [ ] Fase 12 — Hardening
