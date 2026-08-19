@@ -20,6 +20,7 @@ import {
   calculateMonthlyReturns,
   calculateBestWorst,
   calculatePeriodStatsFromSeries,
+  calculateDrawdown,
   ANNUALIZATION_FACTOR,
 } from '../performanceModel.js';
 import { calculateTWR } from '../analyticsModel.js';
@@ -1343,5 +1344,289 @@ describe('calculateSharpe', () => {
       expect(Number.isFinite(fullSharpe)).toBe(true);
       expect(Number.isFinite(filteredSharpe)).toBe(true);
     }
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 18: calculateDrawdown
+// ──────────────────────────────────────────────
+
+describe('calculateDrawdown', () => {
+  it('should return nulls for empty array', () => {
+    const result = calculateDrawdown([]);
+    expect(result.currentDrawdown).toBeNull();
+    expect(result.maxDrawdown).toBeNull();
+    expect(result.peakDate).toBeNull();
+    expect(result.troughDate).toBeNull();
+    expect(result.recoveryDate).toBeNull();
+    expect(result.durationDays).toBeNull();
+    expect(result.recoveryDays).toBeNull();
+    expect(result.isRecovered).toBe(false);
+    expect(result.drawdownSeries).toEqual([]);
+  });
+
+  it('should return nulls for single point', () => {
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+    ];
+    const result = calculateDrawdown(series);
+    expect(result.currentDrawdown).toBeNull();
+    expect(result.maxDrawdown).toBeNull();
+    expect(result.isRecovered).toBe(false);
+  });
+
+  // ── Test A: Dataset base dal design doc ──
+
+  it('Test A: 100→120→90→110→130 — maxDD=-25%, recovered', () => {
+    // Cumulative returns: 0, 0.20, -0.10, -0.08333, 0.30
+    // Normalized values: 1, 1.20, 0.90, 0.9167, 1.30
+    // Running peak: 1, 1.20, 1.20, 1.20, 1.30
+    // Drawdowns: 0, -0.25, -0.25, -0.2333, 0
+    // MaxDD = -0.25 (-25%), trough at index 1 or 2 (first occurrence = index 1)
+    // Peak = 1.20 (index 1), Trough = 0.90 (index 2)
+    // Recovery = when value ≥ 1.20 → index 4 (value=1.30)
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },         // value=1.00
+      { date: '2099-01-02', cumulativeReturn: 0.20 },      // value=1.20
+      { date: '2099-01-03', cumulativeReturn: -0.10 },     // value=0.90
+      { date: '2099-01-04', cumulativeReturn: -0.08333 },  // value=0.9167
+      { date: '2099-01-05', cumulativeReturn: 0.30 },      // value=1.30
+    ];
+    const result = calculateDrawdown(series);
+
+    expect(result.maxDrawdown).toBeCloseTo(-0.25, 10);
+    expect(result.peakDate).toBe('2099-01-02');
+    expect(result.troughDate).toBe('2099-01-03');
+    expect(result.recoveryDate).toBe('2099-01-05');
+    expect(result.isRecovered).toBe(true);
+    // Duration = recoveryDate - peakDate = 3 days (Jan 5 - Jan 2)
+    expect(result.durationDays).toBe(3);
+    // Recovery time = recoveryDate - troughDate = 2 days (Jan 5 - Jan 3)
+    expect(result.recoveryDays).toBe(2);
+    expect(result.currentDrawdown).toBe(0);
+
+    // Verify drawdown series length
+    expect(result.drawdownSeries.length).toBe(5);
+  });
+
+  // ── Test B: Drawdown che si approfondisce ──
+
+  it('Test B: 100→120→90→100→80→130 — maxDD sul trough assoluto (80)', () => {
+    // Cumulative returns: 0, 0.20, -0.10, 0.00, -0.20, 0.30
+    // Normalized values: 1, 1.20, 0.90, 1.00, 0.80, 1.30
+    // Running peak: 1, 1.20, 1.20, 1.20, 1.20, 1.30
+    // Drawdowns: 0, -0.25, -0.25, -0.1667, -0.3333, 0
+    // MaxDD = -0.3333 (-33.33%) at index 4 (value=0.80)
+    // Peak before maxDD = 1.20 (index 1), Trough = 0.80 (index 4)
+    // Recovery = when value ≥ 1.20 → index 5 (value=1.30)
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },         // value=1.00
+      { date: '2099-01-02', cumulativeReturn: 0.20 },      // value=1.20
+      { date: '2099-01-03', cumulativeReturn: -0.10 },     // value=0.90
+      { date: '2099-01-04', cumulativeReturn: 0.00 },      // value=1.00
+      { date: '2099-01-05', cumulativeReturn: -0.20 },     // value=0.80
+      { date: '2099-01-06', cumulativeReturn: 0.30 },      // value=1.30
+    ];
+    const result = calculateDrawdown(series);
+
+    // MaxDD should be based on trough=80 (index 4), not first dip at 90
+    expect(result.maxDrawdown).toBeCloseTo(-0.3333, 3);
+    expect(result.peakDate).toBe('2099-01-02');
+    expect(result.troughDate).toBe('2099-01-05');
+    expect(result.recoveryDate).toBe('2099-01-06');
+    expect(result.isRecovered).toBe(true);
+    // Duration = 2099-01-06 - 2099-01-02 = 4 days
+    expect(result.durationDays).toBe(4);
+    // Recovery time = 2099-01-06 - 2099-01-05 = 1 day
+    expect(result.recoveryDays).toBe(1);
+  });
+
+  // ── Test C: Drawdown non recuperato ──
+
+  it('Test C: serie che termina sotto il peak — recoveryDate=null', () => {
+    // Cumulative returns: 0, 0.20, 0.10, 0.05
+    // Normalized values: 1, 1.20, 1.10, 1.05
+    // Running peak: 1, 1.20, 1.20, 1.20
+    // Drawdowns: 0, 0, -0.0833, -0.125
+    // MaxDD = -0.125 at index 3 (last point — the trough)
+    // Peak = 1.20 (index 1), Trough = 1.05 (index 3)
+    // No recovery after index 3 (value never reaches 1.20 again)
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+      { date: '2099-01-02', cumulativeReturn: 0.20 },
+      { date: '2099-01-03', cumulativeReturn: 0.10 },
+      { date: '2099-01-04', cumulativeReturn: 0.05 },
+    ];
+    const result = calculateDrawdown(series);
+
+    expect(result.maxDrawdown).toBeCloseTo(-0.125, 10);
+    expect(result.peakDate).toBe('2099-01-02');
+    // Trough is at index 3 (the lowest point = last point)
+    expect(result.troughDate).toBe('2099-01-04');
+    expect(result.recoveryDate).toBeNull();
+    expect(result.isRecovered).toBe(false);
+    expect(result.durationDays).toBeNull();
+    expect(result.recoveryDays).toBeNull();
+    // Current drawdown is the last point's drawdown = maxDD
+    expect(result.currentDrawdown).toBeCloseTo(-0.125, 10);
+  });
+
+  // ── Test D: Serie senza drawdown (crescita costante) ──
+
+  it('Test D: crescita costante — maxDD=0, currentDrawdown=0', () => {
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+      { date: '2099-01-02', cumulativeReturn: 0.05 },
+      { date: '2099-01-03', cumulativeReturn: 0.10 },
+      { date: '2099-01-04', cumulativeReturn: 0.15 },
+    ];
+    const result = calculateDrawdown(series);
+
+    expect(result.maxDrawdown).toBe(0);
+    expect(result.currentDrawdown).toBe(0);
+    expect(result.isRecovered).toBe(true);
+    expect(result.troughDate).toBeNull();
+    expect(result.recoveryDate).toBeNull();
+    expect(result.durationDays).toBeNull();
+    expect(result.recoveryDays).toBeNull();
+  });
+
+  // ── Test E: Recovery immediata (drawdown di 1 giorno) ──
+
+  it('Test E: recovery immediata — 100→95→100', () => {
+    // Cumulative returns: 0, -0.05, 0
+    // Normalized values: 1, 0.95, 1.00
+    // Running peak: 1, 1, 1
+    // Drawdowns: 0, -0.05, 0
+    // MaxDD = -0.05 at index 1
+    // Recovery = index 2 (value=1.00 ≥ peak=1)
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+      { date: '2099-01-02', cumulativeReturn: -0.05 },
+      { date: '2099-01-03', cumulativeReturn: 0 },
+    ];
+    const result = calculateDrawdown(series);
+
+    expect(result.maxDrawdown).toBeCloseTo(-0.05, 10);
+    expect(result.peakDate).toBe('2099-01-01');
+    expect(result.troughDate).toBe('2099-01-02');
+    expect(result.recoveryDate).toBe('2099-01-03');
+    expect(result.isRecovered).toBe(true);
+    expect(result.durationDays).toBe(2);
+    expect(result.recoveryDays).toBe(1);
+  });
+
+  // ── Test F: Multiple drawdowns consecutivi ──
+
+  it('Test F: 100→90→110→72.73→133.33 — due drawdowns, maxDD è il secondo', () => {
+    // Cumulative returns: 0, -0.10, 0.10, -0.2727, 0.3333
+    // Normalized values: 1, 0.90, 1.10, 0.7273, 1.3333
+    // Running peak: 1, 1, 1.10, 1.10, 1.3333
+    // Drawdowns: 0, -0.10, 0, -0.3388, 0
+    // Primo drawdown: -10% (recuperato a 110 che è un nuovo peak)
+    // Secondo drawdown: -33.88% (0.7273/1.10 - 1)
+    // MaxDD = -33.88% (il secondo è peggiore)
+    // Peak = 1.10 (index 2), Trough = 0.7273 (index 3)
+    // Recovery = index 4 (value=1.3333 ≥ 1.10)
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+      { date: '2099-01-02', cumulativeReturn: -0.10 },
+      { date: '2099-01-03', cumulativeReturn: 0.10 },
+      { date: '2099-01-04', cumulativeReturn: -0.2727 },
+      { date: '2099-01-05', cumulativeReturn: 0.3333 },
+    ];
+    const result = calculateDrawdown(series);
+
+    expect(result.maxDrawdown).toBeCloseTo(-0.3388, 3);
+    expect(result.peakDate).toBe('2099-01-03');
+    expect(result.troughDate).toBe('2099-01-04');
+    expect(result.recoveryDate).toBe('2099-01-05');
+    expect(result.isRecovered).toBe(true);
+    expect(result.durationDays).toBe(2);
+    expect(result.recoveryDays).toBe(1);
+  });
+
+  // ── Test G: Integrazione con buildReturnSeries su dati reali ──
+
+  it('should integrate correctly with buildReturnSeries on real data', () => {
+    seedSnapshot('2099-01-01', 10000);
+    seedSnapshot('2099-01-02', 10200);
+    seedSnapshot('2099-01-03', 9800);
+    seedSnapshot('2099-01-04', 10100);
+    seedSnapshot('2099-01-05', 10500);
+
+    const series = buildReturnSeries({ from: '2099-01-01', to: '2099-01-05' });
+    const result = calculateDrawdown(series);
+
+    expect(series.length).toBe(5);
+    expect(result.drawdownSeries.length).toBe(5);
+    expect(result.maxDrawdown).not.toBeNull();
+    expect(Number.isFinite(result.maxDrawdown)).toBe(true);
+    expect(result.maxDrawdown).toBeLessThanOrEqual(0);
+    expect(result.currentDrawdown).not.toBeNull();
+    expect(Number.isFinite(result.currentDrawdown)).toBe(true);
+    expect(result.currentDrawdown).toBeLessThanOrEqual(0);
+
+    // Verify no NaN or Infinity
+    expect(Number.isNaN(result.maxDrawdown)).toBe(false);
+    expect(Number.isNaN(result.currentDrawdown)).toBe(false);
+  });
+
+  // ── Test H: Drawdown con recupero parziale ma non totale ──
+
+  it('should handle partial recovery (value goes up but not to previous peak)', () => {
+    // Cumulative returns: 0, 0.20, 0.05, 0.10
+    // Normalized values: 1, 1.20, 1.05, 1.10
+    // Running peak: 1, 1.20, 1.20, 1.20
+    // Drawdowns: 0, 0, -0.125, -0.0833
+    // MaxDD = -0.125 at index 2 (trough)
+    // Peak = 1.20 (index 1), Trough = 1.05 (index 2)
+    // No full recovery (value never reaches 1.20)
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+      { date: '2099-01-02', cumulativeReturn: 0.20 },
+      { date: '2099-01-03', cumulativeReturn: 0.05 },
+      { date: '2099-01-04', cumulativeReturn: 0.10 },
+    ];
+    const result = calculateDrawdown(series);
+
+    expect(result.maxDrawdown).toBeCloseTo(-0.125, 10);
+    expect(result.peakDate).toBe('2099-01-02');
+    expect(result.troughDate).toBe('2099-01-03');
+    expect(result.recoveryDate).toBeNull();
+    expect(result.isRecovered).toBe(false);
+    // Current drawdown at last point: 1.10/1.20 - 1 = -0.0833
+    expect(result.currentDrawdown).toBeCloseTo(-0.0833, 3);
+  });
+
+  // ── Test I: Piccolo ritiro ma nuovo massimo alla fine ──
+
+  it('should handle small dip with new all-time high at end', () => {
+    // Cumulative returns: 0, 0.10, 0.05, 0.20
+    // Normalized values: 1, 1.10, 1.05, 1.20
+    // Running peak: 1, 1.10, 1.10, 1.20
+    // Drawdowns: 0, 0, -0.0455, 0
+    // The dip from 1.10 to 1.05 creates a small drawdown of -4.55%
+    // MaxDD = -0.0455 (not zero — there IS a drawdown during the dip)
+    // Peak = 1.10 (index 1), Trough = 1.05 (index 2)
+    // Recovery = 1.20 (index 3) exceeds peak 1.10
+    const series = [
+      { date: '2099-01-01', cumulativeReturn: 0 },
+      { date: '2099-01-02', cumulativeReturn: 0.10 },
+      { date: '2099-01-03', cumulativeReturn: 0.05 },
+      { date: '2099-01-04', cumulativeReturn: 0.20 },
+    ];
+    const result = calculateDrawdown(series);
+
+    // There IS a drawdown during the dip
+    expect(result.maxDrawdown).toBeCloseTo(-0.04545, 3);
+    expect(result.peakDate).toBe('2099-01-02');
+    expect(result.troughDate).toBe('2099-01-03');
+    expect(result.recoveryDate).toBe('2099-01-04');
+    expect(result.isRecovered).toBe(true);
+    expect(result.durationDays).toBe(2);
+    expect(result.recoveryDays).toBe(1);
+    // Current drawdown at last point = 0 (new peak reached)
+    expect(result.currentDrawdown).toBe(0);
   });
 });

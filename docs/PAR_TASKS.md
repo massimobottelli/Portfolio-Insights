@@ -242,7 +242,29 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 ## Fase 7 — Drawdown + Recovery
 **Obiettivo:** Calcolare maximum drawdown, peak/trough dates, recovery date, duration e recovery time.
 
-- [ ] Fase 7 — Drawdown + Recovery
+- [x] Fase 7 — Drawdown + Recovery ✅
+
+**Esito dettagliato:**
+- **Funzione aggiunta a `models/performanceModel.js`:** `calculateDrawdown(returnSeries)`
+- **Algoritmo:** running peak → drawdown series → maxDD identification → peak/trough/recovery detection → duration calculation
+- **Distinzione chiara:** drawdownDuration = recoveryDate - peakDate, recoveryDays = recoveryDate - troughDate
+- **Edge cases gestiti:** empty/single point → nulls; no drawdown (crescita costante) → maxDD=0; drawdown non recuperato → recoveryDate=null
+- **Test creati:** 12 test in Test Suite 18
+  - empty array → nulls
+  - single point → nulls
+  - Test A: 100→120→90→110→130 — maxDD=-25%, recovered (duration=3, recovery=2)
+  - Test B: 100→120→90→100→80→130 — maxDD sul trough assoluto (80)
+  - Test C: serie che termina sotto il peak — recoveryDate=null
+  - Test D: crescita costante — maxDD=0
+  - Test E: recovery immediata — 100→95→100
+  - Test F: 100→90→110→72.73→133.33 — due drawdowns, maxDD è il secondo (-33.88%)
+  - Integrazione con buildReturnSeries su dati reali
+  - Partial recovery (value goes up but not to previous peak)
+  - Small dip with new all-time high at end
+- **Test risultati:** 91/91 passati ✅ (84 preesistenti + 12 nuovi drawdown)
+- **DB cleanup:** 7 cash movements, 46 snapshots, 1 session rimossi
+- **Build frontend:** ✅ PASSA (2.19s)
+- **DB schema:** nessuna modifica ✅
 
 ## Fase 8 — API aggregata + integration test
 **Obiettivo:** Consolidare tutte le metriche in un unico endpoint `GET /api/analytics/performance` con integration test su dataset noto.

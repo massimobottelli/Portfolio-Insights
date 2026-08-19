@@ -642,6 +642,193 @@ export function calculateMonthlyReturns(returnSeries) {
  * @property {number} return - compounded monthly return (e.g. 0.021 = +2.1%)
  */
 
+// ──────────────────────────────────────────────
+// calculateDrawdown
+// ──────────────────────────────────────────────
+
+/**
+ * Calculate drawdown metrics from the canonical return series.
+ *
+ * This function builds a running peak/trough/recovery analysis on top of
+ * the cumulative performance series (starting at value 1). It answers:
+ *   - What is the maximum peak-to-trough decline?
+ *   - When did it happen (peak date, trough date)?
+ *   - When (if ever) did the portfolio recover to the previous peak?
+ *   - How long was the drawdown and how long was the recovery?
+ *
+ * Algorithm (per design doc sections 15-18):
+ *   1. Build runningPeak[t] = max(value[0...t])
+ *   2. drawdown[t] = value[t] / runningPeak[t] - 1  (always ≤ 0)
+ *   3. maxDrawdown = min(drawdown[t])
+ *   4. Identify peak/trough dates for the maximum drawdown
+ *   5. Find recovery date: first point after trough where value ≥ runningPeak[trough]
+ *   6. durationDays = recoveryDate - peakDate
+ *      recoveryDays = recoveryDate - troughDate
+ *
+ * Edge cases:
+ *   - < 2 points → all nulls (cannot compute meaningful drawdown)
+ *   - No drawdown (series always rising) → maxDrawdown = 0, currentDrawdown = 0
+ *   - Drawdown not recovered → recoveryDate = null, isRecovered = false
+ *     durationDays and recoveryDays remain null
+ *
+ * Does NOT implement: Ulcer Index, average drawdown, top-N drawdowns.
+ *
+ * @param {PortfolioReturnPoint[]} returnSeries - output of buildReturnSeries()
+ * @returns {DrawdownResult}
+ */
+export function calculateDrawdown(returnSeries) {
+  // Edge case: need at least 2 points for any meaningful drawdown analysis
+  if (!returnSeries || returnSeries.length < 2) {
+    return {
+      currentDrawdown: null,
+      maxDrawdown: null,
+      peakDate: null,
+      troughDate: null,
+      recoveryDate: null,
+      durationDays: null,
+      recoveryDays: null,
+      isRecovered: false,
+      drawdownSeries: [],
+    };
+  }
+
+  // Step 1: Build the normalized cumulative performance series (value starting at 1)
+  /** @type {PerformancePoint[]} */
+  const perfPoints = returnSeries.map((r) => ({
+    date: r.date,
+    value: 1 + r.cumulativeReturn,
+  }));
+
+  // Step 2: Compute running peak, drawdown for each point
+  /** @type {DrawdownPoint[]} */
+  const drawdownSeries = [];
+  let runningPeak = perfPoints[0].value;
+
+  for (let i = 0; i < perfPoints.length; i++) {
+    const point = perfPoints[i];
+
+    // Update running peak
+    if (point.value > runningPeak) {
+      runningPeak = point.value;
+    }
+
+    // Drawdown is always ≤ 0 (or 0 when at a new peak)
+    const drawdown = point.value / runningPeak - 1;
+
+    drawdownSeries.push({
+      date: point.date,
+      peak: runningPeak,
+      value: point.value,
+      drawdown,
+    });
+  }
+
+  // Step 3: Find maximum drawdown (most negative value in drawdown series)
+  let maxDDIndex = 0;
+  let maxDrawdown = 0; // Start at 0 (no drawdown case)
+
+  for (let i = 0; i < drawdownSeries.length; i++) {
+    if (drawdownSeries[i].drawdown < maxDrawdown) {
+      maxDrawdown = drawdownSeries[i].drawdown;
+      maxDDIndex = i;
+    }
+  }
+
+  // Current drawdown is the last point's drawdown
+  const currentDrawdown = drawdownSeries[drawdownSeries.length - 1].drawdown;
+
+  // If no actual drawdown occurred (maxDrawdown = 0), return clean zero state
+  if (maxDrawdown === 0) {
+    return {
+      currentDrawdown: 0,
+      maxDrawdown: 0,
+      peakDate: drawdownSeries[drawdownSeries.length - 1].date,
+      troughDate: null,
+      recoveryDate: null,
+      durationDays: null,
+      recoveryDays: null,
+      isRecovered: true, // Technically "recovered" since never drew down
+      drawdownSeries,
+    };
+  }
+
+  // Step 4: Identify peak and trough for the maximum drawdown
+  // Trough is at maxDDIndex (where drawdown was most negative)
+  const troughDate = drawdownSeries[maxDDIndex].date;
+
+  // Peak: find the FIRST point where the running peak reached its maximum
+  // value before or at the trough. We scan forward from 0 to maxDDIndex
+  // and track the index where the running peak first equals the maximum.
+  let peakIndex = 0;
+  let maxRunningPeak = drawdownSeries[0].peak;
+  for (let i = 1; i <= maxDDIndex; i++) {
+    if (drawdownSeries[i].peak > maxRunningPeak) {
+      maxRunningPeak = drawdownSeries[i].peak;
+      peakIndex = i;
+    }
+  }
+  const peakDate = drawdownSeries[peakIndex].date;
+
+  // Step 5: Find recovery date — first point AFTER trough where value ≥ runningPeak at trough
+  const peakValueAtTrough = drawdownSeries[maxDDIndex].peak;
+  let recoveryDate = null;
+
+  for (let i = maxDDIndex; i < drawdownSeries.length; i++) {
+    if (drawdownSeries[i].value >= peakValueAtTrough) {
+      recoveryDate = drawdownSeries[i].date;
+      break;
+    }
+  }
+
+  const isRecovered = recoveryDate !== null;
+
+  // Step 6: Calculate durations in days
+  let durationDays = null;
+  let recoveryDays = null;
+
+  if (isRecovered) {
+    const peakMs = new Date(peakDate).getTime();
+    const troughMs = new Date(troughDate).getTime();
+    const recoveryMs = new Date(recoveryDate).getTime();
+
+    durationDays = Math.round((recoveryMs - peakMs) / (1000 * 60 * 60 * 24));
+    recoveryDays = Math.round((recoveryMs - troughMs) / (1000 * 60 * 60 * 24));
+  }
+
+  return {
+    currentDrawdown,
+    maxDrawdown,
+    peakDate,
+    troughDate,
+    recoveryDate,
+    durationDays,
+    recoveryDays,
+    isRecovered,
+    drawdownSeries,
+  };
+}
+
+/**
+ * @typedef {Object} DrawdownPoint
+ * @property {string} date       - YYYY-MM-DD
+ * @property {number} peak       - running peak value at this point
+ * @property {number} value      - cumulative performance value at this point
+ * @property {number} drawdown   - value/peak - 1 (always ≤ 0)
+ */
+
+/**
+ * @typedef {Object} DrawdownResult
+ * @property {number|null} currentDrawdown  - drawdown at the latest point (≤ 0)
+ * @property {number|null} maxDrawdown      - maximum peak-to-trough decline (≤ 0)
+ * @property {string|null} peakDate         - date of the peak before max drawdown
+ * @property {string|null} troughDate       - date of the lowest point (valley)
+ * @property {string|null} recoveryDate     - date when portfolio recovered to previous peak (null if not recovered)
+ * @property {number|null} durationDays     - days from peak to recovery (null if not recovered)
+ * @property {number|null} recoveryDays     - days from trough to recovery (null if not recovered)
+ * @property {boolean} isRecovered          - true if recoveryDate is not null
+ * @property {DrawdownPoint[]} drawdownSeries - full drawdown series for charting
+ */
+
 export default {
   buildReturnSeries,
   twrFromReturns,
@@ -653,5 +840,6 @@ export default {
   calculateMonthlyReturns,
   calculateBestWorst,
   calculatePeriodStatsFromSeries,
+  calculateDrawdown,
   ANNUALIZATION_FACTOR,
 };
