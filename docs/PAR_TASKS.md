@@ -78,7 +78,38 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 ## Fase 3 — Rendimenti mensili
 **Obiettivo:** Aggregare daily returns in rendimenti mensili tramite compounding (non somma aritmetica).
 
-- [ ] Fase 3 — Rendimenti mensili
+- [x] Fase 3 — Rendimenti mensili ✅
+
+**Esito dettagliato:**
+- **Funzione aggiunta a `models/performanceModel.js`:**
+  - `calculateMonthlyReturns(returnSeries)` → aggrega daily returns in monthly via compounding: `monthlyReturn = Π(1 + dailyReturn) - 1`
+  - Raggruppamento per YYYY-MM preservando ordine cronologico
+  - Restituisce `[{ year, month, return }]` ordinato
+- **Test creati:** 8 nuovi test in `models/__tests__/performanceModel.test.js`
+  - empty input → `[]`
+  - single day in month
+  - **+10% then -10% = -1%** (test critico dal design doc, compounding corretto ≠ 0%)
+  - three returns (+5%, -3%, +2%) → `(1.05 × 0.97 × 1.02) - 1 = 0.03887`
+  - all-negative returns (-2%, -1%, -3%) → `-0.058906`
+  - multiple months in order
+  - zero-return months inclusi (non filtrati)
+  - integrazione con `buildReturnSeries()` su dati reali
+- **Test risultati:** 43/43 passati ✅
+  - 6 twrFromReturns
+  - 3 buildReturnSeries no-flows
+  - 3 buildReturnSeries with flows
+  - 1 buildReturnSeries withdrawals
+  - 4 buildReturnSeries edge cases
+  - 1 regression TWR
+  - 6 calculateCumulativePerformance
+  - 9 calculateCAGR
+  - 8 calculateMonthlyReturns (nuovi)
+  - 2 Integration pipeline
+- **Build frontend:** ✅ PASSA (2.25s, 2614 modules)
+- **DB schema:** nessuna modifica ✅
+- **DB cleanup:** test data rimosso (0 record residual) ✅
+
+---
 
 ## Fase 4 — Rendimenti annuali + statistiche
 **Obiettivo:** Calcolare rendimenti annuali, conteggio periodi positivi/negativi/flat, best/worst month e year.

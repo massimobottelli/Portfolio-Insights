@@ -329,10 +329,73 @@ export function calculateCAGR(returnSeries) {
  */
 export const ANNUALIZATION_FACTOR = Math.sqrt(365);
 
+// ──────────────────────────────────────────────
+// calculateMonthlyReturns
+// ──────────────────────────────────────────────
+
+/**
+ * Aggregate daily returns into monthly returns via compounding.
+ *
+ * Groups daily periodReturns by YYYY-MM and compounds them:
+ *   monthlyReturn = Π(1 + dailyReturn) - 1
+ *
+ * This is the foundational aggregation function reused by Phase 4
+ * (annual returns + statistics). Zero return months are included
+ * (not filtered out) because they matter for positive/negative counts.
+ *
+ * @param {PortfolioReturnPoint[]} returnSeries - output of buildReturnSeries()
+ * @returns {MonthlyReturn[]} [{ year, month, return }] sorted ascending
+ */
+export function calculateMonthlyReturns(returnSeries) {
+  if (!returnSeries || returnSeries.length === 0) {
+    return [];
+  }
+
+  // 1. Group by YYYY-MM preserving chronological order
+  /** @type {Map<string, number[]>} */
+  const monthGroups = new Map();
+
+  for (const r of returnSeries) {
+    const ym = r.date.substring(0, 7); // "YYYY-MM"
+    if (!monthGroups.has(ym)) {
+      monthGroups.set(ym, []);
+    }
+    monthGroups.get(ym).push(r.periodReturn);
+  }
+
+  // 2. Compound returns within each month
+  /** @type {MonthlyReturn[]} */
+  const monthly = [];
+
+  // Keys are already in YYYY-MM order from chronological input
+  for (const [ym, returns] of monthGroups) {
+    const [yearStr, monthStr] = ym.split('-');
+    let compounded = 1;
+    for (const pr of returns) {
+      compounded *= 1 + pr;
+    }
+    monthly.push({
+      year: parseInt(yearStr, 10),
+      month: parseInt(monthStr, 10),
+      return: compounded - 1,
+    });
+  }
+
+  return monthly;
+}
+
+/**
+ * @typedef {Object} MonthlyReturn
+ * @property {number} year   - e.g. 2024
+ * @property {number} month  - 1-12
+ * @property {number} return - compounded monthly return (e.g. 0.021 = +2.1%)
+ */
+
 export default {
   buildReturnSeries,
   twrFromReturns,
   calculateCumulativePerformance,
   calculateCAGR,
+  calculateMonthlyReturns,
   ANNUALIZATION_FACTOR,
 };

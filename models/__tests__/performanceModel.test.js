@@ -14,6 +14,7 @@ import {
   twrFromReturns,
   calculateCumulativePerformance,
   calculateCAGR,
+  calculateMonthlyReturns,
 } from '../performanceModel.js';
 import { calculateTWR } from '../analyticsModel.js';
 import { db, initializeDatabase } from '../../database.js';
@@ -593,7 +594,120 @@ describe('calculateCAGR', () => {
 });
 
 // ──────────────────────────────────────────────
-// Test Suite 9: Integration — full pipeline
+// Test Suite 10: calculateMonthlyReturns
+// ──────────────────────────────────────────────
+
+describe('calculateMonthlyReturns', () => {
+  it('should return empty array for empty input', () => {
+    expect(calculateMonthlyReturns([])).toEqual([]);
+  });
+
+  it('should handle a single day in a month', () => {
+    const series = [
+      { date: '2024-01-02', periodReturn: 0.02, cumulativeReturn: 0.02 },
+    ];
+    const monthly = calculateMonthlyReturns(series);
+    expect(monthly.length).toBe(1);
+    expect(monthly[0].year).toBe(2024);
+    expect(monthly[0].month).toBe(1);
+    expect(monthly[0].return).toBeCloseTo(0.02, 10);
+  });
+
+  it('should compound correctly: +10% then -10% = -1%', () => {
+    // Critical test from design doc: arithmetic sum would give 0%, compounding gives -1%
+    const series = [
+      { date: '2024-01-02', periodReturn: 0.10, cumulativeReturn: 0.10 },
+      { date: '2024-01-03', periodReturn: -0.10, cumulativeReturn: 0.00 },
+    ];
+    const monthly = calculateMonthlyReturns(series);
+    expect(monthly.length).toBe(1);
+    expect(monthly[0].year).toBe(2024);
+    expect(monthly[0].month).toBe(1);
+    // (1 + 0.10) × (1 - 0.10) - 1 = 1.10 × 0.90 - 1 = 0.99 - 1 = -0.01
+    expect(monthly[0].return).toBeCloseTo(-0.01, 10);
+  });
+
+  it('should compound three returns (+5%, -3%, +2%) in one month', () => {
+    // (1.05 × 0.97 × 1.02) - 1 = 1.03887 - 1 = 0.03887
+    const series = [
+      { date: '2024-03-01', periodReturn: 0.05, cumulativeReturn: 0.05 },
+      { date: '2024-03-04', periodReturn: -0.03, cumulativeReturn: 0.0195 },
+      { date: '2024-03-07', periodReturn: 0.02, cumulativeReturn: 0.03887 },
+    ];
+    const monthly = calculateMonthlyReturns(series);
+    expect(monthly.length).toBe(1);
+    expect(monthly[0].year).toBe(2024);
+    expect(monthly[0].month).toBe(3);
+    expect(monthly[0].return).toBeCloseTo(0.03887, 5);
+  });
+
+  it('should handle all-negative returns in a month', () => {
+    // -2%, -1%, -3% → (0.98 × 0.99 × 0.97) - 1 = 0.941094 - 1 = -0.058906
+    const series = [
+      { date: '2024-06-03', periodReturn: -0.02, cumulativeReturn: -0.02 },
+      { date: '2024-06-04', periodReturn: -0.01, cumulativeReturn: -0.0298 },
+      { date: '2024-06-05', periodReturn: -0.03, cumulativeReturn: -0.058906 },
+    ];
+    const monthly = calculateMonthlyReturns(series);
+    expect(monthly.length).toBe(1);
+    expect(monthly[0].return).toBeCloseTo(-0.058906, 5);
+  });
+
+  it('should produce multiple months in order', () => {
+    const series = [
+      { date: '2024-01-02', periodReturn: 0.05, cumulativeReturn: 0.05 },
+      { date: '2024-02-01', periodReturn: 0.03, cumulativeReturn: 0.0815 },
+      { date: '2024-02-02', periodReturn: -0.01, cumulativeReturn: 0.070685 },
+    ];
+    const monthly = calculateMonthlyReturns(series);
+    expect(monthly.length).toBe(2);
+    expect(monthly[0].year).toBe(2024);
+    expect(monthly[0].month).toBe(1);
+    expect(monthly[0].return).toBeCloseTo(0.05, 10);
+    expect(monthly[1].year).toBe(2024);
+    expect(monthly[1].month).toBe(2);
+    // (1.03 × 0.99) - 1 = 0.0197
+    expect(monthly[1].return).toBeCloseTo(0.0197, 5);
+  });
+
+  it('should include zero-return months', () => {
+    const series = [
+      { date: '2024-05-01', periodReturn: 0, cumulativeReturn: 0 },
+      { date: '2024-05-02', periodReturn: 0, cumulativeReturn: 0 },
+    ];
+    const monthly = calculateMonthlyReturns(series);
+    expect(monthly.length).toBe(1);
+    expect(monthly[0].return).toBe(0);
+  });
+
+  it('should integrate correctly with buildReturnSeries on real data', () => {
+    seedSnapshot('2099-01-02', 10000);
+    seedSnapshot('2099-01-15', 10200);
+    seedSnapshot('2099-01-31', 10500);
+    seedSnapshot('2099-02-01', 10550);
+    seedSnapshot('2099-02-15', 10300);
+    seedSnapshot('2099-02-28', 10700);
+
+    const series = buildReturnSeries({ from: '2099-01-02', to: '2099-02-28' });
+    const monthly = calculateMonthlyReturns(series);
+
+    expect(series.length).toBeGreaterThan(2);
+    expect(monthly.length).toBe(2);
+    expect(monthly[0].year).toBe(2099);
+    expect(monthly[0].month).toBe(1);
+    expect(monthly[1].year).toBe(2099);
+    expect(monthly[1].month).toBe(2);
+
+    // Verify no NaN or Infinity
+    for (const m of monthly) {
+      expect(Number.isFinite(m.return)).toBe(true);
+      expect(Number.isNaN(m.return)).toBe(false);
+    }
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 11: Integration — full pipeline
 // ──────────────────────────────────────────────
 
 describe('Integration: buildReturnSeries → calculateCumulativePerformance + calculateCAGR', () => {
