@@ -330,6 +330,157 @@ export function calculateCAGR(returnSeries) {
 export const ANNUALIZATION_FACTOR = Math.sqrt(365);
 
 // ──────────────────────────────────────────────
+// calculateAnnualReturns
+// ──────────────────────────────────────────────
+
+/**
+ * Aggregate daily returns into annual returns via compounding.
+ *
+ * Groups daily periodReturns by YYYY and compounds them:
+ *   annualReturn = Π(1 + dailyReturn) - 1
+ *
+ * Reuses the same pattern as calculateMonthlyReturns(), just
+ * grouping by year instead of year-month.
+ *
+ * @param {PortfolioReturnPoint[]} returnSeries - output of buildReturnSeries()
+ * @returns {AnnualReturn[]} [{ year, return }] sorted ascending
+ */
+export function calculateAnnualReturns(returnSeries) {
+  if (!returnSeries || returnSeries.length === 0) {
+    return [];
+  }
+
+  // 1. Group by YYYY preserving chronological order
+  /** @type {Map<string, number[]>} */
+  const yearGroups = new Map();
+
+  for (const r of returnSeries) {
+    const yr = r.date.substring(0, 4); // "YYYY"
+    if (!yearGroups.has(yr)) {
+      yearGroups.set(yr, []);
+    }
+    yearGroups.get(yr).push(r.periodReturn);
+  }
+
+  // 2. Compound returns within each year
+  /** @type {AnnualReturn[]} */
+  const annual = [];
+
+  // Keys are already in YYYY order from chronological input
+  for (const [yr, returns] of yearGroups) {
+    let compounded = 1;
+    for (const pr of returns) {
+      compounded *= 1 + pr;
+    }
+    annual.push({
+      year: parseInt(yr, 10),
+      return: compounded - 1,
+    });
+  }
+
+  return annual;
+}
+
+/**
+ * @typedef {Object} AnnualReturn
+ * @property {number} year   - e.g. 2024
+ * @property {number} return - compounded annual return (e.g. 0.0981 = +9.81%)
+ */
+
+// ──────────────────────────────────────────────
+// calculatePeriodStats — pure helper
+// ──────────────────────────────────────────────
+
+/**
+ * Calculate positive/negative/flat counts and rates for an array of returns.
+ *
+ * Zero is classified as FLAT, not negative (per design doc section 13).
+ *
+ * @param {number[]} returns - array of return values
+ * @returns {{ positive: number, negative: number, flat: number, total: number, positiveRate: number, negativeRate: number }}
+ */
+function calculatePeriodStats(returns) {
+  let positive = 0, negative = 0, flat = 0;
+
+  for (const r of returns) {
+    if (r > 0) positive++;
+    else if (r < 0) negative++;
+    else flat++;
+  }
+
+  const total = positive + negative + flat;
+
+  return {
+    positive,
+    negative,
+    flat,
+    total,
+    positiveRate: total > 0 ? positive / total : 0,
+    negativeRate: total > 0 ? negative / total : 0,
+  };
+}
+
+// ──────────────────────────────────────────────
+// calculateBestWorst
+// ──────────────────────────────────────────────
+
+/**
+ * Find best (max) and worst (min) periods from monthly and annual return series.
+ *
+ * If multiple periods share the same best/worst return, return the first chronologically.
+ * Returns null values when arrays are empty.
+ *
+ * @param {MonthlyReturn[]} monthlyReturns
+ * @param {AnnualReturn[]} annualReturns
+ * @returns {{ month: { best: number|null, worst: number|null }, year: { best: number|null, worst: number|null } }}
+ */
+export function calculateBestWorst(monthlyReturns, annualReturns) {
+  let bestMonth = null;
+  let worstMonth = null;
+  let bestYear = null;
+  let worstYear = null;
+
+  for (const m of monthlyReturns) {
+    if (bestMonth === null || m.return > bestMonth) bestMonth = m.return;
+    if (worstMonth === null || m.return < worstMonth) worstMonth = m.return;
+  }
+
+  for (const a of annualReturns) {
+    if (bestYear === null || a.return > bestYear) bestYear = a.return;
+    if (worstYear === null || a.return < worstYear) worstYear = a.return;
+  }
+
+  return {
+    month: { best: bestMonth, worst: worstMonth },
+    year: { best: bestYear, worst: worstYear },
+  };
+}
+
+// ──────────────────────────────────────────────
+// calculatePeriodStatsFromSeries
+// ──────────────────────────────────────────────
+
+/**
+ * Calculate positive/negative/flat statistics for both monthly and annual returns.
+ *
+ * Extracts raw return values from the structured monthly/annual arrays and
+ * delegates to calculatePeriodStats().
+ *
+ * @param {MonthlyReturn[]} monthlyReturns
+ * @param {AnnualReturn[]} annualReturns
+ * @returns {{ months: PeriodStats, years: PeriodStats }}
+ */
+export function calculatePeriodStatsFromSeries(monthlyReturns, annualReturns) {
+  const monthlyRaw = monthlyReturns.map((m) => m.return);
+  const annualRaw = annualReturns.map((a) => a.return);
+
+  return {
+    months: calculatePeriodStats(monthlyRaw),
+    years: calculatePeriodStats(annualRaw),
+  };
+}
+
+// ──────────────────────────────────────────────
 // calculateMonthlyReturns
 // ──────────────────────────────────────────────
 
@@ -396,6 +547,9 @@ export default {
   twrFromReturns,
   calculateCumulativePerformance,
   calculateCAGR,
+  calculateAnnualReturns,
   calculateMonthlyReturns,
+  calculateBestWorst,
+  calculatePeriodStatsFromSeries,
   ANNUALIZATION_FACTOR,
 };

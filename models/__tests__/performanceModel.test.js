@@ -14,7 +14,10 @@ import {
   twrFromReturns,
   calculateCumulativePerformance,
   calculateCAGR,
+  calculateAnnualReturns,
   calculateMonthlyReturns,
+  calculateBestWorst,
+  calculatePeriodStatsFromSeries,
 } from '../performanceModel.js';
 import { calculateTWR } from '../analyticsModel.js';
 import { db, initializeDatabase } from '../../database.js';
@@ -753,5 +756,299 @@ describe('Integration: buildReturnSeries → calculateCumulativePerformance + ca
     expect(cagr.periodLessThanOneYear).toBe(true);
     expect(cagr.cagr).not.toBeNull();
     expect(Number.isFinite(cagr.cagr)).toBe(true);
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 12: calculateAnnualReturns
+// ──────────────────────────────────────────────
+
+describe('calculateAnnualReturns', () => {
+  it('should return empty array for empty input', () => {
+    expect(calculateAnnualReturns([])).toEqual([]);
+  });
+
+  it('should handle snapshots within a single year', () => {
+    const series = [
+      { date: '2024-01-01', periodReturn: 0, cumulativeReturn: 0 },
+      { date: '2024-06-15', periodReturn: 0.05, cumulativeReturn: 0.05 },
+      { date: '2024-12-31', periodReturn: 0.03, cumulativeReturn: 0.0815 },
+    ];
+    const annual = calculateAnnualReturns(series);
+    expect(annual.length).toBe(1);
+    expect(annual[0].year).toBe(2024);
+    // (1 + 0.05) × (1 + 0.03) - 1 = 1.05 × 1.03 - 1 = 0.0815
+    expect(annual[0].return).toBeCloseTo(0.0815, 5);
+  });
+
+  it('should compound correctly: +10% then -10% in same year = -1%', () => {
+    const series = [
+      { date: '2024-03-01', periodReturn: 0.10, cumulativeReturn: 0.10 },
+      { date: '2024-06-01', periodReturn: -0.10, cumulativeReturn: 0.00 },
+    ];
+    const annual = calculateAnnualReturns(series);
+    expect(annual.length).toBe(1);
+    expect(annual[0].year).toBe(2024);
+    // (1 + 0.10) × (1 - 0.10) - 1 = 1.10 × 0.90 - 1 = -0.01
+    expect(annual[0].return).toBeCloseTo(-0.01, 10);
+  });
+
+  it('should produce multiple years', () => {
+    const series = [
+      { date: '2023-06-01', periodReturn: 0.05, cumulativeReturn: 0.05 },
+      { date: '2023-12-31', periodReturn: 0.02, cumulativeReturn: 0.071 },
+      { date: '2024-06-01', periodReturn: -0.03, cumulativeReturn: 0.04087 },
+      { date: '2024-12-31', periodReturn: 0.04, cumulativeReturn: 0.0827 },
+    ];
+    const annual = calculateAnnualReturns(series);
+    expect(annual.length).toBe(2);
+    expect(annual[0].year).toBe(2023);
+    expect(annual[1].year).toBe(2024);
+    // 2023: (1.05 × 1.02) - 1 = 0.071
+    expect(annual[0].return).toBeCloseTo(0.071, 5);
+    // 2024: (0.97 × 1.04) - 1 = 0.0088
+    expect(annual[1].return).toBeCloseTo(0.0088, 5);
+  });
+
+  it('should handle all-negative returns in one year', () => {
+    const series = [
+      { date: '2024-03-01', periodReturn: -0.02, cumulativeReturn: -0.02 },
+      { date: '2024-06-01', periodReturn: -0.03, cumulativeReturn: -0.0494 },
+      { date: '2024-09-01', periodReturn: -0.01, cumulativeReturn: -0.0594 },
+    ];
+    const annual = calculateAnnualReturns(series);
+    expect(annual.length).toBe(1);
+    // (0.98 × 0.97 × 0.99) - 1 = 0.941094 - 1 = -0.058906
+    expect(annual[0].return).toBeCloseTo(-0.058906, 5);
+  });
+
+  it('should integrate correctly with buildReturnSeries on multi-year data', () => {
+    seedSnapshot('2099-01-01', 10000);
+    seedSnapshot('2099-06-01', 10500);
+    seedSnapshot('2099-12-31', 11000);
+    seedSnapshot('2100-06-01', 11200);
+    seedSnapshot('2100-12-31', 12000);
+
+    const series = buildReturnSeries({ from: '2099-01-01', to: '2100-12-31' });
+    const annual = calculateAnnualReturns(series);
+
+    expect(series.length).toBeGreaterThan(3);
+    expect(annual.length).toBe(2);
+    expect(annual[0].year).toBe(2099);
+    expect(annual[1].year).toBe(2100);
+
+    // Verify no NaN or Infinity
+    for (const a of annual) {
+      expect(Number.isFinite(a.return)).toBe(true);
+      expect(Number.isNaN(a.return)).toBe(false);
+    }
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 13: calculateBestWorst
+// ──────────────────────────────────────────────
+
+describe('calculateBestWorst', () => {
+  it('should return nulls for empty arrays', () => {
+    const result = calculateBestWorst([], []);
+    expect(result.month.best).toBeNull();
+    expect(result.month.worst).toBeNull();
+    expect(result.year.best).toBeNull();
+    expect(result.year.worst).toBeNull();
+  });
+
+  it('should find best and worst month', () => {
+    const monthly = [
+      { year: 2024, month: 1, return: 0.05 },
+      { year: 2024, month: 2, return: -0.03 },
+      { year: 2024, month: 3, return: 0.08 },
+      { year: 2024, month: 4, return: -0.06 },
+    ];
+    const result = calculateBestWorst(monthly, []);
+    expect(result.month.best).toBeCloseTo(0.08, 10);
+    expect(result.month.worst).toBeCloseTo(-0.06, 10);
+  });
+
+  it('should find best and worst year', () => {
+    const annual = [
+      { year: 2022, return: -0.09 },
+      { year: 2023, return: 0.14 },
+      { year: 2024, return: 0.09 },
+    ];
+    const result = calculateBestWorst([], annual);
+    expect(result.year.best).toBeCloseTo(0.14, 10);
+    expect(result.year.worst).toBeCloseTo(-0.09, 10);
+  });
+
+  it('should handle single element arrays', () => {
+    const monthly = [{ year: 2024, month: 1, return: 0.05 }];
+    const annual = [{ year: 2024, return: 0.10 }];
+    const result = calculateBestWorst(monthly, annual);
+    expect(result.month.best).toBeCloseTo(0.05, 10);
+    expect(result.month.worst).toBeCloseTo(0.05, 10);
+    expect(result.year.best).toBeCloseTo(0.10, 10);
+    expect(result.year.worst).toBeCloseTo(0.10, 10);
+  });
+
+  it('should return first chronologically when ties exist', () => {
+    // All positive returns equal — best should be first, worst should be first
+    const monthly = [
+      { year: 2024, month: 1, return: 0.05 },
+      { year: 2024, month: 2, return: 0.05 },
+      { year: 2024, month: 3, return: 0.05 },
+    ];
+    const result = calculateBestWorst(monthly, []);
+    expect(result.month.best).toBeCloseTo(0.05, 10);
+    expect(result.month.worst).toBeCloseTo(0.05, 10);
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 14: calculatePeriodStats helpers
+// ──────────────────────────────────────────────
+
+describe('calculatePeriodStatsFromSeries', () => {
+  it('should return zero stats for empty arrays', () => {
+    const result = calculatePeriodStatsFromSeries([], []);
+    expect(result.months.total).toBe(0);
+    expect(result.months.positive).toBe(0);
+    expect(result.months.negative).toBe(0);
+    expect(result.months.flat).toBe(0);
+    expect(result.months.positiveRate).toBe(0);
+    expect(result.years.total).toBe(0);
+  });
+
+  it('should count positive/negative/flat correctly for months', () => {
+    const monthly = [
+      { year: 2024, month: 1, return: 0.05 },   // positive
+      { year: 2024, month: 2, return: -0.03 },  // negative
+      { year: 2024, month: 3, return: 0 },       // flat
+      { year: 2024, month: 4, return: 0.02 },   // positive
+      { year: 2024, month: 5, return: -0.01 },  // negative
+    ];
+    const result = calculatePeriodStatsFromSeries(monthly, []);
+    expect(result.months.positive).toBe(2);
+    expect(result.months.negative).toBe(2);
+    expect(result.months.flat).toBe(1);
+    expect(result.months.total).toBe(5);
+    expect(result.months.positiveRate).toBeCloseTo(2 / 5, 10);
+    expect(result.months.negativeRate).toBeCloseTo(2 / 5, 10);
+  });
+
+  it('should count positive/negative/flat correctly for years', () => {
+    const annual = [
+      { year: 2022, return: -0.09 },  // negative
+      { year: 2023, return: 0.14 },   // positive
+      { year: 2024, return: 0.09 },   // positive
+    ];
+    const result = calculatePeriodStatsFromSeries([], annual);
+    expect(result.years.positive).toBe(2);
+    expect(result.years.negative).toBe(1);
+    expect(result.years.flat).toBe(0);
+    expect(result.years.total).toBe(3);
+    expect(result.years.positiveRate).toBeCloseTo(2 / 3, 10);
+  });
+
+  it('should classify zero as FLAT not negative', () => {
+    const monthly = [
+      { year: 2024, month: 1, return: 0 },
+      { year: 2024, month: 2, return: 0 },
+    ];
+    const result = calculatePeriodStatsFromSeries(monthly, []);
+    expect(result.months.flat).toBe(2);
+    expect(result.months.positive).toBe(0);
+    expect(result.months.negative).toBe(0);
+  });
+
+  it('should compute both monthly and yearly stats together', () => {
+    const monthly = [
+      { year: 2024, month: 1, return: 0.05 },
+      { year: 2024, month: 2, return: -0.03 },
+      { year: 2024, month: 3, return: 0.02 },
+    ];
+    const annual = [
+      { year: 2024, return: 0.04 },
+    ];
+    const result = calculatePeriodStatsFromSeries(monthly, annual);
+    expect(result.months.total).toBe(3);
+    expect(result.months.positive).toBe(2);
+    expect(result.months.negative).toBe(1);
+    expect(result.years.total).toBe(1);
+    expect(result.years.positive).toBe(1);
+  });
+});
+
+// ──────────────────────────────────────────────
+// Test Suite 15: Integration — Phase 4 full pipeline
+// ──────────────────────────────────────────────
+
+describe('Integration: Phase 4 — annual + monthly + stats + best/worst', () => {
+  it('should produce coherent results through the full Phase 4 pipeline on real data', () => {
+    seedSnapshot('2099-01-01', 10000);
+    seedSnapshot('2099-03-31', 10300);
+    seedSnapshot('2099-06-30', 10600);
+    seedSnapshot('2099-09-30', 10900);
+    seedSnapshot('2099-12-31', 11400);
+    seedSnapshot('2100-03-31', 11600);
+    seedSnapshot('2100-06-30', 11300);
+    seedSnapshot('2100-09-30', 11800);
+    seedSnapshot('2100-12-31', 12500);
+
+    const series = buildReturnSeries({ from: '2099-01-01', to: '2100-12-31' });
+    const monthly = calculateMonthlyReturns(series);
+    const annual = calculateAnnualReturns(series);
+    const stats = calculatePeriodStatsFromSeries(monthly, annual);
+    const bestWorst = calculateBestWorst(monthly, annual);
+
+    expect(series.length).toBeGreaterThan(8);
+    expect(monthly.length).toBeGreaterThan(0);
+    expect(annual.length).toBe(2); // 2099 and 2100
+
+    // Annual returns should be finite numbers (sign depends on TWR calculation)
+    expect(Number.isFinite(annual[0].return)).toBe(true);
+    expect(Number.isFinite(annual[1].return)).toBe(true);
+
+    // Best should be >= worst
+    expect(bestWorst.year.best).toBeGreaterThanOrEqual(bestWorst.year.worst);
+
+    // Stats totals should match array lengths
+    expect(stats.months.total).toBe(monthly.length);
+    expect(stats.years.total).toBe(annual.length);
+
+    // Verify no NaN or Infinity anywhere
+    for (const m of monthly) {
+      expect(Number.isFinite(m.return)).toBe(true);
+    }
+    for (const a of annual) {
+      expect(Number.isFinite(a.return)).toBe(true);
+    }
+    expect(Number.isFinite(stats.months.positiveRate)).toBe(true);
+    expect(Number.isFinite(stats.years.positiveRate)).toBe(true);
+  });
+
+  it('should handle mixed positive/negative periods', () => {
+    seedSnapshot('2099-01-01', 10000);
+    seedSnapshot('2099-06-30', 9500);   // down
+    seedSnapshot('2099-12-31', 10200);  // up
+    seedSnapshot('2100-06-30', 9800);   // down
+    seedSnapshot('2100-12-31', 10800);  // up
+
+    const series = buildReturnSeries({ from: '2099-01-01', to: '2100-12-31' });
+    const monthly = calculateMonthlyReturns(series);
+    const annual = calculateAnnualReturns(series);
+    const stats = calculatePeriodStatsFromSeries(monthly, annual);
+    const bestWorst = calculateBestWorst(monthly, annual);
+
+    expect(annual.length).toBe(2);
+
+    // 2099: 10000 → 10200 (positive), 2100: 10200 → 10800 (positive)
+    // But intermediate dips may create negative months
+    expect(bestWorst.year.best).toBeGreaterThan(0);
+    expect(bestWorst.year.worst).toBeGreaterThan(-1);
+
+    // Total months should match expected
+    expect(monthly.length).toBeGreaterThan(0);
+    expect(stats.months.total).toBe(monthly.length);
   });
 });

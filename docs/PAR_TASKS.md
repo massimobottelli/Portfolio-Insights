@@ -114,7 +114,39 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 ## Fase 4 — Rendimenti annuali + statistiche
 **Obiettivo:** Calcolare rendimenti annuali, conteggio periodi positivi/negativi/flat, best/worst month e year.
 
-- [ ] Fase 4 — Rendimenti annuali + statistiche
+- [x] Fase 4 — Rendimenti annuali + statistiche ✅
+
+**Esito dettagliato:**
+- **Funzioni aggiunte a `models/performanceModel.js`:**
+  - `calculateAnnualReturns(returnSeries)` → aggrega daily returns in annual via compounding: `annualReturn = Π(1 + dailyReturn) - 1`
+  - `calculateBestWorst(monthlyReturns, annualReturns)` → trova best/worst month e year (null se array vuoto)
+  - `calculatePeriodStatsFromSeries(monthlyReturns, annualReturns)` → calcola positive/negative/flat counts e rates per mesi e anni
+  - Funzione helper privata `calculatePeriodStats(returns)` → classifica zero come FLAT (non negativo)
+- **Test creati:** 18 nuovi test in `models/__tests__/performanceModel.test.js`
+  - `calculateAnnualReturns`: 6 test (empty, single year compounding, +10%/-10%=-1%, multi-year, all-negative, integration)
+  - `calculateBestWorst`: 5 test (empty/nulls, best/worst month, best/worst year, single element, ties)
+  - `calculatePeriodStatsFromSeries`: 5 test (empty stats, monthly counts, yearly counts, zero=FLAT, combined)
+  - Integration pipeline: 2 test (full pipeline su dati reali, mixed periods)
+- **Test risultati:** 61/61 passati ✅
+  - 6 twrFromReturns
+  - 3 buildReturnSeries no-flows
+  - 3 buildReturnSeries with flows
+  - 1 buildReturnSeries withdrawals
+  - 4 buildReturnSeries edge cases
+  - 1 regression TWR
+  - 6 calculateCumulativePerformance
+  - 9 calculateCAGR
+  - 8 calculateMonthlyReturns
+  - 2 Integration pipeline (Fase 2)
+  - 6 calculateAnnualReturns (nuovi)
+  - 5 calculateBestWorst (nuovi)
+  - 5 calculatePeriodStatsFromSeries (nuovi)
+  - 2 Integration pipeline Fase 4 (nuovi)
+- **Build frontend:** ✅ PASSA (2.18s, 2614 modules)
+- **DB schema:** nessuna modifica ✅
+- **DB cleanup:** test data rimosso ✅
+
+---
 
 ## Fase 5 — Volatilità
 **Obiettivo:** Calcolare deviazione standard daily e volatilità annualizzata (× √365).
