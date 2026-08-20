@@ -264,7 +264,7 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 - **Test risultati:** 91/91 passati ✅ (84 preesistenti + 12 nuovi drawdown)
 - **DB cleanup:** 7 cash movements, 46 snapshots, 1 session rimossi
 - **Build frontend:** ✅ PASSA (2.19s)
-- **DB schema:** nessuna modifica ✅
+- **DB schema:** nessuna modifica ✅ OK
 
 ## Fase 8 — API aggregata + integration test
 **Obiettivo:** Consolidare tutte le metriche in un unico endpoint `GET /api/analytics/performance` con integration test su dataset noto.
