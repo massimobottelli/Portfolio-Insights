@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Loader2 } from 'lucide-react';
 import { ASSET_TYPES } from '@config/assetTypes.js';
@@ -160,27 +160,64 @@ const formatDate = (dateStr: string | null) => {
 };
 
 
-function AssetTypeDropdown({ assetId, assetType }: { assetId: string; assetType: string }) {
+function AssetTypeDropdown({ 
+  assetId, 
+  assetType, 
+  onUpdate 
+}: { 
+  assetId: string; 
+  assetType: string; 
+  onUpdate?: () => void; 
+}) {
   const [currentType, setCurrentType] = useState(assetType);
   const [saving, setSaving] = useState(false);
+  const currentTypeRef = useRef(currentType);
+
+  // Mantieni il ref sincronizzato con lo state
+  useEffect(() => {
+    currentTypeRef.current = currentType;
+  }, [currentType]);
 
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newType = e.target.value;
-    const previousType = currentType;
-    // Ottimistic update
+    // Usa il ref invece dello state per evitare closure stale
+    const previousType = currentTypeRef.current;
+    
+    console.log('[AssetTypeDropdown] Cambio tipo:', { assetId, previousType, newType });
+    
+    // Optimistic update
     setCurrentType(newType);
     setSaving(true);
     try {
-      const res = await apiFetch(`/api/assets/${assetId}/type`, {
+      const url = `/api/assets/${assetId}/type`;
+      console.log('[AssetTypeDropdown] PATCH request a:', url);
+      const res = await apiFetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assetType: newType }),
       });
+      console.log('[AssetTypeDropdown] Response status:', res.status, 'ok:', res.ok);
+      
+      // Leggi il body per vedere eventuali errori dal backend
+      let responseBody;
+      try {
+        responseBody = await res.json();
+      } catch {
+        responseBody = null;
+      }
+      console.log('[AssetTypeDropdown] Response body:', responseBody);
+      
       if (!res.ok) {
+        console.error('[AssetTypeDropdown] Request fallita, rollback a:', previousType);
         // Rollback on error
         setCurrentType(previousType);
+      } else {
+        console.log('[AssetTypeDropdown] Successo, chiama onUpdate');
+        // Notifica al genitore che il dato è cambiato
+        onUpdate?.();
       }
-    } catch {
+    } catch (err) {
+      console.error('[AssetTypeDropdown] Eccezione:', err);
       setCurrentType(previousType);
     } finally {
       setSaving(false);
@@ -239,21 +276,33 @@ export default function Portfolio() {
   const [positions, setPositions] = useState<PositionItem[]>([]);
   const [priceDate, setPriceDate] = useState<string | null>(null);
   const [availableCash, setAvailableCash] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
-  useEffect(() => {
-    apiFetch('/api/analytics/portfolio')
-      .then(r => r.json())
-      .then((data: PortfolioResponse) => {
-        setPositions(data.positions);
-        setPriceDate(data.priceDate);
-        setAvailableCash(data.availableCash);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+  /** Refetch positions from the API */
+  const fetchPositions = useCallback(async () => {
+    console.log('[Portfolio] Inizio refetch posizioni...');
+    try {
+      const res = await apiFetch('/api/analytics/portfolio');
+      console.log('[Portfolio] Response status:', res.status, 'ok:', res.ok);
+      const data: PortfolioResponse = await res.json();
+      console.log('[Portfolio] Posizioni ricevute:', data.positions.length);
+      // Logga ogni posizione per verificare che asset_type sia aggiornato
+      data.positions.forEach((pos, idx) => {
+        console.log(`[Portfolio] Position ${idx}:`, { asset_id: pos.asset_id, ticker: pos.ticker, asset_type: pos.asset_type });
+      });
+      setPositions(data.positions);
+      setPriceDate(data.priceDate);
+      setAvailableCash(data.availableCash);
+      console.log('[Portfolio] State aggiornato con', data.positions.length, 'posizioni');
+    } catch (err) {
+      console.error('Errore nel refetch delle posizioni:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchPositions();
+  }, [fetchPositions]);
 
   // Trasforma le quantità BTP (/100), calcola i derivati e nasconde quantità zero.
   const visiblePositions = useMemo(
@@ -419,13 +468,6 @@ export default function Portfolio() {
     );
   }, [assetTypeSummary, summarySortKey, summarySortDirection]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400 text-lg">Caricamento...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -519,6 +561,7 @@ export default function Portfolio() {
                       <AssetTypeDropdown
                         assetId={pos.asset_id}
                         assetType={pos.asset_type || 'UNKNOWN'}
+                        onUpdate={fetchPositions}
                       />
                     </td>
                   </tr>

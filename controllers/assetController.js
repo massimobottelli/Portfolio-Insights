@@ -1,5 +1,6 @@
 import { getAllAssets, getAssetByIsin, getAssetById, updateAssetType } from '../models/assetModel.js';
 import { ASSET_TYPES } from '../config/assetTypes.js';
+import { clearAnalyticsCache } from '../models/analyticsModel.js';
 
 /**
  * GET /api/assets
@@ -74,6 +75,10 @@ export function updateAssetTypeHandler(req, res) {
     if (!asset) {
       return res.status(404).json({ error: 'Asset non trovato' });
     }
+    
+    // Invalida la cache analytics perché asset_type è usato nei calcoli delle posizioni
+    clearAnalyticsCache();
+    
     res.json(asset);
   } catch (error) {
     res.status(500).json({ error: 'Errore nell\'aggiornamento del tipo', details: error.message });
