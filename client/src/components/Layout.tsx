@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BarChart3, PieChart, ArrowLeftRight, Download, LogOut } from 'lucide-react';
+import { LayoutDashboard, BarChart3, PieChart, TrendingUp, ArrowLeftRight, Download, LogOut } from 'lucide-react';
 import { clearToken } from '../lib/api';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/portfolio', label: 'Portfolio', icon: BarChart3 },
   { to: '/allocation', label: 'Allocazione', icon: PieChart },
+  { to: '/performance', label: 'Performance', icon: TrendingUp },
   { to: '/movements', label: 'Movimenti', icon: ArrowLeftRight },
   { to: '/import', label: 'Import', icon: Download },
 ];

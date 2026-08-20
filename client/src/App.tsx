@@ -8,6 +8,7 @@ import Movements from './pages/Movements';
 import ImportPage from './pages/ImportPage';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import Performance from './pages/Performance';
 import { isAuthenticated } from './lib/api';
 
 // Componente che protegge le rotte: se non autenticato, reindirizza a /login
@@ -36,8 +37,9 @@ export default function App() {
         <Route path="/asset/:id" element={<AssetDetail />} />
         <Route path="/movements" element={<Movements />} />
         <Route path="/import" element={<ImportPage />} />
+        <Route path="/performance" element={<Performance />} />
         <Route path="/settings" element={<Settings />} />
-      </Route>
+       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

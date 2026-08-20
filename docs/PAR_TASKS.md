@@ -306,10 +306,28 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 ## Fase 9 — UI: Performance
 **Obiettivo:** Pagina con KPI cumulative return, CAGR e grafico performance cumulativa con period filter.
 
-- [ ] Fase 9 — UI: Performance
-**Obiettivo:** Pagina con KPI cumulative return, CAGR e grafico performance cumulativa con period filter.
+- [x] Fase 9 — UI: Performance ✅
 
-- [ ] Fase 9 — UI: Performance
+**Esito dettagliato:**
+- **File creati:**
+  - `client/src/lib/performanceApi.ts` — helper API con types TypeScript, `fetchPerformanceAnalytics()`, `getCutoffDate()`, `TIME_RANGE_OPTIONS`
+  - `client/src/pages/Performance.tsx` — pagina principale con KPI row (Cumulative Return, CAGR, Best Month, Worst Month) + chart cumulativo
+- **File modificati:**
+  - `client/src/App.tsx` — aggiunta rotta `/performance`
+  - `client/src/components/Layout.tsx` — aggiunto link "Performance" nella sidebar con icona `TrendingUp`
+- **Componenti interni:**
+  - `KpiCard` — card riutilizzabile per KPI (pattern esistente da Dashboard.tsx)
+  - `CumulativePerformanceChart` — AreaChart Recharts con gradient fill, tooltip personalizzato, monthly ticks
+  - `PeriodFilter` — bottoni 1M/3M/6M/1Y/YTD/All integrati nella pagina
+- **KPI visualizzati:**
+  1. Cumulative Return (es. +74.2%)
+  2. CAGR (es. 8.34%, con warning se periodo < 1 anno)
+  3. Best Month (es. +17.2% — Mar 2025)
+  4. Worst Month (es. -9.1% — Oct 2024)
+- **Edge cases gestiti:** nessun dato, loading state, errore API, periodo < 1 anno, valori null
+- **Build frontend:** ✅ PASSA (2.13s, 2614 modules)
+- **Test backend:** ✅ 103/103 passati
+- **DB cleanup:** effettuato dall'utente ✅
 
 ## Fase 10 — UI: Monthly & Annual Returns
 **Obiettivo:** Grafico annual returns (bar chart) e heatmap mensile con Recharts/CSS grid.
