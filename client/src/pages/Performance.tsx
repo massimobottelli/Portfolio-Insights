@@ -10,6 +10,7 @@ import { Calendar } from 'lucide-react';
 import type { PerformanceAnalytics } from '../lib/performanceApi';
 import { fetchPerformanceAnalytics } from '../lib/performanceApi';
 import MonthlyReturnsChart from '../components/performance/MonthlyReturnsChart';
+import MonthlyReturnsHeatmap from '../components/performance/MonthlyReturnsHeatmap';
 import PeriodStatistics from '../components/performance/PeriodStatistics';
 
 // ──────────────────────────────────────────────
@@ -143,6 +144,14 @@ export default function Performance() {
               Rendimenti Mensili
             </h3>
             <MonthlyReturnsChart monthlyReturns={analytics.monthlyReturns} />
+          </div>
+
+          {/* Monthly Returns Heatmap */}
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+            <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
+              Heatmap Rendimenti Mensili
+            </h3>
+            <MonthlyReturnsHeatmap monthlyReturns={analytics.monthlyReturns} />
           </div>
 
           {/* Statistics */}

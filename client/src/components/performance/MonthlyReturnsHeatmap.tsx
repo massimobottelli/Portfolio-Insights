@@ -72,8 +72,8 @@ export default function MonthlyReturnsHeatmap({ monthlyReturns }: MonthlyReturns
     yearMap.get(item.year)!.push({ month: item.month, return: item.return });
   }
 
-  // Sort years descending (most recent first)
-  const sortedYears = Array.from(yearMap.keys()).sort((a, b) => b - a);
+  // Sort years ascending (oldest first, most recent last)
+  const sortedYears = Array.from(yearMap.keys()).sort((a, b) => a - b);
 
   if (sortedYears.length === 0) {
     return (
@@ -84,7 +84,7 @@ export default function MonthlyReturnsHeatmap({ monthlyReturns }: MonthlyReturns
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto py-4">
       <div className="min-w-[650px]">
         {/* Header row: month abbreviations */}
         {/* Note: grid-cols-13 not in standard Tailwind, use inline style */}
