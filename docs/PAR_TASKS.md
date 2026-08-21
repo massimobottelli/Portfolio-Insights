@@ -355,7 +355,24 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 ## Fase 11 — UI: Risk & Drawdown
 **Obiettivo:** Sezione risk metrics (volatilità, Sharpe, drawdown) con input risk-free rate interattivo.
 
-- [ ] Fase 11 — UI: Risk & Drawdown
+- [x] Fase 11 — UI: Risk & Drawdown ✅
+
+**Esito dettagliato:**
+- **File creati:**
+  - `client/src/components/performance/RiskMetrics.tsx` — KPI rischio con volatilità annualizzata, Sharpe ratio e input interattivo risk-free rate (default 2,50%)
+  - `client/src/components/performance/DrawdownAnalysis.tsx` — Statistiche drawdown: maxDD, data di massimo/minimo/recupero, durata, tempo recupero, stato
+  - `client/src/components/performance/DrawdownChart.tsx` — Grafico SVG del drawdown calcolato dalla serie cumulativa (solo drawdown, no performance)
+- **File modificati:**
+  - `client/src/pages/Performance.tsx` — integrati nuovi componenti RiskMetrics, DrawdownAnalysis, DrawdownChart; aggiunto period filter; RF default 2,50%
+- **Componenti implementati:**
+  1. **RiskMetrics**: 3 KPI in griglia (Volatilità Annua, Rapporto Sharpe, Tasso Risk-Free); input numerico con validazione (-100% < rate < +100%); sync prop/state; formattazione italiana (virgola decimale)
+  2. **DrawdownAnalysis**: KPI maxDD/durata/recupero + tabella dettagliata con date formattate (it-IT); stati: "Recuperato", "In corso", "Assente", "N/D"
+  3. **DrawdownChart**: Custom SVG chart con area fill gradiente rosso, asse zero, tick mensili, badge valore corrente; calcolo drawdown da cumulativeSeries lato client
+- **Testi UI:** tutti in italiano (Volatilità Annua, Rapporto Sharpe, Tasso Risk-Free, Data di massimo, Data di minimo, Data di recupero, Durata Drawdown, Tempo Recupero, Stato, etc.)
+- **Risk-free rate:** default 2,50% (0.025 decimal); sync con backend al caricamento; validazione input
+- **Build frontend:** ✅ PASSA (2.34s, 2622 modules)
+- **Test backend:** ✅ 103/103 passati
+- **DB schema:** nessuna modifica ✅
 
 ## Fase 12 — Hardening
 **Obiettivo:** Edge cases, regression test TWR, frontend build, lint, documentazione aggiornata.
