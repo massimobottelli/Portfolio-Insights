@@ -5,6 +5,9 @@
  * for months and years, plus best/worst month/year.
  */
 
+// Alias: il JSX usa formatReturn con valori nullable (null → "N/D")
+import { MONTH_ABBR, formatReturnOrNull as formatReturn } from '../../lib/performanceFormat';
+
 interface PeriodStats {
   positive: number;
   negative: number;
@@ -38,18 +41,10 @@ interface PeriodStatisticsProps {
   bestWorst: BestWorst;
 }
 
-/** Format a decimal return as percentage string: 0.083 → +8.3% */
-function formatReturn(value: number | null, decimals = 1): string {
-  if (value === null) return 'N/D';
-  const sign = value >= 0 ? '+' : '';
-  return `${sign}${(value * 100).toFixed(decimals)}%`;
-}
-
 /** Format month-year for display: "Mar 2025", "Oct 2024" */
 function formatMonthYear(year: number | null, month: number | null): string {
   if (year === null || month === null) return 'N/D';
-  const months = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-  return `${months[month - 1]} ${year}`;
+  return `${MONTH_ABBR[month - 1]} ${year}`;
 }
 
 /** Render a single stat row */

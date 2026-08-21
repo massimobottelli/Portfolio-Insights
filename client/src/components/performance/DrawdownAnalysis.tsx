@@ -89,7 +89,7 @@ export default function DrawdownAnalysis({
           <p className={`font-bold text-2xl ${maximum !== null && maximum < -0.1 ? 'text-red-500' : maximum !== null && maximum < 0 ? 'text-red-400' : 'text-slate-300'}`}>
             {maximum !== null ? percentFmt.format(maximum) : 'N/D'}
           </p>
-          <p className="text-slate-500 mt-1 text-xs">Calatura massima dal picco</p>
+          <p className="text-slate-500 mt-1 text-xs">Caduta massima dal picco</p>
         </div>
 
         {/* Duration */}

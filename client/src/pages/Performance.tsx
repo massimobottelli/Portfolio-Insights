@@ -7,8 +7,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Calendar } from 'lucide-react';
-import type { PerformanceAnalytics, TimeRange } from '../lib/performanceApi';
-import { TIME_RANGE_OPTIONS, fetchPerformanceAnalytics } from '../lib/performanceApi';
+import type { PerformanceAnalytics } from '../lib/performanceApi';
+import { fetchPerformanceAnalytics } from '../lib/performanceApi';
 import MonthlyReturnsChart from '../components/performance/MonthlyReturnsChart';
 import MonthlyReturnsHeatmap from '../components/performance/MonthlyReturnsHeatmap';
 import PeriodStatistics from '../components/performance/PeriodStatistics';
@@ -54,50 +54,28 @@ function KpiCard({
 }
 
 // ──────────────────────────────────────────────
-// PeriodFilter component
-// ──────────────────────────────────────────────
-
-function PeriodFilter({
-  selected,
-  onChange,
-}: {
-  selected: TimeRange;
-  onChange: (range: TimeRange) => void;
-}) {
-  return (
-    <div className="flex gap-2">
-      {TIME_RANGE_OPTIONS.map((option) => (
-        <button
-          key={option.key}
-          onClick={() => onChange(option.key)}
-          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
-            selected === option.key
-              ? 'bg-blue-600 text-white'
-              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────
 // Main Performance page
+//
+// NOTA: le metriche sono calcolate SEMPRE sull'intero periodo di investimento.
+// Il filtro per periodi (1M/3M/6M/1Y/YTD) è stato rimosso su richiesta:
+// la serie canonica non viene più limitata da un cutoff iniziale.
 // ──────────────────────────────────────────────
 
 export default function Performance() {
   const [analytics, setAnalytics] = useState<PerformanceAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<TimeRange>('all');
-  // Il tasso risk-free non ha attualmente un controllo UI: è una costante di default.
-  // (Il setter è stato rimosso: sincronizzarlo dalla risposta del backend
-  // poteva innescare un loop di refetch per differenze di floating point.)
-  const [riskFreeRate] = useState(0.025); // Default 2,50%
+  // Il tasso risk-free è aggiornato SOLO dall'input utente in RiskMetrics
+  // (mai risincronizzato dal server: evita loop di refetch per floating point).
+  const [riskFreeRate, setRiskFreeRate] = useState(0.025); // Default 2,50%
 
-  // Fetch analytics with current time range and risk-free rate.
+  // Callback stabile passata a RiskMetrics
+  const handleRiskFreeRateChange = useCallback((rate: number) => {
+    setRiskFreeRate(rate);
+  }, []);
+
+  // Fetch analytics sull'INTERO periodo di investimento ('all' = nessun cutoff)
+  // e con il risk-free rate corrente.
   // NOTA: non sincronizziamo riskFreeRate dalla risposta del backend:
   // lo stato locale è l'unica fonte di verità e scriverlo dal server
   // poteva innescare un loop di refetch in caso di differenze di floating point.
@@ -106,7 +84,7 @@ export default function Performance() {
     setError(null);
 
     try {
-      const data = await fetchPerformanceAnalytics(timeRange, riskFreeRate);
+      const data = await fetchPerformanceAnalytics('all', riskFreeRate);
       setAnalytics(data);
     } catch (err) {
       console.error('Failed to fetch performance analytics:', err);
@@ -114,7 +92,7 @@ export default function Performance() {
     } finally {
       setLoading(false);
     }
-  }, [timeRange, riskFreeRate]);
+  }, [riskFreeRate]);
 
   useEffect(() => {
     fetchData();
@@ -152,9 +130,8 @@ export default function Performance() {
 
   return (
     <div className="space-y-4 lg:space-y-6">
-      {/* Top bar: last update date + period filter */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <PeriodFilter selected={timeRange} onChange={(range) => setTimeRange(range)} />
+      {/* Top bar: last update date */}
+      <div className="flex justify-end">
         {baseDate && (
           <p className="text-slate-400 text-xs lg:text-sm flex items-center gap-1">
             <Calendar size={14} className="text-slate-400" />
@@ -165,7 +142,7 @@ export default function Performance() {
 
       {!hasData ? (
         <div className="flex items-center justify-center h-32">
-          <p className="text-slate-500 text-lg">Nessun dato disponibile per il periodo selezionato</p>
+          <p className="text-slate-500 text-lg">Nessun dato disponibile</p>
         </div>
       ) : (
         <>
@@ -227,6 +204,7 @@ export default function Performance() {
               annualizedVolatility={analytics.risk.annualizedVolatility}
               sharpeRatio={analytics.risk.sharpeRatio}
               riskFreeRate={riskFreeRate}
+              onRiskFreeRateChange={handleRiskFreeRateChange}
             />
           </div>
 

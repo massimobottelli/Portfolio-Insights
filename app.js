@@ -26,6 +26,9 @@ initializeDatabase();
 // 2. Creazione dell'app Express
 const app = express();
 
+// Non esporre la firma del framework negli header di risposta
+app.disable('x-powered-by');
+
 // 3. Middleware nativi di Express
 // Il limite del body è aumentato a 50mb perché i file CSV Directa (inviati come
 // stringa JSON) possono superare abbondantemente i 100KB default di Express.

@@ -101,8 +101,13 @@ export default function DrawdownChart({ cumulativeSeries }: DrawdownChartProps) 
     );
   }
 
-  // Determina dominio Y automatico
-  const minDrawdown = Math.min(...drawdownData.map((d) => d.drawdown));
+  // Determina dominio Y automatico.
+  // reduce invece di Math.min(...spread): con serie molto lunghe lo spread
+  // può superare il limite di argomenti della call stack.
+  const minDrawdown = drawdownData.reduce(
+    (min, d) => (d.drawdown < min ? d.drawdown : min),
+    0
+  );
   const yDomain = [minDrawdown * 1.1, 0]; // 10% extra sotto il minimo per visibilità
 
   return (

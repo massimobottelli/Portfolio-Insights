@@ -12,6 +12,7 @@
  */
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { MONTH_ABBR, formatReturn } from '../../lib/performanceFormat';
 
 interface MonthlyReturnItem {
   year: number;
@@ -23,14 +24,12 @@ interface MonthlyReturnsChartProps {
   monthlyReturns: MonthlyReturnItem[];
 }
 
-/** Italian month abbreviations */
-const MONTH_ABBR = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-
-/** Format a decimal return as percentage string: +9.81%, -8.31% */
-function formatReturn(value: number): string {
-  const sign = value >= 0 ? '+' : '';
-  return `${sign}${(value * 100).toFixed(2)}%`;
-}
+// Layout fisso del grafico (costanti a livello modulo: usate anche nei callback)
+const SVG_HEIGHT = 400;
+const PADDING_TOP = 20;
+const PADDING_BOTTOM = 45;
+const PADDING_LEFT = 65;
+const PADDING_RIGHT = 15;
 
 export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsChartProps) {
   // Filter out null values and sort chronologically
@@ -42,54 +41,9 @@ export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsCh
     });
   }, [monthlyReturns]);
 
-  if (sortedReturns.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-48">
-        <p className="text-slate-500 text-sm">Nessun dato mensile disponibile</p>
-      </div>
-    );
-  }
-
-  // Compute scales — asymmetric around zero for proper alignment
-  const positiveValues = sortedReturns.map((r) => r.return!).filter((v) => v > 0);
-  const negativeValues = sortedReturns.map((r) => r.return!).filter((v) => v < 0);
-  const maxPositive = positiveValues.length > 0 ? Math.max(...positiveValues) : 0.001;
-  const maxNegative = negativeValues.length > 0 ? Math.min(...negativeValues) : -0.001;
-  
-  // Range for positive and negative separately
-  const posRange = maxPositive * 1.15;
-  const negRange = Math.abs(maxNegative) * 1.15;
-  const totalRange = posRange + negRange;
-
-  // State for tooltip — positioned by SVG coordinates
-  const [tooltip, setTooltip] = useState<{ 
-    x: number;
-    y: number;
-    month: number; 
-    year: number; 
-    value: number;
-  } | null>(null);
-
-  // Handle mouse move — position tooltip above the bar center
-  const handleMouseMove = useCallback((_e: React.MouseEvent, barCenterX: number, barY: number, _barX: number, month: number, year: number, value: number) => {
-    // Position tooltip 10px above the bar top, centered on the bar
-    const tooltipWidth = 120; // approximate width of tooltip
-    let finalX = barCenterX;
-    
-    // Keep tooltip within chart area
-    if (barCenterX < paddingLeft + tooltipWidth / 2) {
-      finalX = paddingLeft + tooltipWidth / 2 + 5;
-    } else if (barCenterX > svgWidth - paddingRight - tooltipWidth / 2) {
-      finalX = svgWidth - paddingRight - tooltipWidth / 2 - 5;
-    }
-    
-    const finalY = Math.max(5, barY - 12); // 12px above bar, minimum 5px from top
-    setTooltip({ x: finalX, y: finalY, month, year, value });
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setTooltip(null);
-  }, []);
+  // ── Hooks: DEVONO stare tutti prima di qualsiasi early return.
+  // Un return condizionato prima degli hook viola le Rules of Hooks e crasha
+  // con "Rendered fewer hooks than expected" se i dati passano da vuoti a pieni.
 
   // Refs for responsive sizing
   const containerRef = useRef<HTMLDivElement>(null);
@@ -107,13 +61,69 @@ export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsCh
     return () => window.removeEventListener('resize', updateWidth);
   }, []);
 
-  const svgHeight = 400;
-  const paddingTop = 20;
-  const paddingBottom = 45;
-  const paddingLeft = 65;
-  const paddingRight = 15;
-  const chartAreaWidth = svgWidth - paddingLeft - paddingRight;
-  const chartAreaHeight = svgHeight - paddingTop - paddingBottom;
+  const [tooltip, setTooltip] = useState<{ 
+    x: number;
+    y: number;
+    month: number; 
+    year: number; 
+    value: number;
+  } | null>(null);
+
+  // Handle mouse move — position tooltip above the bar center
+  const handleMouseMove = useCallback((_e: React.MouseEvent, barCenterX: number, barY: number, _barX: number, month: number, year: number, value: number) => {
+    // Position tooltip 10px above the bar top, centered on the bar
+    const tooltipWidth = 120; // approximate width of tooltip
+    let finalX = barCenterX;
+    
+    // Keep tooltip within chart area
+    if (barCenterX < PADDING_LEFT + tooltipWidth / 2) {
+      finalX = PADDING_LEFT + tooltipWidth / 2 + 5;
+    } else if (barCenterX > svgWidth - PADDING_RIGHT - tooltipWidth / 2) {
+      finalX = svgWidth - PADDING_RIGHT - tooltipWidth / 2 - 5;
+    }
+    
+    const finalY = Math.max(5, barY - 12); // 12px above bar, minimum 5px from top
+    setTooltip({ x: finalX, y: finalY, month, year, value });
+  }, [svgWidth]);
+
+  const handleMouseLeave = useCallback(() => {
+    setTooltip(null);
+  }, []);
+
+  // Early return DOPO tutti gli hook
+  if (sortedReturns.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <p className="text-slate-500 text-sm">Nessun dato mensile disponibile</p>
+      </div>
+    );
+  }
+
+  // Compute scales — asymmetric around zero for proper alignment
+  // Compute scales — asymmetric around zero for proper alignment.
+  // reduce invece di Math.max/min(...spread): con serie molto lunghe lo spread
+  // può superare il limite di argomenti della call stack.
+  const positiveValues = sortedReturns.map((r) => r.return!).filter((v) => v > 0);
+  const negativeValues = sortedReturns.map((r) => r.return!).filter((v) => v < 0);
+  const maxPositive = positiveValues.length > 0
+    ? positiveValues.reduce((max, v) => (v > max ? v : max), -Infinity)
+    : 0.001;
+  const maxNegative = negativeValues.length > 0
+    ? negativeValues.reduce((min, v) => (v < min ? v : min), Infinity)
+    : -0.001;
+  
+  // Range for positive and negative separately
+  const posRange = maxPositive * 1.15;
+  const negRange = Math.abs(maxNegative) * 1.15;
+  const totalRange = posRange + negRange;
+
+  // Alias locali delle costanti di layout (usate nel JSX qui sotto)
+  const svgHeight = SVG_HEIGHT;
+  const paddingLeft = PADDING_LEFT;
+  const paddingRight = PADDING_RIGHT;
+
+  const chartAreaWidth = svgWidth - PADDING_LEFT - PADDING_RIGHT;
+  const chartAreaHeight = SVG_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
 
   // Each month gets equal width slot
   const totalMonths = sortedReturns.length;
@@ -124,7 +134,7 @@ export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsCh
   const barWidth = monthSlotWidth - barGap;
 
   // Zero line position — offset from top based on positive/negative ratio
-  const zeroY = paddingTop + posRange / totalRange * chartAreaHeight;
+  const zeroY = PADDING_TOP + posRange / totalRange * chartAreaHeight;
 
   // Determine which month indices to show labels for (avoid overlap)
   const labelInterval = totalMonths <= 12 ? 1 : totalMonths <= 24 ? 2 : totalMonths <= 48 ? 3 : 6;

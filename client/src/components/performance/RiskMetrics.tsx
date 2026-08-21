@@ -5,7 +5,7 @@
  * e input interattivo per il tasso risk-free (default 2,50%).
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 // ──────────────────────────────────────────────
 // Props
@@ -15,6 +15,8 @@ interface RiskMetricsProps {
   annualizedVolatility: number | null;
   sharpeRatio: number | null;
   riskFreeRate: number; // decimal from API (0.025 = 2.5%)
+  /** Chiamato quando l'utente inserisce un tasso risk-free valido (in decimale) */
+  onRiskFreeRateChange?: (rate: number) => void;
 }
 
 // ──────────────────────────────────────────────
@@ -40,6 +42,7 @@ export default function RiskMetrics({
   annualizedVolatility,
   sharpeRatio,
   riskFreeRate,
+  onRiskFreeRateChange,
 }: RiskMetricsProps) {
   // Local state for RF input (percentage value, e.g. 2.50)
   const [rfInput, setRfInput] = useState(
@@ -47,14 +50,9 @@ export default function RiskMetrics({
   );
   const [error, setError] = useState<string | null>(null);
 
-  // Sync with prop when it changes externally
-  useEffect(() => {
-    if (riskFreeRate !== null) {
-      setRfInput((riskFreeRate * 100).toFixed(2));
-    }
-  }, [riskFreeRate]);
-
-  // Handle RF change: validate only (parent handles API call)
+  // Handle RF change: valida e propaga al parent, che ricalcola lo Sharpe.
+  // Il valore NON viene mai risincronizzato dal prop (evita loop di refetch):
+  // la fonte di verità è l'input dell'utente.
   const handleRfChange = useCallback((value: string) => {
     setRfInput(value);
 
@@ -66,7 +64,8 @@ export default function RiskMetrics({
     }
 
     setError(null);
-  }, []);
+    onRiskFreeRateChange?.(num / 100);
+  }, [onRiskFreeRateChange]);
 
   return (
     <div className="space-y-4">

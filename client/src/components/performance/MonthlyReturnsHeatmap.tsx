@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import { MONTH_ABBR, formatReturn } from '../../lib/performanceFormat';
 
 interface MonthlyReturnItem {
   year: number;
@@ -16,15 +17,6 @@ interface MonthlyReturnItem {
 
 interface MonthlyReturnsHeatmapProps {
   monthlyReturns: MonthlyReturnItem[];
-}
-
-/** Italian month abbreviations */
-const MONTH_ABBR = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-
-/** Format a decimal return as percentage string */
-function formatReturn(value: number): string {
-  const sign = value >= 0 ? '+' : '';
-  return `${sign}${(value * 100).toFixed(2)}%`;
 }
 
 /** Get CSS background class based on return value */
@@ -134,7 +126,6 @@ export default function MonthlyReturnsHeatmap({ monthlyReturns }: MonthlyReturns
                       h-9 text-xs font-medium transition-opacity
                       ${hasData ? getCellBgClass(returnValue!) : 'bg-slate-800 text-slate-600'}
                     `}
-                    title={hasData ? `${MONTH_ABBR[i]} ${year}: ${formatReturn(returnValue!)}` : `${MONTH_ABBR[i]} ${year}: N/D`}
                   >
                     {hasData ? (
                       formatReturn(returnValue!)
