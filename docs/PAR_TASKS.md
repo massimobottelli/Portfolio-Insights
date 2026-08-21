@@ -330,9 +330,27 @@ Checklist per tracciare l'avanzamento delle fasi di implementazione.
 - **DB cleanup:** effettuato dall'utente ✅
 
 ## Fase 10 — UI: Monthly & Annual Returns
-**Obiettivo:** Grafico annual returns (bar chart) e heatmap mensile con Recharts/CSS grid.
+**Obiettivo:** Grafico monthly returns (bar chart SVG) e heatmap mensile con CSS grid.
 
-- [ ] Fase 10 — UI: Monthly & Annual Returns
+- [x] Fase 10 — UI: Monthly & Annual Returns ✅
+
+**Esito dettagliato:**
+- **File creati:**
+  - `client/src/components/performance/AnnualReturnsChart.tsx` — Custom SVG bar chart con barre raggruppate per mese/anno, hover per-bar, tooltip specifico per singolo mese, nessuna barra di legenda
+  - `client/src/components/performance/MonthlyReturnsHeatmap.tsx` — CSS Grid heatmap con colorazione condizionale (emerald/red), tooltip hover, layout responsive
+  - `client/src/components/performance/PeriodStatistics.tsx` — Sezione Statistiche con Mesi/Anni Positivi/Negativi + Mese/Anno Migliore/Peggiore
+- **File modificati:**
+  - `client/src/pages/Performance.tsx` — time range filter rimosso, best/worst spostati nel box Statistiche, titolo cambiato in "Statistiche"
+- **Componenti implementati:**
+  1. **AnnualReturnsChart**: SVG-based grouped bar chart (non Recharts), 12 barre mensili per anno, hover su singola barra, tooltip mostra "Mar 2024 — Rendimento: +X.XX%"
+  2. **MonthlyReturnsHeatmap**: CSS Grid 13 colonne (anno + 12 mesi), colorazione celle basata su soglie di rendimento, tooltip hover con mese/anno/valore
+  3. **PeriodStatistics**: Layout a 2 righe — Riga 1: Mesi/Anni Positivi/Negativi; Riga 2: Mese/Anno Migliore/Peggiore
+- **Build frontend:** ✅ PASSA (3.15s, 2614 modules)
+- **Test backend:** ✅ 103/103 passati
+- **DB cleanup:** nessun dato residuo ✅
+- **DB schema:** nessuna modifica ✅
+
+---
 
 ## Fase 11 — UI: Risk & Drawdown
 **Obiettivo:** Sezione risk metrics (volatilità, Sharpe, drawdown) con input risk-free rate interattivo.

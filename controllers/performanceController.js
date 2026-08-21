@@ -181,6 +181,7 @@ export function getPerformanceAnalytics(req, res) {
           flat: periodStats.months.flat,
           total: periodStats.months.total,
           positiveRate: safeNum(periodStats.months.positiveRate),
+          negativeRate: safeNum(periodStats.months.negativeRate),
         },
         years: {
           positive: periodStats.years.positive,
@@ -188,6 +189,7 @@ export function getPerformanceAnalytics(req, res) {
           flat: periodStats.years.flat,
           total: periodStats.years.total,
           positiveRate: safeNum(periodStats.years.positiveRate),
+          negativeRate: safeNum(periodStats.years.negativeRate),
         },
       },
       bestWorst: {
