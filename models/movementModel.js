@@ -104,6 +104,18 @@ export function getMovements(options = {}) {
 }
 
 /**
+ * Elimina un singolo movimento di cassa per ID.
+ * @param {string} id - ID del movimento (UUID)
+ * @returns {boolean} true se il movimento è stato eliminato, false se non esiste
+ */
+export function deleteMovement(id) {
+  const result = db
+    .prepare('DELETE FROM cash_movements WHERE id = ?')
+    .run(id);
+  return result.changes > 0;
+}
+
+/**
  * Recupera la lista dei ticker distinti presenti nei cash_movements,
  * utile per popolare il dropdown filtro "Simbolo".
  * @returns {Array<{ ticker: string }>} Lista di ticker

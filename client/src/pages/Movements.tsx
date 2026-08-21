@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, X, ChevronDown } from 'lucide-react';
+import { Search, X, ChevronDown, Trash2, Loader2 } from 'lucide-react';
 import type { CashMovementItem, MovementsResponse } from '../types';
 import { apiFetch } from '../lib/api';
 
@@ -101,6 +101,10 @@ export default function Movements() {
   // Debounce della ricerca: senza, ogni tasto digitato scatenava una chiamata API
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
+  // Stato cancellazione movimento: ID in fase di eliminazione + chiave di reload
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(id);
@@ -134,7 +138,7 @@ export default function Movements() {
         setError('Errore nel caricamento dei movimenti');
       })
       .finally(() => setLoading(false));
-  }, [sortKey, sortDirection, startDate, endDate, typeFilter, symbolFilter, debouncedSearch]);
+  }, [sortKey, sortDirection, startDate, endDate, typeFilter, symbolFilter, debouncedSearch, reloadKey]);
 
   // Load dei simboli per il dropdown filtro
   useEffect(() => {
@@ -178,6 +182,36 @@ export default function Movements() {
     setTypeFilter('');
     setSymbolFilter('');
     setSearch('');
+  };
+
+  /**
+   * Elimina un singolo movimento dopo conferma esplicita dell'utente.
+   * Al successo ricarica la lista (incrementando reloadKey).
+   */
+  const handleDelete = async (mv: CashMovementItem) => {
+    const label = `${MOVEMENT_TYPE_LABELS[mv.movement_type] || mv.movement_type} del ${formatDate(mv.operation_date)} (${formatAmount(mv.euro_amount)} €)`;
+    if (!window.confirm(`Eliminare definitivamente il movimento "${label}"?`)) {
+      return;
+    }
+
+    setDeletingId(mv.id);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/movements/${encodeURIComponent(mv.id)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `Errore HTTP ${res.status}`);
+      }
+      // Ricarica la lista (e invalida lato server la cache analytics)
+      setReloadKey(k => k + 1);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Errore nell'eliminazione del movimento");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -306,6 +340,9 @@ export default function Movements() {
                 <th className={thClass('currency')} onClick={() => handleSort('currency')}>
                   Valuta{sortArrow('currency')}
                 </th>
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">
+                  Azioni
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
@@ -335,18 +372,32 @@ export default function Movements() {
                     {formatAmount(mv.euro_amount)}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-400">{mv.currency}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => handleDelete(mv)}
+                      disabled={deletingId !== null}
+                      title="Elimina movimento"
+                      className="inline-flex items-center justify-center p-1.5 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {deletingId === mv.id ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={15} />
+                      )}
+                    </button>
+                  </td>
                 </tr>
               ))}
               {movements.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                     Nessun movimento trovato
                   </td>
                 </tr>
               )}
               {loading && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                     Caricamento...
                   </td>
                 </tr>
@@ -356,7 +407,7 @@ export default function Movements() {
             {movements.length > 0 && hasActiveFilters && (
               <tfoot>
                 <tr className="border-t-2 border-slate-600 bg-slate-800/80">
-                  <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-white text-right uppercase tracking-wider">
+                  <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-white text-right uppercase tracking-wider">
                     Totale
                   </td>
                   <td className={`px-4 py-3 text-sm text-right font-bold whitespace-nowrap ${amountColorClass(totalAmount)}`}>
@@ -364,6 +415,7 @@ export default function Movements() {
                     <span className="text-slate-500 font-normal ml-1">€</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-400">EUR</td>
+                  <td />
                 </tr>
               </tfoot>
             )}
