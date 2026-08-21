@@ -22,7 +22,8 @@ export function listMovements(req, res) {
 
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero dei movimenti', details: error.message });
+    console.error('List movements error:', error);
+    res.status(500).json({ error: 'Errore nel recupero dei movimenti' });
   }
 }
 
@@ -36,6 +37,7 @@ export function listMovementSymbols(req, res) {
     const symbols = getMovementSymbols();
     res.json(symbols.map(s => s.ticker));
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero dei simboli', details: error.message });
+    console.error('Movement symbols error:', error);
+    res.status(500).json({ error: 'Errore nel recupero dei simboli' });
   }
 }

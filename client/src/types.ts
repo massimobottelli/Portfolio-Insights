@@ -88,6 +88,8 @@ export interface ImportResponse {
   importSessionId: string;
   recordsImported: number;
   totalRecords: number;
+  /** Errori per-record restituiti dal backend (presente solo se ce ne sono) */
+  errors?: string[];
 }
 
 export interface CashMovementItem {

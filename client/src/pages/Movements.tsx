@@ -98,6 +98,13 @@ export default function Movements() {
   const [typeFilter, setTypeFilter] = useState('');
   const [symbolFilter, setSymbolFilter] = useState('');
   const [search, setSearch] = useState('');
+  // Debounce della ricerca: senza, ogni tasto digitato scatenava una chiamata API
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(id);
+  }, [search]);
 
   // Load dei dati
   useEffect(() => {
@@ -110,7 +117,7 @@ export default function Movements() {
     if (endDate) query.set('endDate', endDate);
     if (typeFilter) query.set('type', typeFilter);
     if (symbolFilter) query.set('symbol', symbolFilter);
-    if (search) query.set('search', search);
+    if (debouncedSearch) query.set('search', debouncedSearch);
 
     setLoading(true);
     apiFetch(`/api/movements?${query.toString()}`)
@@ -127,7 +134,7 @@ export default function Movements() {
         setError('Errore nel caricamento dei movimenti');
       })
       .finally(() => setLoading(false));
-  }, [sortKey, sortDirection, startDate, endDate, typeFilter, symbolFilter, search]);
+  }, [sortKey, sortDirection, startDate, endDate, typeFilter, symbolFilter, debouncedSearch]);
 
   // Load dei simboli per il dropdown filtro
   useEffect(() => {
@@ -163,7 +170,7 @@ export default function Movements() {
   // Calcola il totale importo dei movimenti filtrati
   const totalAmount = movements.reduce((sum, mv) => sum + (mv.euro_amount ?? 0), 0);
 
-  const hasActiveFilters = Boolean(startDate || endDate || typeFilter || symbolFilter || search);
+  const hasActiveFilters = Boolean(startDate || endDate || typeFilter || symbolFilter || debouncedSearch);
 
   const resetFilters = () => {
     setStartDate('');

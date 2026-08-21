@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { db } from '../database.js';
 import { TARGETABLE_ASSET_TYPES } from '../config/assetTypes.js';
 import { calculateCashBalance } from './analyticsModel.js';
@@ -75,7 +76,7 @@ export function saveAllocationTarget(tolerance, targets) {
         throw new Error(`Categoria non target-abile: ${t.assetType}`);
       }
       insert.run(
-        crypto.randomUUID(),
+        randomUUID(),
         typeRow.id,
         t.targetPercent,
         tolerance

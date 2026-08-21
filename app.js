@@ -15,6 +15,9 @@ import allocationRoutes from './routes/allocationRoutes.js';
 // Middleware di autenticazione
 import { authMiddleware } from './middleware/authMiddleware.js';
 
+// Middleware di sicurezza e gestione errori centralizzata
+import { apiNotFound, errorHandler, securityHeaders } from './middleware/errorHandler.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // 1. Inizializzazione del Database prima di configurare Express
@@ -28,6 +31,9 @@ const app = express();
 // stringa JSON) possono superare abbondantemente i 100KB default di Express.
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Security header minimi (nosniff, anti-clickjacking, referrer policy)
+app.use(securityHeaders);
 
 // 4. Rotte di autenticazione (NON protette — è il punto di ingresso per il login)
 app.use('/api/auth', authRoutes);
@@ -58,5 +64,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// 10. Handler 404 per rotte API sconosciute (prima del fallback SPA non serve:
+//     le /api/* che arrivano qui sono già passate dal mount '/api')
+//     e error handler finale: cattura ogni errore non gestito restituendo
+//     un messaggio generico SENZA dettagli interni (no stack trace al client).
+app.use(apiNotFound);
+app.use(errorHandler);
 
 export default app;

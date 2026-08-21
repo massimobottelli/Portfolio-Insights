@@ -48,7 +48,8 @@ export async function getDashboard(req, res) {
       snapshotDate: latestSnapshot ? latestSnapshot.snapshot_date : null
     });
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel calcolo dei KPI', details: error.message });
+    console.error('Dashboard error:', error);
+    res.status(500).json({ error: 'Errore nel calcolo dei KPI' });
   }
 }
 
@@ -64,7 +65,8 @@ export async function getPortfolio(req, res) {
     const availableCash = calculateCashBalance();
     res.json({ positions, priceDate, availableCash });
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero del portafoglio', details: error.message });
+    console.error('Portfolio error:', error);
+    res.status(500).json({ error: 'Errore nel recupero del portafoglio' });
   }
 }
 
@@ -77,7 +79,8 @@ export async function getAllocation(req, res) {
     const allocation = await calculateAllocation();
     res.json(allocation);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel calcolo dell\'allocazione', details: error.message });
+    console.error('Allocation error:', error);
+    res.status(500).json({ error: 'Errore nel calcolo dell\'allocazione' });
   }
 }
 
@@ -105,7 +108,8 @@ export function getHistory(req, res) {
       cumulative_deposits: parseFloat((depositMap[s.snapshot_date] || 0).toFixed(2))
     })));
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero dello storico', details: error.message });
+    console.error('History error:', error);
+    res.status(500).json({ error: 'Errore nel recupero dello storico' });
   }
 }
 
@@ -119,7 +123,8 @@ export function getTWR(req, res) {
     const twr = calculateTWR();
     res.json(twr);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel calcolo del TWR', details: error.message });
+    console.error('TWR error:', error);
+    res.status(500).json({ error: 'Errore nel calcolo del TWR' });
   }
 }
 
@@ -140,7 +145,8 @@ export async function getAssetDetailHandler(req, res) {
 
     res.json(detail);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero del dettaglio asset', details: error.message });
+    console.error('Asset detail error:', error);
+    res.status(500).json({ error: 'Errore nel recupero del dettaglio asset' });
   }
 }
 
@@ -156,6 +162,7 @@ export async function getRates(req, res) {
     const rates = await getRatesForCurrencies(currencies);
     res.json(rates);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero dei tassi di cambio', details: error.message });
+    console.error('Rates error:', error);
+    res.status(500).json({ error: 'Errore nel recupero dei tassi di cambio' });
   }
 }

@@ -168,50 +168,54 @@ export default function Allocation() {
   const lastSavedTargetsRef = useRef<string>('');
   const hasInitializedRef = useRef(false);
 
-  // Inizializza il ref con i valori caricati dal server
+  // Inizializza il ref con i valori caricati dal server (stesso formato della
+  // chiave di salvataggio, tolerance inclusa, per evitare un PUT superfluo al load)
   useEffect(() => {
-    if (!hasInitializedRef.current && targetInputs[Object.keys(targetInputs)[0]]) {
-      lastSavedTargetsRef.current = TARGETABLE_TYPES.map(t => targetInputs[t] || '0').join(',');
+    if (!hasInitializedRef.current && Object.keys(targetInputs).length > 0) {
+      lastSavedTargetsRef.current = `${TARGETABLE_TYPES.map(t => targetInputs[t] || '0').join(',')}|${toleranceInput}`;
       hasInitializedRef.current = true;
     }
-  }, [targetInputs]);
+  }, [targetInputs, toleranceInput]);
 
   useEffect(() => {
     if (!sumIsValid) return;
 
-    // Crea una stringa univoca dei target attuali per rilevare cambiamenti
-    const targetsKey = TARGETABLE_TYPES.map(t => targetInputs[t] || '0').join(',');
+    // Chiave univoca che include anche la tolerance: cambiare solo la soglia
+    // deve comunque attivare il salvataggio.
+    const targetsKey = `${TARGETABLE_TYPES.map(t => targetInputs[t] || '0').join(',')}|${toleranceInput}`;
 
-    // Salva solo se i target sono cambiati dall'ultimo salvataggio
-    if (targetsKey !== lastSavedTargetsRef.current) {
-      lastSavedTargetsRef.current = targetsKey;
-      const timeoutId = setTimeout(async () => {
-        const tolerance = parseFloat(toleranceInput);
-        const targets = TARGETABLE_TYPES.map(type => ({
-          assetType: type,
-          targetPercent: parseFloat(targetInputs[type] || '0')
-        }));
+    // Salva solo se i target/tolerance sono cambiati dall'ultimo salvataggio riuscito
+    if (targetsKey === lastSavedTargetsRef.current) return;
 
-        try {
-          const res = await apiFetch('/api/allocation/target', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tolerance, targets }),
-          });
+    const timeoutId = setTimeout(async () => {
+      const tolerance = parseFloat(toleranceInput);
+      const targets = TARGETABLE_TYPES.map(type => ({
+        assetType: type,
+        targetPercent: parseFloat(targetInputs[type] || '0')
+      }));
 
-          if (res.ok) {
-            const saved: AllocationTargetResponse = await res.json();
-            setTarget(saved);
-            setSaveMessage('Allocazione salvata');
-            setTimeout(() => setSaveMessage(null), 3000);
-          }
-        } catch (e) {
-          // Silenzioso per auto-save
+      try {
+        const res = await apiFetch('/api/allocation/target', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tolerance, targets }),
+        });
+
+        if (res.ok) {
+          const saved: AllocationTargetResponse = await res.json();
+          setTarget(saved);
+          setSaveMessage('Allocazione salvata');
+          setTimeout(() => setSaveMessage(null), 3000);
+          // Il ref viene aggiornato SOLO dopo il successo della PUT:
+          // se il salvataggio fallisce, il prossimo render ritenta.
+          lastSavedTargetsRef.current = targetsKey;
         }
-      }, 1000);
+      } catch {
+        // Silenzioso per auto-save; il ref non aggiornato consente il retry
+      }
+    }, 1000);
 
-      return () => clearTimeout(timeoutId);
-    }
+    return () => clearTimeout(timeoutId);
   }, [sumIsValid, targetInputs, toleranceInput]);
 
   if (loading) {

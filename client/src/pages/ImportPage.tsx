@@ -83,8 +83,6 @@ export default function ImportPage() {
     type: ReportType,
     file: File
   ) => {
-    console.log(`[Import] Upload iniziato per box: ${type}, file: ${file.name}`);
-
     // Reset dello stato per questo box
     setUploadStates(prev => ({
       ...prev,
@@ -93,11 +91,9 @@ export default function ImportPage() {
 
     try {
       const fileContent = await file.text();
-      console.log(`[Import] File letto, lunghezza: ${fileContent.length} caratteri`);
 
       // Rileva il tipo di report dal contenuto del file
       const detectedType = detectReportType(fileContent);
-      console.log(`[Import] Tipo rilevato: ${detectedType}`);
 
       // Nomi dei report per i messaggi
       const reportNames: Record<ReportType, string> = {
@@ -107,13 +103,12 @@ export default function ImportPage() {
       };
 
       if (detectedType !== type) {
-        const errorMsg = `Tipo di file non valido: rilevato ${reportNames[detectedType || 'movimenti']}, ma era atteso ${reportNames[type]}.`;
-        console.error(`[Import] ${errorMsg}`);
-        throw new Error(errorMsg);
+        throw new Error(
+          `Tipo di file non valido: rilevato ${reportNames[detectedType || 'movimenti']}, ma era atteso ${reportNames[type]}.`
+        );
       }
 
       // Invia al backend per l'importazione
-      console.log(`[Import] Invio al backend...`);
       const response = await apiFetch('/api/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -123,9 +118,7 @@ export default function ImportPage() {
         }),
       });
 
-      console.log(`[Import] Response status: ${response.status}`);
       const data: ImportResponse = await response.json();
-      console.log(`[Import] Response data:`, data);
 
       if (response.ok && data.success) {
         setUploadStates(prev => ({
@@ -143,13 +136,12 @@ export default function ImportPage() {
         });
         loadSessions();
       } else {
-        const errorMsg = 'Importazione fallita';
-        console.error(`[Import] ${errorMsg}`);
-        throw new Error(errorMsg);
+        // Il backend può restituire un array di errori per-record
+        const backendErrors = Array.isArray(data.errors) ? ` (${data.errors.length} errori)` : '';
+        throw new Error(`Importazione fallita${backendErrors}`);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Sconosciuto';
-      console.error(`[Import] Errore: ${errorMessage}`);
       setUploadStates(prev => ({
         ...prev,
         [type]: {

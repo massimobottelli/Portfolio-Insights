@@ -30,6 +30,22 @@ export function createImportSession(sessionData) {
 }
 
 /**
+ * Aggiorna una sessione di import con l'esito finale dell'elaborazione.
+ * @param {string} id - ID della sessione
+ * @param {Object} outcome - Esito dell'import
+ * @param {number} outcome.recordsImported - Numero di record effettivamente importati
+ * @param {string} outcome.status - Stato finale ('SUCCESS' | 'FAILED')
+ * @param {string|null} [outcome.errors=null] - Log degli errori per-record
+ */
+export function updateImportSession(id, { recordsImported, status, errors = null }) {
+  db.prepare(`
+    UPDATE import_sessions
+    SET records_imported = ?, status = ?, errors = ?
+    WHERE id = ?
+  `).run(recordsImported, status, errors, id);
+}
+
+/**
  * Ottiene lo storico delle sessioni di import.
  * @returns {Array} Sessioni di import ordinate per data decrescente
  */

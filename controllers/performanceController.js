@@ -39,7 +39,8 @@ export function getVolatility(req, res) {
       dataPoints: series.length,
     });
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel calcolo della volatilità', details: error.message });
+    console.error('Volatility error:', error);
+    res.status(500).json({ error: 'Errore nel calcolo della volatilità' });
   }
 }
 
@@ -73,7 +74,8 @@ export function getSharpe(req, res) {
       riskFreeRate: rf,
     });
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel calcolo dello Sharpe ratio', details: error.message });
+    console.error('Sharpe error:', error);
+    res.status(500).json({ error: 'Errore nel calcolo dello Sharpe ratio' });
   }
 }
 
@@ -238,6 +240,6 @@ export function getPerformanceAnalytics(req, res) {
     });
   } catch (error) {
     console.error('Performance analytics error:', error);
-    res.status(500).json({ error: 'Errore nel calcolo delle metriche di performance', details: error.message });
+    res.status(500).json({ error: 'Errore nel calcolo delle metriche di performance' });
   }
 }

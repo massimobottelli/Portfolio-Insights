@@ -126,9 +126,13 @@ export function getCutoffDate(range: TimeRange): string | null {
 /**
  * Fetch all performance & risk metrics for a given time range.
  * The backend filters the canonical return series by `from`/`to` query params.
+ *
+ * @param timeRange - Periodo da analizzare
+ * @param riskFreeRate - Tasso risk-free annuo in decimale (es. 0.025 = 2,5%)
  */
 export async function fetchPerformanceAnalytics(
-  timeRange: TimeRange
+  timeRange: TimeRange,
+  riskFreeRate = 0
 ): Promise<PerformanceAnalytics> {
   const cutoff = getCutoffDate(timeRange);
   const params = new URLSearchParams();
@@ -140,6 +144,8 @@ export async function fetchPerformanceAnalytics(
   // Default "to" to today
   const today = new Date().toISOString().split('T')[0];
   params.set('to', today);
+  // Il backend si aspetta la percentuale (2.5), lo stato React tiene il decimale (0.025)
+  params.set('riskFreeRate', String(riskFreeRate * 100));
 
   const response = await apiFetch(`/api/analytics/performance?${params.toString()}`);
 

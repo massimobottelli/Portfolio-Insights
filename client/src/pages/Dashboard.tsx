@@ -56,15 +56,13 @@ function getCutoffDate(range: TimeRange): string | null {
 
 // Famiglia di colori per ogni asset type (tinta base).
 // Ogni asset type ha una tinta propria: le sfumature vengono generate all'interno dello stesso gruppo.
+// I tipi ETF/ETC/ETN sono decommissionati (migrati a UNKNOWN): non più presenti.
 const ASSET_TYPE_COLORS: Record<string, { hue: number; saturation: number }> = {
   BOND: { hue: 145, saturation: 60 },      // verde
   COMMODITY: { hue: 45, saturation: 85 },  // giallo
   FUND: { hue: 28, saturation: 75 },       // arancione
   STOCK: { hue: 0, saturation: 70 },       // rosso
   CASH: { hue: 220, saturation: 65 },      // blu
-  ETF: { hue: 190, saturation: 60 },       // ciano
-  ETC: { hue: 275, saturation: 60 },       // viola
-  ETN: { hue: 330, saturation: 65 },       // rosa
   UNKNOWN: { hue: 0, saturation: 0 },      // grigio
 };
 
@@ -166,17 +164,20 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Merge history + TWR per il grafico combinato
-  const twrMap = new Map<string, number>();
-  if (twr) {
-    for (const item of twr.twrHistory) {
-      twrMap.set(item.snapshot_date, item.twr);
+  // Merge history + TWR per il grafico combinato (memoizzato: senza useMemo
+  // la Map veniva ricostruita ad ogni render della pagina)
+  const chartData = useMemo(() => {
+    const twrMap = new Map<string, number>();
+    if (twr) {
+      for (const item of twr.twrHistory) {
+        twrMap.set(item.snapshot_date, item.twr);
+      }
     }
-  }
-  const chartData = history.map(s => ({
-    ...s,
-    twr: twrMap.get(s.snapshot_date) ?? null,
-  }));
+    return history.map(s => ({
+      ...s,
+      twr: twrMap.get(s.snapshot_date) ?? null,
+    }));
+  }, [history, twr]);
 
   // Filtra i dati del grafico in base al timeRange selezionato
   const filteredChartData = useMemo(() => {

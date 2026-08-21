@@ -8,8 +8,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Calendar } from 'lucide-react';
 import type { PerformanceAnalytics, TimeRange } from '../lib/performanceApi';
-import { getCutoffDate, TIME_RANGE_OPTIONS } from '../lib/performanceApi';
-import { apiFetch } from '../lib/api';
+import { TIME_RANGE_OPTIONS, fetchPerformanceAnalytics } from '../lib/performanceApi';
 import MonthlyReturnsChart from '../components/performance/MonthlyReturnsChart';
 import MonthlyReturnsHeatmap from '../components/performance/MonthlyReturnsHeatmap';
 import PeriodStatistics from '../components/performance/PeriodStatistics';
@@ -93,26 +92,22 @@ export default function Performance() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
-  const [riskFreeRate, setRiskFreeRate] = useState(0.025); // Default 2,50%
+  // Il tasso risk-free non ha attualmente un controllo UI: è una costante di default.
+  // (Il setter è stato rimosso: sincronizzarlo dalla risposta del backend
+  // poteva innescare un loop di refetch per differenze di floating point.)
+  const [riskFreeRate] = useState(0.025); // Default 2,50%
 
-  // Fetch analytics with current time range and risk-free rate
+  // Fetch analytics with current time range and risk-free rate.
+  // NOTA: non sincronizziamo riskFreeRate dalla risposta del backend:
+  // lo stato locale è l'unica fonte di verità e scriverlo dal server
+  // poteva innescare un loop di refetch in caso di differenze di floating point.
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const cutoff = getCutoffDate(timeRange);
-      const params = new URLSearchParams();
-      if (cutoff) params.set('from', cutoff);
-      params.set('to', new Date().toISOString().split('T')[0]);
-      params.set('riskFreeRate', String(riskFreeRate * 100));
-
-      const response = await apiFetch(`/api/analytics/performance?${params.toString()}`);
-      if (!response.ok) throw new Error('Errore nel caricamento dei dati');
-
-      const data = await response.json();
+      const data = await fetchPerformanceAnalytics(timeRange, riskFreeRate);
       setAnalytics(data);
-      setRiskFreeRate(data.riskFreeRate);
     } catch (err) {
       console.error('Failed to fetch performance analytics:', err);
       setError('Errore nel caricamento dei dati di performance');

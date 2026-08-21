@@ -11,7 +11,8 @@ export function listAssets(req, res) {
     const assets = getAllAssets();
     res.json(assets);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero degli asset', details: error.message });
+    console.error('List assets error:', error);
+    res.status(500).json({ error: 'Errore nel recupero degli asset' });
   }
 }
 
@@ -28,7 +29,8 @@ export function getAsset(req, res) {
     }
     res.json(asset);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero dell\'asset', details: error.message });
+    console.error('Get asset error:', error);
+    res.status(500).json({ error: 'Errore nel recupero dell\'asset' });
   }
 }
 
@@ -45,7 +47,8 @@ export function getAssetByIsinHandler(req, res) {
     }
     res.json(asset);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero dell\'asset', details: error.message });
+    console.error('Get asset by ISIN error:', error);
+    res.status(500).json({ error: 'Errore nel recupero dell\'asset' });
   }
 }
 
@@ -81,6 +84,7 @@ export function updateAssetTypeHandler(req, res) {
     
     res.json(asset);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nell\'aggiornamento del tipo', details: error.message });
+    console.error('Update asset type error:', error);
+    res.status(500).json({ error: 'Errore nell\'aggiornamento del tipo' });
   }
 }

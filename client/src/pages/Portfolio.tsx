@@ -182,42 +182,26 @@ function AssetTypeDropdown({
     const newType = e.target.value;
     // Usa il ref invece dello state per evitare closure stale
     const previousType = currentTypeRef.current;
-    
-    console.log('[AssetTypeDropdown] Cambio tipo:', { assetId, previousType, newType });
-    
+
     // Optimistic update
     setCurrentType(newType);
     setSaving(true);
     try {
-      const url = `/api/assets/${assetId}/type`;
-      console.log('[AssetTypeDropdown] PATCH request a:', url);
-      const res = await apiFetch(url, {
+      const res = await apiFetch(`/api/assets/${assetId}/type`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assetType: newType }),
       });
-      console.log('[AssetTypeDropdown] Response status:', res.status, 'ok:', res.ok);
-      
-      // Leggi il body per vedere eventuali errori dal backend
-      let responseBody;
-      try {
-        responseBody = await res.json();
-      } catch {
-        responseBody = null;
-      }
-      console.log('[AssetTypeDropdown] Response body:', responseBody);
-      
+
       if (!res.ok) {
-        console.error('[AssetTypeDropdown] Request fallita, rollback a:', previousType);
         // Rollback on error
         setCurrentType(previousType);
       } else {
-        console.log('[AssetTypeDropdown] Successo, chiama onUpdate');
         // Notifica al genitore che il dato è cambiato
         onUpdate?.();
       }
     } catch (err) {
-      console.error('[AssetTypeDropdown] Eccezione:', err);
+      console.error("Errore nell'aggiornamento del tipo asset:", err);
       setCurrentType(previousType);
     } finally {
       setSaving(false);
@@ -281,20 +265,13 @@ export default function Portfolio() {
 
   /** Refetch positions from the API */
   const fetchPositions = useCallback(async () => {
-    console.log('[Portfolio] Inizio refetch posizioni...');
     try {
       const res = await apiFetch('/api/analytics/portfolio');
-      console.log('[Portfolio] Response status:', res.status, 'ok:', res.ok);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: PortfolioResponse = await res.json();
-      console.log('[Portfolio] Posizioni ricevute:', data.positions.length);
-      // Logga ogni posizione per verificare che asset_type sia aggiornato
-      data.positions.forEach((pos, idx) => {
-        console.log(`[Portfolio] Position ${idx}:`, { asset_id: pos.asset_id, ticker: pos.ticker, asset_type: pos.asset_type });
-      });
       setPositions(data.positions);
       setPriceDate(data.priceDate);
       setAvailableCash(data.availableCash);
-      console.log('[Portfolio] State aggiornato con', data.positions.length, 'posizioni');
     } catch (err) {
       console.error('Errore nel refetch delle posizioni:', err);
     }
@@ -569,7 +546,7 @@ export default function Portfolio() {
               })}
               {sortedPositions.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-500">
                     Nessuna posizione attiva
                   </td>
                 </tr>

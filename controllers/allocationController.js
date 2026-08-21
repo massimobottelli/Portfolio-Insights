@@ -23,7 +23,8 @@ export function getAssetTypesHandler(req, res) {
       }))
     });
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero dei tipi di asset', details: error.message });
+    console.error('Asset types error:', error);
+    res.status(500).json({ error: 'Errore nel recupero dei tipi di asset' });
   }
 }
 
@@ -37,7 +38,8 @@ export async function getCurrentAllocationHandler(req, res) {
     const unknownCount = countUnknownAssets();
     res.json({ ...current, unknownAssets: unknownCount });
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel calcolo dell\'allocazione attuale', details: error.message });
+    console.error('Current allocation error:', error);
+    res.status(500).json({ error: 'Errore nel calcolo dell\'allocazione attuale' });
   }
 }
 
@@ -50,7 +52,8 @@ export function getTargetHandler(req, res) {
     const target = getAllocationTargets();
     res.json(target);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero del target', details: error.message });
+    console.error('Get target error:', error);
+    res.status(500).json({ error: 'Errore nel recupero del target' });
   }
 }
 
@@ -92,7 +95,8 @@ export function putTargetHandler(req, res) {
     const saved = saveAllocationTarget(tolerance, targets);
     res.json(saved);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel salvataggio del target', details: error.message });
+    console.error('Save target error:', error);
+    res.status(500).json({ error: 'Errore nel salvataggio del target' });
   }
 }
 
@@ -107,6 +111,7 @@ export async function getRebalanceHandler(req, res) {
     const { tolerance } = getAllocationTargets();
     res.json({ tolerance, divergences, suggestions });
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel calcolo del ribilanciamento', details: error.message });
+    console.error('Rebalance error:', error);
+    res.status(500).json({ error: 'Errore nel calcolo del ribilanciamento' });
   }
 }

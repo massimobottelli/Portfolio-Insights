@@ -62,16 +62,11 @@ const gainColorClass = (value: number | null) => {
 /**
  * Badge colorato per il tipo di asset (stessa palette di Portfolio.tsx).
  */
+// I tipi ETF/ETC/ETN sono decommissionati (migrati a UNKNOWN): rami rimossi.
 const AssetTypeBadge = ({ assetType }: { assetType: string }) => {
   const bgColor =
     assetType === 'UNKNOWN'
       ? 'bg-amber-900/30 text-amber-300 border-amber-700/50'
-      : assetType === 'ETF'
-      ? 'bg-blue-900/30 text-blue-300 border-blue-700/50'
-      : assetType === 'ETC'
-      ? 'bg-purple-900/30 text-purple-300 border-purple-700/50'
-      : assetType === 'ETN'
-      ? 'bg-indigo-900/30 text-indigo-300 border-indigo-700/50'
       : assetType === 'STOCK'
       ? 'bg-emerald-900/30 text-emerald-300 border-emerald-700/50'
       : assetType === 'BOND'
