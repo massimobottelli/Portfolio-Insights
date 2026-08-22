@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { apiFetch } from '../lib/api';
@@ -134,6 +134,21 @@ export default function Allocation() {
     setTargetInputs(prev => ({ ...prev, [type]: value }));
   };
 
+  // Ricarica divergenze e suggerimenti di ribilanciamento.
+  // Chiamata dopo ogni auto-save riuscito: le divergenze dipendono dal target
+  // appena salvato, quindi la tabella "attuale vs target" e le azioni devono
+  // rifletterlo immediatamente senza che l'utente ricarichi la pagina.
+  const loadRebalance = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/allocation/rebalance');
+      if (!res.ok) return;
+      const data: RebalanceResponse = await res.json();
+      setRebalance(data);
+    } catch {
+      // Silenzioso: il prossimo salvataggio ritenterà il refresh
+    }
+  }, []);
+
   // Auto-salva quando la somma raggiunge 100%
   const lastSavedTargetsRef = useRef<string>('');
   const hasInitializedRef = useRef(false);
@@ -179,6 +194,8 @@ export default function Allocation() {
           // Il ref viene aggiornato SOLO dopo il successo della PUT:
           // se il salvataggio fallisce, il prossimo render ritenta.
           lastSavedTargetsRef.current = targetsKey;
+          // Refresh immediato di divergenze e suggerimenti con il nuovo target
+          loadRebalance();
         }
       } catch {
         // Silenzioso per auto-save; il ref non aggiornato consente il retry
