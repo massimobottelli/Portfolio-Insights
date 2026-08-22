@@ -2,7 +2,7 @@
  * Performance & Risk — Fase 11: RiskMetrics
  *
  * Sezione metriche di rischio con volatilità annualizzata, Sharpe ratio
- * e input interattivo per il tasso risk-free (default 2,50%).
+ * e input interattivo per il tasso risk-free (default 2,20%).
  */
 
 import { useState, useCallback } from 'react';
@@ -120,7 +120,7 @@ export default function RiskMetrics({
                 value={rfInput}
                 onChange={(e) => handleRfChange(e.target.value)}
                 className="w-32 [color-scheme:dark] bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white text-lg font-bold text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                placeholder="2,50"
+                placeholder="2,20"
               />
               <span className="text-slate-400 text-sm font-medium">%</span>
               <button

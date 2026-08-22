@@ -28,32 +28,6 @@ function formatPercent(value: number | null, decimals = 1): string {
 }
 
 // ──────────────────────────────────────────────
-// KpiCard component (reused pattern from Dashboard.tsx)
-// ──────────────────────────────────────────────
-
-function KpiCard({
-  title,
-  value,
-  sub,
-  color,
-}: {
-  title: string;
-  value: string;
-  sub?: string | React.ReactNode;
-  color: string;
-}) {
-  return (
-    <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700 p-3 lg:p-5 flex flex-col justify-between min-h-[120px]">
-      <div>
-        <p className="uppercase text-slate-400 text-xs lg:text-sm font-semibold tracking-wider mb-2">{title}</p>
-        <p className={`font-bold text-xl lg:text-3xl ${color}`}>{value}</p>
-        {sub && <p className="text-slate-400 mt-1 text-sm lg:text-base font-medium">{sub}</p>}
-      </div>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────
 // Main Performance page
 //
 // NOTA: le metriche sono calcolate SEMPRE sull'intero periodo di investimento.
@@ -67,7 +41,7 @@ export default function Performance() {
   const [error, setError] = useState<string | null>(null);
   // Il tasso risk-free è aggiornato SOLO dall'input utente in RiskMetrics
   // (mai risincronizzato dal server: evita loop di refetch per floating point).
-  const [riskFreeRate, setRiskFreeRate] = useState(0.025); // Default 2,50%
+  const [riskFreeRate, setRiskFreeRate] = useState(0.022); // Default 2,20%
 
   // Callback stabile passata a RiskMetrics
   const handleRiskFreeRateChange = useCallback((rate: number) => {
@@ -132,6 +106,9 @@ export default function Performance() {
 
   return (
     <div className="space-y-4 lg:space-y-6">
+      {/* Titolo pagina */}
+      <h1 className="text-2xl font-bold text-white">Performance</h1>
+
       {/* Top bar: last update date */}
       <div className="flex justify-end">
         {baseDate && (
@@ -156,20 +133,19 @@ export default function Performance() {
         </div>
       ) : (
         <>
-          {/* KPI Row: CAGR */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Box CAGR — stesso stile del box "Valore Portafoglio" della Dashboard */}
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
             {/* CAGR — Compound Annual Growth Rate */}
-            <KpiCard
-              title="CAGR"
-              value={formatPercent(performance.cagr)}
-              sub={
-                <span>
-                  Rendimento annuo composto
-                  {metadata.periodLessThanOneYear && <><br /><span className="font-normal">(Periodo inferiore a 1 anno, CAGR stimato)</span></>}
-                </span>
-              }
-              color={performance.cagr !== null && performance.cagr >= 0 ? 'text-emerald-400' : 'text-red-400'}
-            />
+            <p className="uppercase text-slate-300 text-sm lg:text-base tracking-wider mb-2">
+              CAGR
+            </p>
+            <p className={`font-bold text-4xl lg:text-6xl ${performance.cagr !== null && performance.cagr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {formatPercent(performance.cagr)}
+            </p>
+            <p className="text-slate-300 mt-2 text-base lg:text-lg font-medium">
+              Rendimento annuo composto
+              {metadata.periodLessThanOneYear && <> <span className="font-normal">(Periodo inferiore a 1 anno, CAGR stimato)</span></>}
+            </p>
           </div>
 
           {/* Monthly Returns Bar Chart */}
@@ -188,10 +164,10 @@ export default function Performance() {
             <MonthlyReturnsHeatmap monthlyReturns={analytics.monthlyReturns} />
           </div>
 
-          {/* Statistics */}
+          {/* Performance Mesi / Anni */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
             <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
-              Statistiche
+              Performance Mesi / Anni
             </h3>
             <PeriodStatistics
               months={analytics.periodStats.months}
@@ -204,6 +180,9 @@ export default function Performance() {
               }}
             />
           </div>
+
+          {/* Titolo sezione Rischio */}
+          <h1 className="text-2xl font-bold text-white">Rischio</h1>
 
           {/* Risk Metrics */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
@@ -221,7 +200,7 @@ export default function Performance() {
           {/* Drawdown Analysis */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
             <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
-              Analisi Drawdown
+              Drawdown
             </h3>
             <DrawdownAnalysis
               maximum={analytics.drawdown.maximum}

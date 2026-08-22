@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, CartesianGrid, Line } from 'recharts';
-import { TrendingUp, BarChart3, Wallet, Droplets, Calendar } from 'lucide-react';
+import { TrendingUp, BarChart3, Wallet, Droplets, Calendar, CoinsIcon } from 'lucide-react';
 import type { DashboardData, AllocationItem, SnapshotItem, TWRData } from '../types';
 import { apiFetch } from '../lib/api';
 
@@ -555,7 +555,7 @@ export default function Dashboard() {
             title="Liquidità"
             value={formatEUR(dashboard.availableCash)}
             color="text-blue-400"
-            icon={<Droplets size={isMobile ? 24 : 32} className="text-blue-400" />}
+            icon={<CoinsIcon size={isMobile ? 24 : 32} className="text-blue-400" />}
           />
         </div>
       </div>
