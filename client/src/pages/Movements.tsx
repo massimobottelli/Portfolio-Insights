@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { Search, X, ChevronDown, Trash2, Loader2 } from 'lucide-react';
 import type { CashMovementItem, MovementsResponse } from '../types';
 import { apiFetch } from '../lib/api';
+// Helper condiviso (era duplicato in più pagine); formatDate resta locale
+// perché qui gestisce anche i formati legacy (DD-MM-YYYY, M/D/YY)
+import { formatAmount } from '../lib/format';
 
 type SortKey = 'operation_date' | 'movement_type' | 'ticker' | 'asset_name' | 'euro_amount' | 'currency';
 type SortDirection = 'asc' | 'desc';
@@ -61,17 +64,6 @@ const formatDate = (dateStr: string | null) => {
 };
 
 /**
- * Formatta un importo numerico con 2 decimali in formato italiano.
- */
-const formatAmount = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return '—';
-  return value.toLocaleString('it-IT', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-};
-
-/**
  * Restituisce la classe CSS per il colore in base al segno dell'importo.
  * I movimenti in entrata sono verdi, in uscita rossi, neutri se zero.
  */
@@ -123,8 +115,13 @@ export default function Movements() {
     if (symbolFilter) query.set('symbol', symbolFilter);
     if (debouncedSearch) query.set('search', debouncedSearch);
 
+    // AbortController: cambiando filtri rapidamente le risposte possono arrivare
+    // out-of-order e una risposta STALE sovrascriverebbe i dati più recenti.
+    // L'abort della richiesta precedente garantisce che solo l'ultima scriva lo stato.
+    const controller = new AbortController();
+
     setLoading(true);
-    apiFetch(`/api/movements?${query.toString()}`)
+    apiFetch(`/api/movements?${query.toString()}`, { signal: controller.signal })
       .then(r => {
         if (!r.ok) throw new Error('Errore nel caricamento dei movimenti');
         return r.json();
@@ -134,10 +131,14 @@ export default function Movements() {
         setError(null);
       })
       .catch(err => {
+        // Richiesta annullata da un filtro più recente: non è un errore da mostrare
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error(err);
         setError('Errore nel caricamento dei movimenti');
       })
       .finally(() => setLoading(false));
+
+    return () => controller.abort();
   }, [sortKey, sortDirection, startDate, endDate, typeFilter, symbolFilter, debouncedSearch, reloadKey]);
 
   // Load dei simboli per il dropdown filtro

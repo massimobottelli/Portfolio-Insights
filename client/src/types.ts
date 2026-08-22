@@ -90,6 +90,10 @@ export interface ImportResponse {
   totalRecords: number;
   /** Errori per-record restituiti dal backend (presente solo se ce ne sono) */
   errors?: string[];
+  /** Messaggio di errore generico (risposte 4xx/5xx del backend) */
+  error?: string;
+  /** Dettaglio dell'errore (es. motivo del rifiuto del CSV) */
+  details?: string;
 }
 
 export interface CashMovementItem {

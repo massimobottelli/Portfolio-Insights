@@ -26,35 +26,45 @@ export function importFile(req, res) {
     // dati corrotti (Infinity, tipi sbagliati, date non normalizzate) e DoS.
     // Tutti i dati passano obbligatoriamente dal parser CSV che normalizza
     // date, numeri e stringhe in modo deterministico.
-    if (!req.body.fileContent) {
+    if (!req.body.fileContent || typeof req.body.fileContent !== 'string') {
       return res.status(400).json({
         error: 'Richiesta non valida',
         details: 'È richiesto fileContent (CSV come stringa)'
       });
     }
 
-    const firstLines = req.body.fileContent.split(/\r?\n/).slice(0, 7);
+    // Il parsing è una fase di VALIDAZIONE dell'input: un file malformato o non
+    // riconosciuto è un errore del client (400) con messaggio specifico, non un
+    // errore interno del server (500 generico che nascondeva la causa all'utente).
+    try {
+      const firstLines = req.body.fileContent.split(/\r?\n/).slice(0, 7);
 
-    // Rilevamento automatico: il report "Patrimonio Totale" ha una riga con "PATRIMONIO"
-    const isHistoryReport = firstLines.some(line => line.includes('PATRIMONIO'));
-    // Il report "Portafoglio Corrente" (P_TOTALE) inizia con "Portafoglio : TOTALE"
-    const isPortfolioReport = firstLines.some(line => line.includes('Portafoglio : TOTALE'));
+      // Rilevamento automatico: il report "Patrimonio Totale" ha una riga con "PATRIMONIO"
+      const isHistoryReport = firstLines.some(line => line.includes('PATRIMONIO'));
+      // Il report "Portafoglio Corrente" (P_TOTALE) inizia con "Portafoglio : TOTALE"
+      const isPortfolioReport = firstLines.some(line => line.includes('Portafoglio : TOTALE'));
 
-    if (isHistoryReport) {
-      const parsed = parseDirectaHistoryCSV(req.body.fileContent);
-      fileType = 'history';
-      records = parsed.snapshots;
-    } else if (isPortfolioReport) {
-      const parsed = parseDirectaPortfolioCSV(req.body.fileContent);
-      fileType = 'portfolio';
-      records = parsed.records;
-      // Data di estrazione del report: usata per datare correttamente i prezzi
-      // (non "oggi", ma la data reale del report P_TOTALE)
-      extractionDate = parsed.header.extractionDate || null;
-    } else {
-      const parsed = parseDirectaMovimentiCSV(req.body.fileContent);
-      fileType = detectFileType(parsed.header);
-      records = parsed.records;
+      if (isHistoryReport) {
+        const parsed = parseDirectaHistoryCSV(req.body.fileContent);
+        fileType = 'history';
+        records = parsed.snapshots;
+      } else if (isPortfolioReport) {
+        const parsed = parseDirectaPortfolioCSV(req.body.fileContent);
+        fileType = 'portfolio';
+        records = parsed.records;
+        // Data di estrazione del report: usata per datare correttamente i prezzi
+        // (non "oggi", ma la data reale del report P_TOTALE)
+        extractionDate = parsed.header.extractionDate || null;
+      } else {
+        const parsed = parseDirectaMovimentiCSV(req.body.fileContent);
+        fileType = detectFileType(parsed.header);
+        records = parsed.records;
+      }
+    } catch (parseError) {
+      return res.status(400).json({
+        error: 'File CSV non valido',
+        details: parseError.message
+      });
     }
 
     // Crea una sessione di import per tracciabilità

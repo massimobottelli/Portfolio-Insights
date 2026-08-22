@@ -170,17 +170,13 @@ export function insertAssetPrice(priceData) {
   const id = randomUUID();
   const { assetId, currentPrice, averagePrice, extractionDate, importSessionId } = priceData;
 
-  // Elimina eventuale record esistente per la stessa coppia (asset_id, extraction_date)
-  const existing = db
-    .prepare('SELECT id FROM asset_prices WHERE asset_id = ? AND extraction_date = ?')
-    .get(assetId, extractionDate);
-
-  if (existing) {
-    db.prepare('DELETE FROM asset_prices WHERE id = ?').run(existing.id);
-  }
-
+  // INSERT OR REPLACE: il vincolo UNIQUE(asset_id, extraction_date) fa sì che un
+  // record esistente per la stessa coppia venga sostituito in un'unica operazione
+  // (la versione precedente faceva SELECT + DELETE + INSERT: tre roundtrip).
+  // Nota: OR REPLACE cambia l'id del record — accettabile perché nessuna altra
+  // tabella referenzia asset_prices per id.
   db.prepare(`
-    INSERT INTO asset_prices (id, asset_id, current_price, average_price, extraction_date, import_session_id)
+    INSERT OR REPLACE INTO asset_prices (id, asset_id, current_price, average_price, extraction_date, import_session_id)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(id, assetId, currentPrice, averagePrice, extractionDate, importSessionId);
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, BarChart3, PieChart, TrendingUp, ArrowLeftRight, Download, LogOut } from 'lucide-react';
 import { clearToken } from '../lib/api';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -11,17 +12,6 @@ const navItems = [
   { to: '/movements', label: 'Movimenti', icon: ArrowLeftRight },
   { to: '/import', label: 'Import', icon: Download },
 ];
-
-// Hook per rilevare schermi < 1024px
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 1024);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  return isMobile;
-}
 
 export default function Layout() {
   const navigate = useNavigate();

@@ -4,6 +4,15 @@ import { Calendar, Loader2 } from 'lucide-react';
 import { ASSET_TYPES } from '@config/assetTypes.js';
 import type { PositionItem, PortfolioResponse } from '../types';
 import { apiFetch } from '../lib/api';
+// Helper di formattazione condivisi (erano duplicati verbatim in più pagine)
+import {
+  formatPrice,
+  formatAmount,
+  formatPercent,
+  formatDate,
+  gainColorClass,
+  getAssetTypeStyle,
+} from '../lib/format';
 
 // Ordine delle asset type, coerente con Allocation.tsx
 const TYPE_ORDER = ['STOCK', 'BOND', 'COMMODITY', 'FUND', 'CASH'];
@@ -14,50 +23,16 @@ const getTypeOrderIndex = (type: string): number => {
   return idx === -1 ? Infinity : idx;
 };
 
-// Colori per gli asset type, coerenti con la pie chart in Allocation.tsx
-const TYPE_COLORS: Record<string, string> = {
-  STOCK: 'hsl(0, 70%, 50%)',        // rosso
-  BOND: 'hsl(145, 60%, 50%)',       // verde
-  COMMODITY: 'hsl(45, 90%, 40%)',   // giallo
-  FUND: 'hsl(28, 100%, 34%)',        // arancione
-  CASH: 'hsl(220, 65%, 50%)',       // blu
-};
-
-/** Restituisce lo stile della label per un asset type */
-const getAssetTypeStyle = (type: string) => {
-  const color = TYPE_COLORS[type] || 'hsl(0, 0%, 50%)';
-  // Parse HSL
-  const match = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-  if (!match) return { bg: '#1e293b40', border: color, text: color };
-  const [, h, s, l] = match;
-  const sat = parseInt(s);
-  const lum = parseInt(l);
-  // Background: stessa hue, stessa saturation, lightness più alta, con trasparenza
-  const bgLum = Math.min(lum + 100, 30);
-  const bg = `hsl(${h}, ${sat}%, ${bgLum}%, 0.15)`;
-  // Border: leggermente più scuro, meno saturo
-  const borderLum = Math.max(lum - 10, 15);
-  const borderSat = Math.max(sat - 0, 0);
-  const borderColor = `hsl(${h}, ${borderSat}%, ${borderLum}%)`;
-  // Text: più chiaro, più saturo
-  const textLum = Math.min(lum + 30, 85);
-  const textSat = Math.min(sat + 100, 100);
-  const textColor = `hsl(${h}, ${textSat}%, ${textLum}%)`;
-  return { bg, border: borderColor, text: textColor };
-};
 type SortDirection = 'asc' | 'desc';
 
 type SortKey = 
   | 'ticker' | 'isin' | 'name' | 'quantity' | 'current_price' 
-  | 'average_price' | 'asset_type' | 'total_value' | 'total_value_eur' 
-  | 'gain_eur' | 'gain_eur_eur' | 'gain_percent';
+  | 'average_price' | 'asset_type' | 'total_value' | 'gain_eur' | 'gain_percent';
 
 /** Position with calculated fields for sorting */
 type ExtendedPosition = PositionItem & {
   total_value: number | null;
-  total_value_eur: number | null;
   gain_eur: number | null;
-  gain_eur_eur: number | null;
   gain_percent: number | null;
 };
 
@@ -69,60 +44,11 @@ const isBtp = (pos: PositionItem) =>
 const displayQuantity = (pos: PositionItem) => (isBtp(pos) ? pos.quantity / 100 : pos.quantity);
 
 /**
- * Formatta un numero come prezzo con 2-4 decimali significativi.
- * Per valori > 10 usa 2 decimali, per valori <= 10 usa 4 decimali.
- */
-const formatPrice = (price: number | null) => {
-  if (price === null || price === undefined) return '—';
-  return price >= 10
-    ? price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : price.toLocaleString('it-IT', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-};
-
-/**
- * Formatta un importo numerico (senza simbolo di valuta).
- */
-const formatAmount = (value: number | null) => {
-  if (value === null || value === undefined) return '—';
-  return value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
-/**
- * Formatta una percentuale con segno.
- */
-const formatPercent = (value: number | null) => {
-  if (value === null || value === undefined) return '—';
-  const sign = value >= 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)}%`;
-};
-
-/**
- * Restituisce la classe CSS per il colore in base al segno del valore.
- */
-const gainColorClass = (value: number | null) => {
-  if (value === null || value === undefined) return 'text-slate-300';
-  if (value > 0) return 'text-emerald-400';
-  if (value < 0) return 'text-red-400';
-  return 'text-slate-300';
-};
-
-/**
  * Calcola il gain in valuta originale: (prezzo_attuale - prezzo_medio) × quantità
  */
 const calcGainEur = (pos: PositionItem) => {
   if (pos.current_price === null || pos.average_price === null) return null;
   return (pos.current_price - pos.average_price) * pos.quantity;
-};
-
-/**
- * Calcola il gain in EUR: usa i prezzi convertiti dal backend
- * (fallback al prezzo originale se la conversione non è disponibile).
- */
-const calcGainEurEUR = (pos: PositionItem) => {
-  const cur = pos.current_price_eur ?? pos.current_price;
-  const avg = pos.average_price_eur ?? pos.average_price;
-  if (cur === null || avg === null) return null;
-  return (cur - avg) * pos.quantity;
 };
 
 /**
@@ -140,25 +66,6 @@ const calcTotalValue = (pos: PositionItem) => {
   if (pos.current_price === null) return null;
   return pos.current_price * pos.quantity;
 };
-
-/**
- * Calcola il valore totale in EUR: quantità × prezzo attuale convertito
- */
-const calcTotalValueEUR = (pos: PositionItem) => {
-  const price = pos.current_price_eur ?? pos.current_price;
-  if (price === null) return null;
-  return price * pos.quantity;
-};
-
-/**
- * Formatta una data ISO in formato italiano (DD/MM/YYYY).
- */
-const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('it-IT', { year: 'numeric', month: '2-digit', day: '2-digit' });
-};
-
 
 function AssetTypeDropdown({ 
   assetId, 
@@ -291,11 +198,9 @@ export default function Portfolio() {
           const transformed = { ...pos, quantity: displayQuantity(pos) };
           return {
             ...transformed,
-            // Campi calcolati per ordinamento (usano la quantity già trasformata)
+            // Campi calcolati per ordinamento E display (usano la quantity già trasformata)
             total_value: calcTotalValue(transformed),
-            total_value_eur: calcTotalValueEUR(transformed),
             gain_eur: calcGainEur(transformed),
-            gain_eur_eur: calcGainEurEUR(transformed),
             gain_percent: calcGainPercent(transformed),
           };
         })
@@ -341,7 +246,7 @@ export default function Portfolio() {
 
   // Chiavi che rappresentano valori numerici (per ordinamento numerico, non testuale)
   const numericSortKeys = new Set<SortKey>([
-    'quantity', 'current_price', 'average_price', 'total_value', 'total_value_eur', 'gain_eur', 'gain_eur_eur', 'gain_percent',
+    'quantity', 'current_price', 'average_price', 'total_value', 'gain_eur', 'gain_percent',
   ]);
 
   const sortedPositions = useMemo(() => {
@@ -496,11 +401,13 @@ export default function Portfolio() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
-              {sortedPositions.map((pos) => {
-                const gainEur = calcGainEur(pos);
-                const gainPercent = calcGainPercent(pos);
-                const totalValue = calcTotalValue(pos);
-                return (
+               {sortedPositions.map((pos) => {
+                 // Usa i campi già calcolati in visiblePositions (memoizzati):
+                 // ricalcolare qui per ogni riga era lavoro ridondante ad ogni render.
+                 const gainEur = pos.gain_eur;
+                 const gainPercent = pos.gain_percent;
+                 const totalValue = pos.total_value;
+                 return (
                   <tr
                     key={pos.asset_id}
                     className="hover:bg-slate-700/30 transition-colors cursor-pointer"

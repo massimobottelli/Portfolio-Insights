@@ -1,58 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, CartesianGrid, Line } from 'recharts';
-import { TrendingUp, BarChart3, Wallet, Droplets, Calendar, CoinsIcon } from 'lucide-react';
+import { TrendingUp, BarChart3, Wallet, Calendar, CoinsIcon } from 'lucide-react';
 import type { DashboardData, AllocationItem, SnapshotItem, TWRData } from '../types';
 import { apiFetch } from '../lib/api';
-
-// Tipi per il filtro temporale del grafico
-type TimeRange = '1m' | '3m' | '6m' | '1y' | 'ytd' | 'all';
-
-const TIME_RANGE_OPTIONS: { key: TimeRange; label: string }[] = [
-  { key: '1m', label: '1M' },
-  { key: '3m', label: '3M' },
-  { key: '6m', label: '6M' },
-  { key: '1y', label: '1Y' },
-  { key: 'ytd', label: 'YTD' },
-  { key: 'all', label: 'All' },
-];
-
-// Calcola la data di cutoff in base al filtro selezionato.
-// Restituisce una stringa ISO (YYYY-MM-DD) da confrontare con snapshot_date.
-function getCutoffDate(range: TimeRange): string | null {
-  const now = new Date();
-  const yyyy = (d: Date) => d.getFullYear();
-  const mm = (d: Date) => String(d.getMonth() + 1).padStart(2, '0');
-  const dd = (d: Date) => String(d.getDate()).padStart(2, '0');
-  const fmt = (d: Date) => `${yyyy(d)}-${mm(d)}-${dd(d)}`;
-
-  switch (range) {
-    case '1m': {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 30);
-      return fmt(d);
-    }
-    case '3m': {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 90);
-      return fmt(d);
-    }
-    case '6m': {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 180);
-      return fmt(d);
-    }
-    case '1y': {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 365);
-      return fmt(d);
-    }
-    case 'ytd': {
-      return `${yyyy(now)}-01-01`;
-    }
-    case 'all':
-      return null;
-  }
-}
+import { useIsMobile } from '../hooks/useIsMobile';
+import { TIME_RANGE_OPTIONS, getCutoffDate, type TimeRange } from '../lib/timeRange';
 
 // Famiglia di colori per ogni asset type (tinta base).
 // Ogni asset type ha una tinta propria: le sfumature vengono generate all'interno dello stesso gruppo.
@@ -100,17 +52,6 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   );
 }
 
-// Hook semplice per rilevare schermi < 1024px
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 1024);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  return isMobile;
-}
-
 export default function Dashboard() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [allocation, setAllocation] = useState<AllocationItem[]>([]);
@@ -148,11 +89,20 @@ export default function Dashboard() {
   }, [sortedAllocation]);
 
   useEffect(() => {
+    // Helper: verifica lo status prima del parse JSON. Senza questo controllo,
+    // un body di errore { error: "..." } veniva assegnato allo stato come se
+    // fossero dati validi (es. allocation diventava un oggetto non-array).
+    const fetchJson = async <T,>(url: string): Promise<T> => {
+      const res = await apiFetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status} su ${url}`);
+      return res.json() as Promise<T>;
+    };
+
     Promise.all([
-      apiFetch('/api/analytics/dashboard').then(r => r.json()),
-      apiFetch('/api/analytics/allocation').then(r => r.json()),
-      apiFetch('/api/analytics/history').then(r => r.json()),
-      apiFetch('/api/analytics/twr').then(r => r.json()),
+      fetchJson<DashboardData>('/api/analytics/dashboard'),
+      fetchJson<AllocationItem[]>('/api/analytics/allocation'),
+      fetchJson<SnapshotItem[]>('/api/analytics/history'),
+      fetchJson<TWRData>('/api/analytics/twr'),
     ])
       .then(([dashData, allocData, histData, twrData]) => {
         setDashboard(dashData);

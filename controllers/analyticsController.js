@@ -8,7 +8,8 @@ import {
   getSnapshotHistory,
   getDepositHistory,
   calculateTWR,
-  getAssetDetail
+  getAssetDetail,
+  getDistinctPortfolioCurrencies
 } from '../models/analyticsModel.js';
 import { getRatesForCurrencies } from '../utils/currencyService.js';
 
@@ -157,8 +158,10 @@ export async function getAssetDetailHandler(req, res) {
  */
 export async function getRates(req, res) {
   try {
-    const positions = await calculatePositions();
-    const currencies = positions.map(p => p.currency);
+    // Query leggera delle sole valute distinte: la versione precedente eseguiva
+    // il calcolo completo delle posizioni (join + conversioni) solo per
+    // estrarre l'elenco delle valute.
+    const currencies = getDistinctPortfolioCurrencies();
     const rates = await getRatesForCurrencies(currencies);
     res.json(rates);
   } catch (error) {

@@ -9,12 +9,12 @@ import type {
   DivergenceItem,
   RebalanceSuggestion
 } from '../types';
+// Helper di formattazione condivisi (erano duplicati verbatim in più pagine)
+import { formatAmount, formatPercent, getAssetTypeStyle } from '../lib/format';
 
 const TARGETABLE_TYPES = ['STOCK', 'BOND', 'COMMODITY', 'FUND', 'CASH'];
 
-// Colori per il diagramma a torta, coerenti con la convention usata
-// nella Dashboard per l'allocazione portfolio (ASSET_TYPE_COLORS).
-// Lightness 50 = tinta media (come un singolo asset nel gruppo).
+// Colori per il diagramma a torta: stessa palette di lib/format.ts (getAssetTypeStyle)
 const TYPE_COLORS: Record<string, string> = {
   STOCK: 'hsl(0, 70%, 50%)',        // rosso
   BOND: 'hsl(145, 60%, 50%)',       // verde
@@ -23,40 +23,10 @@ const TYPE_COLORS: Record<string, string> = {
   CASH: 'hsl(220, 65%, 50%)',       // blu
 };
 
-const formatAmount = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return '—';
-  return value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
-const formatPercent = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return '—';
-  const sign = value >= 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)}%`;
-};
-
 const divergenceColor = (value: number) => {
   if (value > 0) return 'text-emerald-400';
   if (value < 0) return 'text-red-400';
   return 'text-slate-300';
-};
-
-/** Restituisce lo stile della label per un asset type (coerente con Portfolio.tsx) */
-const getAssetTypeStyle = (type: string) => {
-  const color = TYPE_COLORS[type] || 'hsl(0, 0%, 50%)';
-  const match = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-  if (!match) return { bg: '#1e293b40', border: color, text: color };
-  const [, h, s, l] = match;
-  const sat = parseInt(s);
-  const lum = parseInt(l);
-  const bgLum = Math.min(lum + 100, 30);
-  const bg = `hsl(${h}, ${sat}%, ${bgLum}%, 0.15)`;
-  const borderLum = Math.max(lum - 10, 15);
-  const borderSat = Math.max(sat - 0, 0);
-  const borderColor = `hsl(${h}, ${borderSat}%, ${borderLum}%)`;
-  const textLum = Math.min(lum + 30, 85);
-  const textSat = Math.min(sat + 100, 100);
-  const textColor = `hsl(${h}, ${textSat}%, ${textLum}%)`;
-  return { bg, border: borderColor, text: textColor };
 };
 
 export default function Allocation() {

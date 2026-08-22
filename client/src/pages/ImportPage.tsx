@@ -103,8 +103,11 @@ export default function ImportPage() {
       };
 
       if (detectedType !== type) {
+        // detectedType può essere null (file non riconosciuto): il fallback
+        // precedente mostrava "Movimenti" anche quando nulla era stato rilevato.
+        const detectedLabel = detectedType ? reportNames[detectedType] : 'non riconosciuto';
         throw new Error(
-          `Tipo di file non valido: rilevato ${reportNames[detectedType || 'movimenti']}, ma era atteso ${reportNames[type]}.`
+          `Tipo di file non valido: rilevato ${detectedLabel}, ma era atteso ${reportNames[type]}.`
         );
       }
 
@@ -136,7 +139,11 @@ export default function ImportPage() {
         });
         loadSessions();
       } else {
-        // Il backend può restituire un array di errori per-record
+        // Il backend restituisce 400 con { error, details } per CSV malformati,
+        // oppure un array di errori per-record su import parzialmente fallito.
+        if (!response.ok && data.error) {
+          throw new Error(`${data.error}${data.details ? `: ${data.details}` : ''}`);
+        }
         const backendErrors = Array.isArray(data.errors) ? ` (${data.errors.length} errori)` : '';
         throw new Error(`Importazione fallita${backendErrors}`);
       }

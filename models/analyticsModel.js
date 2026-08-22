@@ -1,5 +1,6 @@
 import { db } from '../database.js';
 import { getExchangeRate } from '../utils/currencyService.js';
+import { correctedQuantity } from '../utils/domainHelpers.js';
 
 // =============================================================================
 // Cache in memoria per i risultati dei calcoli pesanti
@@ -149,15 +150,24 @@ export function getLatestPriceDate() {
 }
 
 /**
- * Helper: verifica se un asset è un BTP (quotato in percentuale, quantità / 100).
- * Directa quota i BTP in percentuale (es. 102.50 invece di 1.0250),
- * quindi la quantità va divisa per 100.
- * @param {string} name - Nome dell'asset
- * @param {string} ticker - Ticker dell'asset
- * @returns {boolean} true se è un BTP
+ * Restituisce le valute distinte degli asset attualmente in portafoglio.
+ * Query leggera (solo DISTINCT su join), usata da /api/analytics/rates al posto
+ * del calcolo completo delle posizioni che non era necessario a questo scopo.
+ * @returns {string[]} Lista valute distinte (può includere 'EUR')
  */
-const isBtpAsset = (name, ticker) =>
-  name.toLowerCase().includes('btp') || ticker.toLowerCase().includes('btp');
+export function getDistinctPortfolioCurrencies() {
+  return db
+    .prepare(`
+      SELECT DISTINCT a.currency
+      FROM market_orders mo
+      JOIN assets a ON a.id = mo.asset_id
+      GROUP BY mo.asset_id, a.currency
+      HAVING SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) > 0
+    `)
+    .all()
+    .map(r => r.currency)
+    .filter(Boolean);
+}
 
 // =============================================================================
 // Allocazione portafoglio
@@ -177,10 +187,10 @@ export async function calculateAllocation() {
   // marketValue è in EUR (prezzo convertito); marketValueOriginal mantiene
   // il valore nella valuta di quotazione dell'asset per trasparenza.
   // Esclude gli asset senza prezzo corrente (current_price null)
-  const enriched = positions
+    const enriched = positions
     .filter(p => p.current_price !== null)
     .map(p => {
-      const quantity = isBtpAsset(p.name, p.ticker) ? p.quantity / 100 : p.quantity;
+      const quantity = correctedQuantity(p.name, p.ticker, p.quantity);
       // Il prezzo convertito è quasi sempre disponibile; fallback al prezzo originale
       const priceEUR = p.current_price_eur ?? p.current_price;
       const marketValue = quantity * priceEUR;
@@ -373,7 +383,7 @@ export async function getAssetDetail(assetId) {
   // I valori in valuta originale (bookValue, currentValue, pnl) restano invariati;
   // vengono aggiunti i corrispondenti valori EUR convertiti col cambio odierno.
   const rawQuantity = position ? position.quantity : 0;
-  const displayQuantity = isBtpAsset(asset.name, asset.ticker) ? rawQuantity / 100 : rawQuantity;
+  const displayQuantity = correctedQuantity(asset.name, asset.ticker, rawQuantity);
   const currentPrice = position ? position.current_price : null;
   const averagePrice = position ? position.average_price : null;
 
@@ -405,7 +415,7 @@ export async function getAssetDetail(assetId) {
   let totalType = 0;
   for (const p of allPositionsCached) {
     if (p.current_price === null) continue;
-    const qty = isBtpAsset(p.name, p.ticker) ? p.quantity / 100 : p.quantity;
+    const qty = correctedQuantity(p.name, p.ticker, p.quantity);
     // Usa il prezzo convertito in EUR (fallback al prezzo originale se non disponibile)
     const priceEUR = p.current_price_eur ?? p.current_price;
     const value = qty * priceEUR;
