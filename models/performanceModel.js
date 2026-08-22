@@ -107,11 +107,17 @@ export function buildReturnSeries({ from, to } = {}) {
     flowMap[f.date] = (flowMap[f.date] || 0) + f.amount;
   }
 
-  // 4. Build return series using TWR methodology
+  // 4. Build return series using TWR methodology.
+  // Ogni giorno il rendimento è INCREMENTALE rispetto allo snapshot precedente,
+  // includendo l'eventuale flusso esterno del giorno (assunzione: flusso a fine
+  // giornata). Il prodotto telescopico dei rendimenti giornalieri riproduce
+  // esattamente il rendimento TWR dei sotto-periodi tra flussi:
+  //   ∏(1 + r_i) = (V_flow + flow) / V_start  per ogni sotto-periodo.
+  // In questo modo i giorni di deposito/prelievo NON generano salti artificiali
+  // nella curva cumulata (e quindi nel drawdown).
   /** @type {PortfolioReturnPoint[]} */
   const series = [];
 
-  let subperiodStartValue = snapshots[0].portfolio_value;
   let cumulativeFactor = 1; // multiplicative TWR factor
   let prevValue = snapshots[0].portfolio_value;
 
@@ -130,40 +136,16 @@ export function buildReturnSeries({ from, to } = {}) {
     const currentValue = current.portfolio_value;
     const netFlow = flowMap[currentDate] || 0;
 
-    let periodReturn;
+    // Rendimento incrementale del giorno, normalizzato per l'eventuale flusso
+    // esterno (DEPOSIT → negativo, WITHDRAWAL → positivo): il flusso non deve
+    // apparire come performance. Formula unica valida per tutti i giorni.
+    const periodReturn =
+      prevValue > 0
+        ? (currentValue + netFlow - prevValue) / prevValue
+        : 0;
 
-    if (netFlow !== 0) {
-      // External flow: close current sub-period and start a new one.
-      // The sub-period return normalizes the flow impact.
-      const subperiodReturn =
-        (currentValue + netFlow - subperiodStartValue) / subperiodStartValue;
-
-      // Compound the sub-period return into cumulative TWR.
-      cumulativeFactor *= (1 + subperiodReturn);
-
-      // New sub-period starts at the post-flow portfolio value.
-      subperiodStartValue = currentValue;
-
-      // Day-to-day periodReturn for the flow day:
-      // We need the incremental return that, when compounded with previous
-      // day-to-day returns, reproduces the TWR sub-period result.
-      // Since cumulativeFactor already accounts for the full sub-period,
-      // and prev day-to-day returns are already in cumulativeFactor,
-      // we compute periodReturn as the TWR-style incremental.
-      //
-      // The key insight: on flow days, periodReturn represents the
-      // sub-period's final incremental contribution.
-      periodReturn = subperiodReturn;
-    } else {
-      // No flow: day-to-day incremental return within the current sub-period.
-      periodReturn =
-        prevValue > 0
-          ? (currentValue - prevValue) / prevValue
-          : 0;
-
-      // Compound day-to-day return into cumulative TWR.
-      cumulativeFactor *= (1 + periodReturn);
-    }
+    // Compound day-to-day return into cumulative TWR.
+    cumulativeFactor *= (1 + periodReturn);
 
     const cumulativeReturn = cumulativeFactor - 1;
 

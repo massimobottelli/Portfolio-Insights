@@ -44,28 +44,39 @@ export default function RiskMetrics({
   riskFreeRate,
   onRiskFreeRateChange,
 }: RiskMetricsProps) {
-  // Local state for RF input (percentage value, e.g. 2.50)
+  // Local state for RF input (percentage value, e.g. 2.20)
   const [rfInput, setRfInput] = useState(
-    riskFreeRate !== null ? (riskFreeRate * 100).toFixed(2) : '2.50'
+    riskFreeRate !== null ? (riskFreeRate * 100).toFixed(2) : '2.20'
   );
   const [error, setError] = useState<string | null>(null);
 
-  // Handle RF change: valida e propaga al parent, che ricalcola lo Sharpe.
-  // Il valore NON viene mai risincronizzato dal prop (evita loop di refetch):
-  // la fonte di verità è l'input dell'utente.
+  // Handle RF change: aggiorna SOLO lo stato locale e la validazione.
+  // Il valore NON viene propagato al parent qui: il ricalcolo dello Sharpe
+  // avviene esclusivamente alla pressione del bottone "Ricalcola Sharpe".
   const handleRfChange = useCallback((value: string) => {
     setRfInput(value);
+    validateRate(value);
+  }, []);
 
+  // Valida il tasso inserito (-100 < rate < 100) e restituisce il valore in decimale,
+  // oppure null se invalido (impostando anche il messaggio d'errore).
+  const validateRate = useCallback((value: string): number | null => {
     const num = parseFloat(value);
-    // Validate: must be numeric, -100 < rate < 100
     if (isNaN(num) || num <= -100 || num >= 100) {
       setError('Il tasso deve essere tra -100% e +100%');
-      return;
+      return null;
     }
-
     setError(null);
-    onRiskFreeRateChange?.(num / 100);
-  }, [onRiskFreeRateChange]);
+    return num / 100;
+  }, []);
+
+  // Al click sul bottone: valida e propaga al parent, che ricalcola lo Sharpe.
+  const handleRecalculate = useCallback(() => {
+    const rate = validateRate(rfInput);
+    if (rate !== null) {
+      onRiskFreeRateChange?.(rate);
+    }
+  }, [rfInput, validateRate, onRiskFreeRateChange]);
 
   return (
     <div className="space-y-4">
@@ -100,6 +111,7 @@ export default function RiskMetrics({
           </p>
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-2">
+              {/* Input compatto: il ricalcolo avviene solo col bottone */}
               <input
                 type="number"
                 step="0.01"
@@ -107,10 +119,18 @@ export default function RiskMetrics({
                 max="100"
                 value={rfInput}
                 onChange={(e) => handleRfChange(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white text-xl font-bold text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-32 [color-scheme:dark] bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white text-lg font-bold text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 placeholder="2,50"
               />
               <span className="text-slate-400 text-sm font-medium">%</span>
+              <button
+                type="button"
+                onClick={handleRecalculate}
+                disabled={error !== null}
+                className="ml-auto bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Ricalcola Sharpe
+              </button>
             </div>
             {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
           </div>

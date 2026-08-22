@@ -252,11 +252,12 @@ describe('buildReturnSeries — with external flows', () => {
   });
 
   it('should handle multiple deposits across periods', () => {
-    // TWR sub-period logic:
-    // Sub-period 1: Day 1 (10000) → Day 3 (11210, with deposit 1100)
-    //   subperiodReturn = (11210 - 1100 - 10000) / 10000 = 110/10000 = 0.011
-    // Sub-period 2: Day 3 (11210) → Day 4 (11424.2)
-    //   periodReturn = (11424.2 - 11210) / 11210 = 214.2/11210
+    // TWR incremental logic (flow normalized on the flow day itself):
+    // Day 2: (10100 - 10000) / 10000 = 0.01
+    // Day 3 (DEPOSIT 1100): (11210 - 1100 - 10100) / 10100 = 10/10100
+    // Day 4: (11424.2 - 11210) / 11210 = 214.2/11210
+    // Il prodotto telescopico riproduce il TWR del sotto-periodo:
+    //   1.01 × (10110/10100) = 11210+... → coerente con (11210-1100)/10000
     seedSnapshot('2099-11-01', 10000);
     seedSnapshot('2099-11-02', 10100);
     seedSnapshot('2099-11-03', 11210);
@@ -271,18 +272,18 @@ describe('buildReturnSeries — with external flows', () => {
     expect(series[1].externalFlow).toBe(0);
     expect(series[1].periodReturn).toBeCloseTo((10100 - 10000) / 10000, 10);
 
-    // Day 3: DEPOSIT 1100, sub-period return from Day 1 start
+    // Day 3: DEPOSIT 1100, incremental return normalized by the flow
     expect(series[2].externalFlow).toBe(-1100);
-    // subperiodReturn = (11210 - 1100 - 10000) / 10000 = 110/10000 = 0.011
-    expect(series[2].periodReturn).toBeCloseTo(110 / 10000, 10);
+    // periodReturn = (11210 - 1100 - 10100) / 10100 = 10/10100
+    expect(series[2].periodReturn).toBeCloseTo(10 / 10100, 10);
 
     // Day 4: no flow, day-to-day return from Day 3
     expect(series[3].externalFlow).toBe(0);
     expect(series[3].periodReturn).toBeCloseTo(214.2 / 11210, 10);
 
-    // Cumulative: (1 + subperiodReturn) × (1 + dayReturn) - 1
-    // = (1 + 0.011)(1 + 0.0191088) - 1 = 1.011 × 1.0191088 - 1 = 0.04062...
-    expect(series[3].cumulativeReturn).toBeCloseTo(0.04062, 5);
+    // Cumulative: (1.01) × (1 + 10/10100) × (1 + 214.2/11210) - 1
+    // = 1.01 × 1.0009900990 × 1.0191088314 - 1 = 0.0303170...
+    expect(series[3].cumulativeReturn).toBeCloseTo(0.0303170, 5);
   });
 });
 
@@ -292,10 +293,11 @@ describe('buildReturnSeries — with external flows', () => {
 
 describe('buildReturnSeries — with withdrawals', () => {
   it('should handle a withdrawal correctly', () => {
-    // TWR sub-period logic:
-    // Sub-period 1: Day 1 (10000) → Day 3 (9720, with withdrawal 1100)
-    //   subperiodReturn = (9720 + 1100 - 10000) / 10000 = 820/10000 = 0.082
-    // No partial sub-period after the flow (last point IS the flow day).
+    // TWR incremental logic (flow normalized on the flow day itself):
+    // Day 2: (10800 - 10000) / 10000 = 0.08
+    // Day 3 (WITHDRAWAL 1100): (9720 + 1100 - 10800) / 10800 = 20/10800
+    // Il prodotto telescopico riproduce il TWR del sotto-periodo:
+    //   1.08 × (10820/10800) = (9720+1100)/10000 → coerente con il TWR
     seedSnapshot('2099-12-01', 10000);
     seedSnapshot('2099-12-02', 10800);
     seedSnapshot('2099-12-03', 9720);
@@ -309,10 +311,10 @@ describe('buildReturnSeries — with withdrawals', () => {
     expect(series[1].externalFlow).toBe(0);
     expect(series[1].periodReturn).toBeCloseTo((10800 - 10000) / 10000, 10);
 
-    // Day 3: WITHDRAWAL 1100, sub-period return from Day 1 start
+    // Day 3: WITHDRAWAL 1100, incremental return normalized by the flow
     expect(series[2].externalFlow).toBe(1100);
-    // subperiodReturn = (9720 + 1100 - 10000) / 10000 = 820/10000 = 0.082
-    expect(series[2].periodReturn).toBeCloseTo(820 / 10000, 10);
+    // periodReturn = (9720 + 1100 - 10800) / 10800 = 20/10800
+    expect(series[2].periodReturn).toBeCloseTo(20 / 10800, 10);
   });
 });
 

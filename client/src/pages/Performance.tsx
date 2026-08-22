@@ -101,7 +101,9 @@ export default function Performance() {
   // Base date from latest snapshot
   const baseDate = analytics?.period.to ?? null;
 
-  if (loading) {
+  // Schermata di caricamento SOLO al primo load: durante i refetch (es. ricalcolo
+  // Sharpe) manteniamo i dati visibili per non far saltare la posizione di scroll.
+  if (loading && !analytics) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-slate-400 text-lg">Caricamento...</div>
@@ -109,7 +111,7 @@ export default function Performance() {
     );
   }
 
-  if (error) {
+  if (error && !analytics) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-red-400 text-lg">{error}</div>
@@ -139,6 +141,14 @@ export default function Performance() {
           </p>
         )}
       </div>
+
+      {/* Errore durante un refetch con dati già visibili: banner inline,
+          la pagina non viene sostituita (preserva posizione di scroll). */}
+      {error && hasData && (
+        <div className="bg-red-900/40 border border-red-700 rounded-lg px-4 py-2">
+          <p className="text-red-400 text-sm">{error}</p>
+        </div>
+      )}
 
       {!hasData ? (
         <div className="flex items-center justify-center h-32">
