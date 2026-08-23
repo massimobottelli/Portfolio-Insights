@@ -1,5 +1,6 @@
 import { db } from '../database.js';
 import { getExchangeRate } from '../utils/currencyService.js';
+import { correctedQuantity } from '../utils/domainHelpers.js';
 
 // =============================================================================
 // Cache in memoria per i risultati dei calcoli pesanti
@@ -118,11 +119,12 @@ export async function calculatePositions() {
     // Conversione prezzi in EUR con il tasso di cambio odierno (ECB).
     // I prezzi originali restano invariati; vengono aggiunti i campi *_eur.
     const currencies = [...new Set(positions.map(p => p.currency).filter(c => c && c !== 'EUR'))];
+    // Fetch paralleli dei tassi ECB (indipendenti tra loro)
+    const rateResults = await Promise.all(currencies.map(c => getExchangeRate(c)));
     const rates = {};
-    for (const currency of currencies) {
-      const rate = await getExchangeRate(currency);
-      if (rate !== null) rates[currency] = rate;
-    }
+    currencies.forEach((currency, i) => {
+      if (rateResults[i] !== null) rates[currency] = rateResults[i];
+    });
 
     return positions.map(p => {
       const rate = p.currency && rates[p.currency] ? rates[p.currency] : null;
@@ -148,22 +150,24 @@ export function getLatestPriceDate() {
 }
 
 /**
- * Verifica se l'asset è un BTP, che richiede la divisione della quantità per 100
- * perché Directa quota i BTP in percentuale (es. 102.50 invece di 1.0250).
- * @param {Object} pos Posizione
- * @returns {boolean} true se è un BTP
+ * Restituisce le valute distinte degli asset attualmente in portafoglio.
+ * Query leggera (solo DISTINCT su join), usata da /api/analytics/rates al posto
+ * del calcolo completo delle posizioni che non era necessario a questo scopo.
+ * @returns {string[]} Lista valute distinte (può includere 'EUR')
  */
-const isBtp = (pos) =>
-  pos.name.toLowerCase().includes('btp') || pos.ticker.toLowerCase().includes('btp');
-
-/**
- * Helper: verifica se un asset è un BTP (quotato in percentuale, quantità / 100).
- * @param {string} name - Nome dell'asset
- * @param {string} ticker - Ticker dell'asset
- * @returns {boolean} true se è un BTP
- */
-const isBtpAsset = (name, ticker) =>
-  name.toLowerCase().includes('btp') || ticker.toLowerCase().includes('btp');
+export function getDistinctPortfolioCurrencies() {
+  return db
+    .prepare(`
+      SELECT DISTINCT a.currency
+      FROM market_orders mo
+      JOIN assets a ON a.id = mo.asset_id
+      GROUP BY mo.asset_id, a.currency
+      HAVING SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) > 0
+    `)
+    .all()
+    .map(r => r.currency)
+    .filter(Boolean);
+}
 
 // =============================================================================
 // Allocazione portafoglio
@@ -183,10 +187,10 @@ export async function calculateAllocation() {
   // marketValue è in EUR (prezzo convertito); marketValueOriginal mantiene
   // il valore nella valuta di quotazione dell'asset per trasparenza.
   // Esclude gli asset senza prezzo corrente (current_price null)
-  const enriched = positions
+    const enriched = positions
     .filter(p => p.current_price !== null)
     .map(p => {
-      const quantity = isBtp(p) ? p.quantity / 100 : p.quantity;
+      const quantity = correctedQuantity(p.name, p.ticker, p.quantity);
       // Il prezzo convertito è quasi sempre disponibile; fallback al prezzo originale
       const priceEUR = p.current_price_eur ?? p.current_price;
       const marketValue = quantity * priceEUR;
@@ -231,17 +235,27 @@ export function getLatestSnapshot() {
 export function getDepositHistory() {
   // Le date sono già in formato ISO (YYYY-MM-DD) in entrambe le tabelle,
   // quindi il confronto diretto è cronologicamente corretto.
+  //
+  // Ottimizzazione: la versione precedente usava una JOIN con condizione
+  // operation_date <= snapshot_date, che è O(N×M). Qui si sommano i soli
+  // depositi del giorno e si applica una window function (running sum),
+  // ottenendo lo stesso risultato cumulativo in O(N+M).
   return db
     .prepare(`
       SELECT
-        d.snapshot_date,
-        COALESCE(SUM(c.euro_amount), 0) AS cumulative_deposits
-      FROM daily_portfolio_snapshots d
-      LEFT JOIN cash_movements c
-        ON c.movement_type = 'DEPOSIT'
-        AND c.operation_date <= d.snapshot_date
-      GROUP BY d.snapshot_date
-      ORDER BY d.snapshot_date ASC
+        snapshot_date,
+        SUM(daily_deposits) OVER (ORDER BY snapshot_date) AS cumulative_deposits
+      FROM (
+        SELECT
+          d.snapshot_date,
+          COALESCE(SUM(c.euro_amount), 0) AS daily_deposits
+        FROM daily_portfolio_snapshots d
+        LEFT JOIN cash_movements c
+          ON c.movement_type = 'DEPOSIT'
+          AND c.operation_date = d.snapshot_date
+        GROUP BY d.snapshot_date
+      )
+      ORDER BY snapshot_date ASC
     `)
     .all();
 }
@@ -369,7 +383,7 @@ export async function getAssetDetail(assetId) {
   // I valori in valuta originale (bookValue, currentValue, pnl) restano invariati;
   // vengono aggiunti i corrispondenti valori EUR convertiti col cambio odierno.
   const rawQuantity = position ? position.quantity : 0;
-  const displayQuantity = isBtpAsset(asset.name, asset.ticker) ? rawQuantity / 100 : rawQuantity;
+  const displayQuantity = correctedQuantity(asset.name, asset.ticker, rawQuantity);
   const currentPrice = position ? position.current_price : null;
   const averagePrice = position ? position.average_price : null;
 
@@ -401,7 +415,7 @@ export async function getAssetDetail(assetId) {
   let totalType = 0;
   for (const p of allPositionsCached) {
     if (p.current_price === null) continue;
-    const qty = isBtpAsset(p.name, p.ticker) ? p.quantity / 100 : p.quantity;
+    const qty = correctedQuantity(p.name, p.ticker, p.quantity);
     // Usa il prezzo convertito in EUR (fallback al prezzo originale se non disponibile)
     const priceEUR = p.current_price_eur ?? p.current_price;
     const value = qty * priceEUR;
@@ -499,6 +513,12 @@ export async function getAssetDetail(assetId) {
  * @returns {Object} TWR totale, YTD, annuali e serie storica
  */
 export function calculateTWR() {
+  // Cache: il calcolo scorre tutti gli snapshot e i movimenti ad ogni chiamata;
+  // la Dashboard lo richiede a ogni load. Invalidata da clearAnalyticsCache().
+  return getSyncCached('twr', () => calculateTWRUncached());
+}
+
+function calculateTWRUncached() {
   // Recupera tutti gli snapshot ordinati per data
   const snapshots = db
     .prepare('SELECT snapshot_date, portfolio_value FROM daily_portfolio_snapshots ORDER BY snapshot_date ASC')

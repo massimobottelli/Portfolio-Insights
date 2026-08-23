@@ -121,12 +121,14 @@ export async function convertToEUR(amount, currency) {
  */
 export async function getRatesForCurrencies(currencies) {
   const unique = [...new Set(currencies.filter(c => c && c !== 'EUR'))];
+  // Fetch paralleli: le chiamate ECB sono indipendenti, la versione sequenziale
+  // moltiplicava la latenza per il numero di valute.
+  const results = await Promise.all(unique.map(c => getExchangeRate(c)));
   const rates = { EUR: 1 };
-  for (const currency of unique) {
-    const rate = await getExchangeRate(currency);
-    if (rate !== null) {
-      rates[currency] = rate;
+  unique.forEach((currency, i) => {
+    if (results[i] !== null) {
+      rates[currency] = results[i];
     }
-  }
+  });
   return { date: getToday(), rates };
 }

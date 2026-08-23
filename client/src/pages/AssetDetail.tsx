@@ -3,75 +3,24 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import type { AssetDetailData } from '../types';
 import { apiFetch } from '../lib/api';
-
-/**
- * Formatta un numero come prezzo con 2-4 decimali significativi.
- * Per valori > 10 usa 2 decimali, per valori <= 10 usa 4 decimali.
- */
-const formatPrice = (price: number | null) => {
-  if (price === null || price === undefined) return '—';
-  return price >= 10
-    ? price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : price.toLocaleString('it-IT', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-};
-
-/**
- * Formatta un importo numerico (senza simbolo di valuta).
- */
-const formatAmount = (value: number | null) => {
-  if (value === null || value === undefined) return '—';
-  return value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
-/**
- * Formatta una percentuale con segno.
- */
-const formatPercent = (value: number | null) => {
-  if (value === null || value === undefined) return '—';
-  const sign = value >= 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)}%`;
-};
-
-/**
- * Formatta una percentuale senza segno (per allocazioni).
- */
-const formatPercentNoSign = (value: number | null) => {
-  if (value === null || value === undefined) return '—';
-  return `${value.toFixed(2)}%`;
-};
-
-/**
- * Formatta una data ISO in formato italiano (DD/MM/YYYY).
- */
-const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('it-IT', { year: 'numeric', month: '2-digit', day: '2-digit' });
-};
-
-/**
- * Restituisce la classe CSS per il colore in base al segno del valore.
- */
-const gainColorClass = (value: number | null) => {
-  if (value === null || value === undefined) return 'text-slate-300';
-  if (value > 0) return 'text-emerald-400';
-  if (value < 0) return 'text-red-400';
-  return 'text-slate-300';
-};
+// Helper di formattazione condivisi (erano duplicati verbatim in più pagine)
+import {
+  formatPrice,
+  formatAmount,
+  formatPercent,
+  formatPercentNoSign,
+  formatDate,
+  gainColorClass,
+} from '../lib/format';
 
 /**
  * Badge colorato per il tipo di asset (stessa palette di Portfolio.tsx).
  */
+// I tipi ETF/ETC/ETN sono decommissionati (migrati a UNKNOWN): rami rimossi.
 const AssetTypeBadge = ({ assetType }: { assetType: string }) => {
   const bgColor =
     assetType === 'UNKNOWN'
       ? 'bg-amber-900/30 text-amber-300 border-amber-700/50'
-      : assetType === 'ETF'
-      ? 'bg-blue-900/30 text-blue-300 border-blue-700/50'
-      : assetType === 'ETC'
-      ? 'bg-purple-900/30 text-purple-300 border-purple-700/50'
-      : assetType === 'ETN'
-      ? 'bg-indigo-900/30 text-indigo-300 border-indigo-700/50'
       : assetType === 'STOCK'
       ? 'bg-emerald-900/30 text-emerald-300 border-emerald-700/50'
       : assetType === 'BOND'

@@ -1,5 +1,6 @@
 import { getAllAssets, getAssetByIsin, getAssetById, updateAssetType } from '../models/assetModel.js';
 import { ASSET_TYPES } from '../config/assetTypes.js';
+import { clearAnalyticsCache } from '../models/analyticsModel.js';
 
 /**
  * GET /api/assets
@@ -10,7 +11,8 @@ export function listAssets(req, res) {
     const assets = getAllAssets();
     res.json(assets);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero degli asset', details: error.message });
+    console.error('List assets error:', error);
+    res.status(500).json({ error: 'Errore nel recupero degli asset' });
   }
 }
 
@@ -27,7 +29,8 @@ export function getAsset(req, res) {
     }
     res.json(asset);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero dell\'asset', details: error.message });
+    console.error('Get asset error:', error);
+    res.status(500).json({ error: 'Errore nel recupero dell\'asset' });
   }
 }
 
@@ -44,7 +47,8 @@ export function getAssetByIsinHandler(req, res) {
     }
     res.json(asset);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero dell\'asset', details: error.message });
+    console.error('Get asset by ISIN error:', error);
+    res.status(500).json({ error: 'Errore nel recupero dell\'asset' });
   }
 }
 
@@ -74,8 +78,13 @@ export function updateAssetTypeHandler(req, res) {
     if (!asset) {
       return res.status(404).json({ error: 'Asset non trovato' });
     }
+    
+    // Invalida la cache analytics perché asset_type è usato nei calcoli delle posizioni
+    clearAnalyticsCache();
+    
     res.json(asset);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nell\'aggiornamento del tipo', details: error.message });
+    console.error('Update asset type error:', error);
+    res.status(500).json({ error: 'Errore nell\'aggiornamento del tipo' });
   }
 }

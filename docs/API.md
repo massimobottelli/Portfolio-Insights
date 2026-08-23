@@ -51,9 +51,11 @@ Le route sono organizzate per dominio e montate in `app.js`:
 | Prefisso | Router | Dominio |
 |---|---|---|
 | `/api/analytics` | `analyticsRoutes.js` | KPI, posizioni, allocazione, storico, TWR |
+| `/api/analytics` | `performanceRoutes.js` | Volatilità, Sharpe, metriche aggregate Performance & Risk |
 | `/api/assets` | `assetRoutes.js` | Gestione strumenti finanziari |
 | `/api/import` | `importRoutes.js` | Importazione CSV e sessioni |
 | `/api/movements` | `movementRoutes.js` | Movimenti di cassa |
+| `/api` | `allocationRoutes.js` | Catalogo asset types, allocazione e ribilanciamento |
 
 ---
 
@@ -77,6 +79,14 @@ Le route sono organizzate per dominio e montate in `app.js`:
 | DELETE | `/api/import/clear` | Svuota completamente il database |
 | GET | `/api/movements` | Lista movimenti di cassa con filtri |
 | GET | `/api/movements/symbols` | Ticker distinti per dropdown filtro |
+| GET | `/api/asset-types` | Catalogo dei tipi di asset |
+| GET | `/api/allocation/current` | Allocazione attuale per categoria |
+| GET | `/api/allocation/target` | Target di allocazione configurato |
+| PUT | `/api/allocation/target` | Salva il target di allocazione |
+| GET | `/api/allocation/rebalance` | Divergenze e suggerimenti di ribilanciamento |
+| GET | `/api/analytics/volatility` | Volatilità giornaliera e annualizzata |
+| GET | `/api/analytics/sharpe` | Sharpe ratio con risk-free rate configurabile |
+| GET | `/api/analytics/performance` | Metriche aggregate Performance & Risk |
 
 ---
 
@@ -147,7 +157,7 @@ Restituisce la lista delle posizioni attive nel portafoglio, con prezzo corrente
 | `positions[].ticker` | string | Simbolo di trading |
 | `positions[].name` | string | Nome dello strumento |
 | `positions[].currency` | string | Valuta di trading |
-| `positions[].asset_type` | string | Tipo di asset (ETF, BOND, UNKNOWN, ...) |
+| `positions[].asset_type` | string | Tipo di asset (BOND, STOCK, FUND, COMMODITY, CASH, UNKNOWN) |
 | `positions[].quantity` | number | Quantità netta (BUY − SELL), solo > 0 |
 | `positions[].current_price` | number \| null | Prezzo corrente unitario |
 | `positions[].average_price` | number \| null | Prezzo medio di carico unitario |
@@ -271,7 +281,7 @@ Restituisce il Time-Weighted Rate of Return (TWR) del portafoglio, calcolato con
 
 ### 3.6 GET `/api/analytics/rates`
 
-Restituisce i tassi di cambio odierni usati para la conversión en EUR. Fuente: ECB Data Portal (SDMX 2.1 API).
+Restituisce i tassi di cambio odierni usati per la conversione in EUR. Fonte: ECB Data Portal (SDMX 2.1 API).
 
 **Risposta 200 OK**
 
@@ -293,9 +303,9 @@ Restituisce i tassi di cambio odierni usati para la conversión en EUR. Fuente: 
 **Note:**
 - `EUR` è sempre presente con tasso `1` (identity, nessuna chiamata API).
 - I tassi sono recuperati on-demand da ECB e cachati in memoria per la giornata.
-- Se ECB non risponde y no hay caché, la valuta es omessa dalla mappa.
+- Se ECB non risponde e non c'è cache, la valuta è omessa dalla mappa.
 
-**Errori:** `500` — Errore nel recupero dei tassi de cambio.
+**Errori:** `500` — Errore nel recupero dei tassi di cambio.
 
 ---
 
@@ -374,6 +384,167 @@ Restituisce il dettaglio completo di un singolo asset: info anagrafiche, posizio
 **Errori:**
 - `404` — Asset non trovato (`{ "error": "Asset non trovato" }`)
 - `500` — Errore nel recupero del dettaglio asset
+
+---
+
+### 3.8 GET `/api/analytics/volatility`
+
+Restituisce la volatilità del portafoglio calcolata dalla canonical return series (rendimenti giornalieri corretti per i flussi esterni).
+
+**Query Parameters**
+
+| Parametro | Tipo | Default | Descrizione |
+|---|---|---|---|
+| `from` | string | — | Data inizio periodo (`YYYY-MM-DD`) |
+| `to` | string | — | Data fine periodo (`YYYY-MM-DD`) |
+
+**Risposta 200 OK**
+
+```json
+{
+  "daily": 0.0071,
+  "annualized": 0.1127,
+  "dataPoints": 793
+}
+```
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `daily` | number \| null | Deviazione standard dei rendimenti giornalieri |
+| `annualized` | number \| null | Volatilità annualizzata (`daily × √365`) |
+| `dataPoints` | number | Numero di punti della serie |
+
+**Note:** Con meno di 2 punti (o database vuoto) `daily` e `annualized` sono `null`.
+
+**Errori:** `500` — Errore nel calcolo della volatilità.
+
+---
+
+### 3.9 GET `/api/analytics/sharpe`
+
+Restituisce lo Sharpe ratio per un dato risk-free rate annuale.
+
+**Query Parameters**
+
+| Parametro | Tipo | Default | Descrizione |
+|---|---|---|---|
+| `from` | string | — | Data inizio periodo (`YYYY-MM-DD`) |
+| `to` | string | — | Data fine periodo (`YYYY-MM-DD`) |
+| `riskFreeRate` | number | `0` | Risk-free rate annuale **in percentuale** (es. `2.5` = 2,5%) |
+
+**Risposta 200 OK**
+
+```json
+{
+  "sharpeRatio": 0.71,
+  "dataPoints": 793,
+  "riskFreeRate": 2.5
+}
+```
+
+**Errori:**
+- `400` — Risk-free rate non valido (`{ "error": "Invalid risk-free rate" }`): deve essere numerico con `-100 < rate < 100`
+- `500` — Errore nel calcolo dello Sharpe ratio
+
+**Note:** Con volatilità zero lo Sharpe è `null` (mai `Infinity`). Il risk-free annuale viene convertito in giornaliero con `(1 + rf)^(1/365) - 1`.
+
+---
+
+### 3.10 GET `/api/analytics/performance`
+
+Endpoint aggregato che restituisce **tutte** le metriche di performance e rischio in una singola risposta. Tutte le metriche derivano dalla stessa canonical return series (una sola lettura dal DB), garantendo coerenza tra i calcoli.
+
+**Query Parameters**
+
+| Parametro | Tipo | Default | Descrizione |
+|---|---|---|---|
+| `from` | string | — | Data inizio periodo (`YYYY-MM-DD`) |
+| `to` | string | — | Data fine periodo (`YYYY-MM-DD`) |
+| `riskFreeRate` | number | `0` | Risk-free rate annuale **in percentuale** |
+
+> La pagina Performance dell'app chiama questo endpoint sempre sull'intero periodo di investimento (`from` assente), con il risk-free rate scelto dall'utente (default UI: 2,20%).
+
+**Risposta 200 OK**
+
+```json
+{
+  "period": { "from": "2024-06-05", "to": "2026-08-06", "days": 792 },
+  "riskFreeRate": 0.022,
+  "metadata": {
+    "dataPoints": 793,
+    "hasGaps": false,
+    "periodLessThanOneYear": false
+  },
+  "performance": {
+    "cumulativeReturn": 0.1234,
+    "cagr": 0.0567
+  },
+  "risk": {
+    "dailyVolatility": 0.0071,
+    "annualizedVolatility": 0.1127,
+    "sharpeRatio": 0.71
+  },
+  "periodStats": {
+    "months": { "positive": 18, "negative": 8, "flat": 0, "total": 26, "positiveRate": 0.6923, "negativeRate": 0.3077 },
+    "years": { "positive": 2, "negative": 1, "flat": 0, "total": 3, "positiveRate": 0.6667, "negativeRate": 0.3333 }
+  },
+  "bestWorst": {
+    "month": { "year": 2025, "month": 7, "return": 0.0412 },
+    "worst": { "year": 2025, "month": 3, "return": -0.0318 },
+    "year": { "year": 2025, "return": 0.0981 },
+    "worstYear": { "year": 2024, "return": -0.0214 }
+  },
+  "drawdown": {
+    "current": -0.0034,
+    "maximum": -0.0824,
+    "peakDate": "2025-02-14",
+    "troughDate": "2025-04-09",
+    "recoveryDate": "2025-06-12",
+    "durationDays": 118,
+    "recoveryDays": 64,
+    "isRecovered": true
+  },
+  "annualReturns": [
+    { "year": 2024, "return": 0.0312 },
+    { "year": 2025, "return": 0.0981 }
+  ],
+  "monthlyReturns": [
+    { "year": 2024, "month": 6, "return": 0.0042 }
+  ],
+  "cumulativeSeries": [
+    { "date": "2024-06-05", "value": 1.0 },
+    { "date": "2024-06-06", "value": 1.000123 }
+  ]
+}
+```
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `period` | object | Intervallo effettivo dei dati (`from`/`to` reali della serie, `days` di differenza) |
+| `riskFreeRate` | number | Risk-free rate in decimale (es. `0.025` = 2,5%) |
+| `metadata.dataPoints` | number | Numero di snapshot nella serie |
+| `metadata.hasGaps` | boolean | `true` se ci sono buchi > 2 giorni tra snapshot consecutivi |
+| `metadata.periodLessThanOneYear` | boolean | `true` se il periodo analizzato è inferiore a 1 anno |
+| `performance.cumulativeReturn` | number \| null | Rendimento cumulativo TWR |
+| `performance.cagr` | number \| null | CAGR annualizzato (`(1+TWR)^(1/anni)-1`, anni = giorni/365.2425) |
+| `risk.dailyVolatility` | number \| null | Deviazione standard giornaliera |
+| `risk.annualizedVolatility` | number \| null | Volatilità annualizzata (√365) |
+| `risk.sharpeRatio` | number \| null | Sharpe ratio (`null` se volatilità zero o dati insufficienti) |
+| `periodStats.months` / `.years` | object | Conteggi positivi/negativi/flat (zero = flat, mai negativo) |
+| `bestWorst` | object | Best/worst mese e anno (chiavi `month`/`worst`/`year`/`worstYear`) |
+| `drawdown` | object | Drawdown corrente e massimo, peak/trough/recovery, durate in giorni |
+| `annualReturns[]` | array | Rendimenti annuali composti |
+| `monthlyReturns[]` | array | Rendimenti mensili composti (`YYYY-MM`) |
+| `cumulativeSeries[]` | array | Curva cumulativa normalizzata (parte da 1.0) |
+
+**Errori:**
+- `400` — Risk-free rate non valido (`{ "error": "Invalid risk-free rate" }`)
+- `500` — Errore nel calcolo delle metriche di performance
+
+**Note:**
+- Nessun valore `NaN` o `Infinity`: i valori non finiti sono sostituiti con `null`.
+- Con database vuoto restituisce strutture a zero/null con `dataPoints: 0`.
+- I rendimenti mensili/annuali sono aggregati per compounding geometrico, non per somma.
 
 ---
 
@@ -482,7 +653,7 @@ Aggiorna il tipo di un asset (classificazione manuale).
 
 ```json
 {
-  "assetType": "ETF"
+  "assetType": "BOND"
 }
 ```
 
@@ -490,7 +661,9 @@ Aggiorna il tipo di un asset (classificazione manuale).
 |---|---|---|---|
 | `assetType` | string | Sì | Nuovo tipo di asset (case-insensitive) |
 
-**Valori accettati:** `ETF`, `ETC`, `ETN`, `STOCK`, `BOND`, `FUND`, `COMMODITY`, `CASH`, `UNKNOWN`
+**Valori accettati:** `BOND`, `STOCK`, `CASH`, `FUND`, `COMMODITY`, `UNKNOWN`
+
+> **Nota:** i tipi `ETF`, `ETC` ed `ETN` sono stati decommissionati e migrati a `UNKNOWN` (migrazione automatica all'avvio del server). L'utente può riclassificare gli asset tramite il dropdown nella pagina Portfolio.
 
 **Risposta 200 OK**
 
@@ -501,7 +674,7 @@ Aggiorna il tipo di un asset (classificazione manuale).
   "ticker": "X.SXRS",
   "name": "ISHARES DIV COMM SWAP ETF",
   "currency": "EUR",
-  "asset_type": "ETF",
+  "asset_type": "BOND",
   "exchange": null,
   "directa_code": "M.512272"
 }
@@ -768,7 +941,161 @@ Restituisce la lista dei ticker distinti presenti nei `cash_movements`, utile pe
 
 ---
 
-## 7. Codici di Errore
+## 7. Endpoint Allocation (`/api/asset-types`, `/api/allocation/*`)
+
+Gestione dei target di allocazione per categoria di asset e dei suggerimenti di ribilanciamento. Le categorie target-abili sono quelle con `isTargetable: true` nel catalogo (`BOND`, `STOCK`, `CASH`, `FUND`, `COMMODITY`; `UNKNOWN` è escluso).
+
+### 7.1 GET `/api/asset-types`
+
+Restituisce il catalogo dei tipi di asset dalla tabella `asset_types`.
+
+**Risposta 200 OK**
+
+```json
+{
+  "assetTypes": [
+    { "name": "BOND", "isTargetable": true },
+    { "name": "CASH", "isTargetable": true },
+    { "name": "COMMODITY", "isTargetable": true },
+    { "name": "FUND", "isTargetable": true },
+    { "name": "STOCK", "isTargetable": true },
+    { "name": "UNKNOWN", "isTargetable": false }
+  ]
+}
+```
+
+**Errori:** `500` — Errore nel recupero dei tipi di asset.
+
+---
+
+### 7.2 GET `/api/allocation/current`
+
+Calcola a runtime l'allocazione attuale del portafoglio per categoria. Base di calcolo: valore di mercato delle posizioni (con correzione BTP /100 e conversione EUR via ECB) **più** la liquidità disponibile, che viene attribuita alla categoria `CASH` — così il totale è coerente con il Valore Portafoglio della Dashboard.
+
+**Risposta 200 OK**
+
+```json
+{
+  "totalValue": 230758.56,
+  "categories": [
+    { "assetType": "BOND", "value": 51234.00, "percent": 22.20 },
+    { "assetType": "CASH", "value": 256480.80, "percent": 111.15 }
+  ],
+  "unknownAssets": 3
+}
+```
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `totalValue` | number | Totale portafoglio (posizioni + liquidità) |
+| `categories[].assetType` | string | Categoria di asset |
+| `categories[].value` | number | Valore in EUR della categoria |
+| `categories[].percent` | number | Peso percentuale sul totale (2 decimali) |
+| `unknownAssets` | number | Numero di asset UNKNOWN con posizione attiva |
+
+**Note:** Sono incluse solo le categorie con valore > 0. Gli asset in valuta estera senza tasso ECB disponibile sono esclusi dal totale.
+
+**Errori:** `500` — Errore nel calcolo dell'allocazione attuale.
+
+---
+
+### 7.3 GET `/api/allocation/target`
+
+Restituisce il target di allocazione configurato dall'utente.
+
+**Risposta 200 OK**
+
+```json
+{
+  "tolerance": 5.0,
+  "targets": [
+    { "assetType": "BOND", "targetPercent": 30 },
+    { "assetType": "STOCK", "targetPercent": 70 }
+  ]
+}
+```
+
+Se nessun target è stato configurato, `targets` è vuoto e `tolerance` vale il default `5.0`.
+
+**Errori:** `500` — Errore nel recupero del target.
+
+---
+
+### 7.4 PUT `/api/allocation/target`
+
+Salva il target di allocazione (sostituisce integralmente i target esistenti, in transazione).
+
+**Body della Richiesta**
+
+```json
+{
+  "tolerance": 5.0,
+  "targets": [
+    { "assetType": "BOND", "targetPercent": 30 },
+    { "assetType": "STOCK", "targetPercent": 70 }
+  ]
+}
+```
+
+| Campo | Tipo | Obbligatorio | Descrizione |
+|---|---|---|---|
+| `tolerance` | number | Sì | Soglia di tolleranza globale (> 0) |
+| `targets` | array | Sì | Lista non vuota di target per categoria |
+
+**Validazioni (400):**
+- `tolerance` deve essere un numero > 0
+- `targets` deve essere un array non vuoto
+- ogni `assetType` deve essere target-abile (non `UNKNOWN`)
+- ogni `targetPercent` deve essere un numero ≥ 0
+- la somma dei `targetPercent` deve essere 100% (tolleranza 0.001)
+
+**Risposta 200 OK**: stesso formato di `GET /api/allocation/target` (target salvato).
+
+**Errori:** `400` — Validazione fallita · `500` — Errore nel salvataggio.
+
+---
+
+### 7.5 GET `/api/allocation/rebalance`
+
+Restituisce le divergenze tra allocazione attuale e target per tutte le categorie target-abili, più i suggerimenti di ribilanciamento (solo quando la deviazione supera la tolleranza).
+
+**Risposta 200 OK**
+
+```json
+{
+  "tolerance": 5.0,
+  "divergences": [
+    {
+      "assetType": "BOND",
+      "currentPercent": 22.20,
+      "targetPercent": 30.00,
+      "divergencePercent": -7.80,
+      "divergenceAmount": -17999.17
+    }
+  ],
+  "suggestions": [
+    {
+      "assetType": "BOND",
+      "action": "BUY",
+      "amount": 17999.17,
+      "divergencePercent": -7.80
+    }
+  ]
+}
+```
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `divergences[].divergencePercent` | number | `currentPercent − targetPercent` |
+| `divergences[].divergenceAmount` | number | Divergenza percentuale applicata al totale |
+| `suggestions[].action` | string | `BUY` (sotto-target) o `SELL` (sopra-target) |
+| `suggestions[].amount` | number | Importo assoluto per riallinearsi al target |
+
+**Errori:** `500` — Errore nel calcolo del ribilanciamento.
+
+---
+
+## 8. Codici di Errore
 
 | Codice | Significato | Formato Risposta |
 |---|---|---|
@@ -785,7 +1112,7 @@ Restituisce la lista dei ticker distinti presenti nei `cash_movements`, utile pe
 
 ```json
 {
-  "error": "Tipo non valido. Valori accettati: ETF, ETC, ETN, STOCK, BOND, FUND, COMMODITY, CASH, UNKNOWN"
+  "error": "Tipo non valido. Valori accettati: BOND, STOCK, CASH, FUND, COMMODITY, UNKNOWN"
 }
 ```
 
@@ -806,18 +1133,27 @@ Restituisce la lista dei ticker distinti presenti nei `cash_movements`, utile pe
 }
 ```
 
+**400 — Risk-free rate non valido (endpoint performance)**
+
+```json
+{
+  "error": "Invalid risk-free rate"
+}
+```
+
 **500 — Errore interno**
 
 ```json
 {
-  "error": "Errore nel calcolo dei KPI",
-  "details": "Messaggio di errore dettagliato"
+  "error": "Errore interno del server"
 }
 ```
 
+> **Nota:** l'error handler centralizzato (`middleware/errorHandler.js`) restituisce sempre un messaggio generico senza dettagli interni (no stack trace al client); i dettagli completi vengono loggati solo lato server. Le rotte API sconosciute ricevono `404 { "error": "Endpoint non trovato" }` invece del fallback SPA.
+
 ---
 
-## 8. Esempi di Utilizzo (cURL)
+## 9. Esempi di Utilizzo (cURL)
 
 > **Nota:** Tutti gli endpoint richiedono l'header `Authorization: Bearer <token>`.
 > Sostituisci `<token>` con il token API generato all'avvio del server.
@@ -882,7 +1218,7 @@ curl -H "Authorization: Bearer <token>" http://localhost:3000/api/assets/by-isin
 curl -X PATCH http://localhost:3000/api/assets/<asset_id>/type \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"assetType": "ETF"}'
+  -d '{"assetType": "BOND"}'
 ```
 
 ### Import CSV
@@ -919,6 +1255,51 @@ curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/movements?typ
 
 ```bash
 curl -H "Authorization: Bearer <token>" http://localhost:3000/api/movements/symbols
+```
+
+### Catalogo Asset Types
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/asset-types
+```
+
+### Allocazione Attuale
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/allocation/current
+```
+
+### Salva Target di Allocazione
+
+```bash
+curl -X PUT http://localhost:3000/api/allocation/target \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"tolerance": 5.0, "targets": [{"assetType": "BOND", "targetPercent": 30}, {"assetType": "STOCK", "targetPercent": 70}]}'
+```
+
+### Suggerimenti di Ribilanciamento
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/allocation/rebalance
+```
+
+### Volatilità
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/analytics/volatility
+```
+
+### Sharpe Ratio
+
+```bash
+curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/analytics/sharpe?riskFreeRate=2.5"
+```
+
+### Performance & Risk (aggregato)
+
+```bash
+curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/analytics/performance?riskFreeRate=2.2"
 ```
 
 ---

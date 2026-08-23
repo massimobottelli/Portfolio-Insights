@@ -1,4 +1,5 @@
-import { createImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, insertAssetPrice, clearDatabase, getLatestOperationDate } from '../models/importModel.js';
+import { db } from '../database.js';
+import { createImportSession, updateImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, insertAssetPrice, clearDatabase, getLatestOperationDate } from '../models/importModel.js';
 import { upsertAsset } from '../models/assetModel.js';
 import { clearAnalyticsCache } from '../models/analyticsModel.js';
 import { randomUUID } from 'node:crypto';
@@ -18,40 +19,52 @@ export function importFile(req, res) {
     let fileType;
     let records;
     let filename = req.body.filename || 'unknown.csv';
+    let extractionDate = null;
 
     // Il formato legacy { fileType, records } è stato rimosso per motivi di sicurezza:
     // accettava JSON arbitrario senza validazione, permettendo l'iniezione di
     // dati corrotti (Infinity, tipi sbagliati, date non normalizzate) e DoS.
     // Tutti i dati passano obbligatoriamente dal parser CSV che normalizza
     // date, numeri e stringhe in modo deterministico.
-    if (!req.body.fileContent) {
+    if (!req.body.fileContent || typeof req.body.fileContent !== 'string') {
       return res.status(400).json({
         error: 'Richiesta non valida',
         details: 'È richiesto fileContent (CSV come stringa)'
       });
     }
 
-    const firstLines = req.body.fileContent.split(/\r?\n/).slice(0, 7);
+    // Il parsing è una fase di VALIDAZIONE dell'input: un file malformato o non
+    // riconosciuto è un errore del client (400) con messaggio specifico, non un
+    // errore interno del server (500 generico che nascondeva la causa all'utente).
+    try {
+      const firstLines = req.body.fileContent.split(/\r?\n/).slice(0, 7);
 
-    // Rilevamento automatico: il report "Patrimonio Totale" ha una riga con "PATRIMONIO"
-    const isHistoryReport = firstLines.some(line => line.includes('PATRIMONIO'));
-    // Il report "Portafoglio Corrente" (P_TOTALE) inizia con "Portafoglio : TOTALE"
-    const isPortfolioReport = firstLines.some(line => line.includes('Portafoglio : TOTALE'));
+      // Rilevamento automatico: il report "Patrimonio Totale" ha una riga con "PATRIMONIO"
+      const isHistoryReport = firstLines.some(line => line.includes('PATRIMONIO'));
+      // Il report "Portafoglio Corrente" (P_TOTALE) inizia con "Portafoglio : TOTALE"
+      const isPortfolioReport = firstLines.some(line => line.includes('Portafoglio : TOTALE'));
 
-    if (isHistoryReport) {
-      const parsed = parseDirectaHistoryCSV(req.body.fileContent);
-      fileType = 'history';
-      records = parsed.snapshots;
-    } else if (isPortfolioReport) {
-      const parsed = parseDirectaPortfolioCSV(req.body.fileContent);
-      fileType = 'portfolio';
-      records = parsed.records;
-      // Salva la data di estrazione per usarla nel processPortfolioRecord
-      req._extractionDate = parsed.header.extractionDate;
-    } else {
-      const parsed = parseDirectaMovimentiCSV(req.body.fileContent);
-      fileType = detectFileType(parsed.header);
-      records = parsed.records;
+      if (isHistoryReport) {
+        const parsed = parseDirectaHistoryCSV(req.body.fileContent);
+        fileType = 'history';
+        records = parsed.snapshots;
+      } else if (isPortfolioReport) {
+        const parsed = parseDirectaPortfolioCSV(req.body.fileContent);
+        fileType = 'portfolio';
+        records = parsed.records;
+        // Data di estrazione del report: usata per datare correttamente i prezzi
+        // (non "oggi", ma la data reale del report P_TOTALE)
+        extractionDate = parsed.header.extractionDate || null;
+      } else {
+        const parsed = parseDirectaMovimentiCSV(req.body.fileContent);
+        fileType = detectFileType(parsed.header);
+        records = parsed.records;
+      }
+    } catch (parseError) {
+      return res.status(400).json({
+        error: 'File CSV non valido',
+        details: parseError.message
+      });
     }
 
     // Crea una sessione di import per tracciabilità
@@ -79,41 +92,62 @@ export function importFile(req, res) {
     }
 
     let importedCount = 0;
+    const recordErrors = [];
 
-    // Processa i record in base al tipo di file
-    for (const record of records) {
-      try {
-        switch (fileType) {
-          case 'orders':
-            processOrderRecord(record, session.id);
-            break;
-          case 'portfolio':
-            processPortfolioRecord(record, session.id);
-            break;
-          case 'history':
-            processHistoryRecord(record, session.id);
-            break;
-          default:
-            throw new Error(`Tipo di file sconosciuto: ${fileType}`);
+    // Transazione: garantisce atomicità dell'import (tutto o niente).
+    // Le funzioni insert* sono idempotenti (check duplicati), quindi il
+    // rollback non lascia stati intermedi.
+    db.exec('BEGIN');
+    try {
+      for (const record of records) {
+        try {
+          switch (fileType) {
+            case 'orders':
+              processOrderRecord(record, session.id);
+              break;
+            case 'portfolio':
+              processPortfolioRecord(record, session.id, extractionDate);
+              break;
+            case 'history':
+              processHistoryRecord(record, session.id);
+              break;
+            default:
+              throw new Error(`Tipo di file sconosciuto: ${fileType}`);
+          }
+          importedCount++;
+        } catch (recordError) {
+          // Registra l'errore per-record senza interrompere gli altri:
+          // verrà riportato nella sessione di import e nella risposta.
+          recordErrors.push(`${record.operationDate || '?'}: ${recordError.message}`);
         }
-        importedCount++;
-      } catch (recordError) {
-        console.warn(`Errore nel processare il record:`, recordError.message);
       }
+      db.exec('COMMIT');
+    } catch (txError) {
+      db.exec('ROLLBACK');
+      throw txError;
     }
 
     // Svuota la cache analytics dopo l'import per garantire dati freschi
     clearAnalyticsCache();
 
-    // Aggiorna la sessione con il conteggio finale
+    // Aggiorna la sessione con l'esito finale (conteggio reale + errori)
+    const status = recordErrors.length === 0 ? 'SUCCESS' : (importedCount > 0 ? 'SUCCESS' : 'FAILED');
+    updateImportSession(session.id, {
+      recordsImported: importedCount,
+      status,
+      errors: recordErrors.length > 0 ? recordErrors.join('\n') : null
+    });
+
     res.json({
       success: true,
       importSessionId: session.id,
       recordsImported: importedCount,
-      totalRecords: records.length
+      totalRecords: records.length,
+      errors: recordErrors.length > 0 ? recordErrors : undefined
     });
   } catch (error) {
-    res.status(500).json({ error: 'Errore durante l\'importazione', details: error.message });
+    console.error('Errore durante l\'importazione:', error);
+    res.status(500).json({ error: 'Errore durante l\'importazione' });
   }
 }
 
@@ -126,7 +160,8 @@ export function listSessions(req, res) {
     const sessions = getImportSessions();
     res.json(sessions);
   } catch (error) {
-    res.status(500).json({ error: 'Errore nel recupero delle sessioni', details: error.message });
+    console.error('List sessions error:', error);
+    res.status(500).json({ error: 'Errore nel recupero delle sessioni' });
   }
 }
 
@@ -149,7 +184,8 @@ export function clearAllData(req, res) {
     clearAnalyticsCache();
     res.json({ success: true, ...result });
   } catch (error) {
-    res.status(500).json({ error: 'Errore durante la cancellazione', details: error.message });
+    console.error('Clear database error:', error);
+    res.status(500).json({ error: 'Errore durante la cancellazione' });
   }
 }
 
@@ -214,7 +250,7 @@ function processOrderRecord(record, sessionId) {
   }
 }
 
-function processPortfolioRecord(record, sessionId) {
+function processPortfolioRecord(record, sessionId, extractionDate) {
   // Crea o aggiorna l'asset
   const asset = upsertAsset({
     id: randomUUID(),
@@ -225,13 +261,15 @@ function processPortfolioRecord(record, sessionId) {
     directaCode: record.directaCode || null
   });
 
-  // Salva prezzo corrente e prezzo medio se disponibili (dal report P_TOTALE)
+  // Salva prezzo corrente e prezzo medio se disponibili (dal report P_TOTALE).
+  // La data è quella di estrazione del report (passata dal controller),
+  // non "oggi": re-importare un vecchio report non deve falsificare lo storico prezzi.
   if (record.currentPrice !== undefined && record.currentPrice > 0) {
     insertAssetPrice({
       assetId: asset.id,
       currentPrice: record.currentPrice,
       averagePrice: record.averagePrice || 0,
-      extractionDate: record.extractionDate || new Date().toISOString().split('T')[0],
+      extractionDate: extractionDate || new Date().toISOString().split('T')[0],
       importSessionId: sessionId
     });
   }

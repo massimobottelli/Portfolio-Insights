@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { apiFetch } from '../lib/api';
@@ -9,12 +9,12 @@ import type {
   DivergenceItem,
   RebalanceSuggestion
 } from '../types';
+// Helper di formattazione condivisi (erano duplicati verbatim in più pagine)
+import { formatAmount, formatPercent, getAssetTypeStyle } from '../lib/format';
 
 const TARGETABLE_TYPES = ['STOCK', 'BOND', 'COMMODITY', 'FUND', 'CASH'];
 
-// Colori per il diagramma a torta, coerenti con la convention usata
-// nella Dashboard per l'allocazione portfolio (ASSET_TYPE_COLORS).
-// Lightness 50 = tinta media (come un singolo asset nel gruppo).
+// Colori per il diagramma a torta: stessa palette di lib/format.ts (getAssetTypeStyle)
 const TYPE_COLORS: Record<string, string> = {
   STOCK: 'hsl(0, 70%, 50%)',        // rosso
   BOND: 'hsl(145, 60%, 50%)',       // verde
@@ -23,40 +23,10 @@ const TYPE_COLORS: Record<string, string> = {
   CASH: 'hsl(220, 65%, 50%)',       // blu
 };
 
-const formatAmount = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return '—';
-  return value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
-const formatPercent = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return '—';
-  const sign = value >= 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)}%`;
-};
-
 const divergenceColor = (value: number) => {
   if (value > 0) return 'text-emerald-400';
   if (value < 0) return 'text-red-400';
   return 'text-slate-300';
-};
-
-/** Restituisce lo stile della label per un asset type (coerente con Portfolio.tsx) */
-const getAssetTypeStyle = (type: string) => {
-  const color = TYPE_COLORS[type] || 'hsl(0, 0%, 50%)';
-  const match = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-  if (!match) return { bg: '#1e293b40', border: color, text: color };
-  const [, h, s, l] = match;
-  const sat = parseInt(s);
-  const lum = parseInt(l);
-  const bgLum = Math.min(lum + 100, 30);
-  const bg = `hsl(${h}, ${sat}%, ${bgLum}%, 0.15)`;
-  const borderLum = Math.max(lum - 10, 15);
-  const borderSat = Math.max(sat - 0, 0);
-  const borderColor = `hsl(${h}, ${borderSat}%, ${borderLum}%)`;
-  const textLum = Math.min(lum + 30, 85);
-  const textSat = Math.min(sat + 100, 100);
-  const textColor = `hsl(${h}, ${textSat}%, ${textLum}%)`;
-  return { bg, border: borderColor, text: textColor };
 };
 
 export default function Allocation() {
@@ -164,54 +134,75 @@ export default function Allocation() {
     setTargetInputs(prev => ({ ...prev, [type]: value }));
   };
 
+  // Ricarica divergenze e suggerimenti di ribilanciamento.
+  // Chiamata dopo ogni auto-save riuscito: le divergenze dipendono dal target
+  // appena salvato, quindi la tabella "attuale vs target" e le azioni devono
+  // rifletterlo immediatamente senza che l'utente ricarichi la pagina.
+  const loadRebalance = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/allocation/rebalance');
+      if (!res.ok) return;
+      const data: RebalanceResponse = await res.json();
+      setRebalance(data);
+    } catch {
+      // Silenzioso: il prossimo salvataggio ritenterà il refresh
+    }
+  }, []);
+
   // Auto-salva quando la somma raggiunge 100%
   const lastSavedTargetsRef = useRef<string>('');
   const hasInitializedRef = useRef(false);
 
-  // Inizializza il ref con i valori caricati dal server
+  // Inizializza il ref con i valori caricati dal server (stesso formato della
+  // chiave di salvataggio, tolerance inclusa, per evitare un PUT superfluo al load)
   useEffect(() => {
-    if (!hasInitializedRef.current && targetInputs[Object.keys(targetInputs)[0]]) {
-      lastSavedTargetsRef.current = TARGETABLE_TYPES.map(t => targetInputs[t] || '0').join(',');
+    if (!hasInitializedRef.current && Object.keys(targetInputs).length > 0) {
+      lastSavedTargetsRef.current = `${TARGETABLE_TYPES.map(t => targetInputs[t] || '0').join(',')}|${toleranceInput}`;
       hasInitializedRef.current = true;
     }
-  }, [targetInputs]);
+  }, [targetInputs, toleranceInput]);
 
   useEffect(() => {
     if (!sumIsValid) return;
 
-    // Crea una stringa univoca dei target attuali per rilevare cambiamenti
-    const targetsKey = TARGETABLE_TYPES.map(t => targetInputs[t] || '0').join(',');
+    // Chiave univoca che include anche la tolerance: cambiare solo la soglia
+    // deve comunque attivare il salvataggio.
+    const targetsKey = `${TARGETABLE_TYPES.map(t => targetInputs[t] || '0').join(',')}|${toleranceInput}`;
 
-    // Salva solo se i target sono cambiati dall'ultimo salvataggio
-    if (targetsKey !== lastSavedTargetsRef.current) {
-      lastSavedTargetsRef.current = targetsKey;
-      const timeoutId = setTimeout(async () => {
-        const tolerance = parseFloat(toleranceInput);
-        const targets = TARGETABLE_TYPES.map(type => ({
-          assetType: type,
-          targetPercent: parseFloat(targetInputs[type] || '0')
-        }));
+    // Salva solo se i target/tolerance sono cambiati dall'ultimo salvataggio riuscito
+    if (targetsKey === lastSavedTargetsRef.current) return;
 
-        try {
-          const res = await apiFetch('/api/allocation/target', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tolerance, targets }),
-          });
+    const timeoutId = setTimeout(async () => {
+      const tolerance = parseFloat(toleranceInput);
+      const targets = TARGETABLE_TYPES.map(type => ({
+        assetType: type,
+        targetPercent: parseFloat(targetInputs[type] || '0')
+      }));
 
-          if (res.ok) {
-            const saved: AllocationTargetResponse = await res.json();
-            setTarget(saved);
-            setSaveMessage('Allocazione salvata');
-            setTimeout(() => setSaveMessage(null), 3000);
-          }
-        } catch (e) {
-          // Silenzioso per auto-save
+      try {
+        const res = await apiFetch('/api/allocation/target', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tolerance, targets }),
+        });
+
+        if (res.ok) {
+          const saved: AllocationTargetResponse = await res.json();
+          setTarget(saved);
+          setSaveMessage('Allocazione salvata');
+          setTimeout(() => setSaveMessage(null), 3000);
+          // Il ref viene aggiornato SOLO dopo il successo della PUT:
+          // se il salvataggio fallisce, il prossimo render ritenta.
+          lastSavedTargetsRef.current = targetsKey;
+          // Refresh immediato di divergenze e suggerimenti con il nuovo target
+          loadRebalance();
         }
-      }, 1000);
+      } catch {
+        // Silenzioso per auto-save; il ref non aggiornato consente il retry
+      }
+    }, 1000);
 
-      return () => clearTimeout(timeoutId);
-    }
+    return () => clearTimeout(timeoutId);
   }, [sumIsValid, targetInputs, toleranceInput]);
 
   if (loading) {

@@ -1,9 +1,15 @@
 import { DatabaseSync } from 'node:sqlite';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-// 1. Assicuriamoci che la cartella fisica 'db' esista nella root del progetto
-const dbDir = join(process.cwd(), 'db');
+// La cartella 'db' è risolta rispetto alla ROOT DEL PROGETTO (directory di
+// questo file), NON da process.cwd(): avviando il server da una cwd diversa
+// (es. systemd, pm2, script in sottocartelle) il database resterebbe comunque
+// in <progetto>/db, coerente con config/auth.js che salva il token nello
+// stesso percorso.
+const projectRoot = dirname(fileURLToPath(import.meta.url));
+const dbDir = join(projectRoot, 'db');
 mkdirSync(dbDir, { recursive: true });
 
 // 2. Connessione al file di database SQLite nativo

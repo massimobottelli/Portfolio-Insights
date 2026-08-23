@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Search, X, ChevronDown } from 'lucide-react';
+import { Search, X, ChevronDown, Trash2, Loader2 } from 'lucide-react';
 import type { CashMovementItem, MovementsResponse } from '../types';
 import { apiFetch } from '../lib/api';
+// Helper condiviso (era duplicato in più pagine); formatDate resta locale
+// perché qui gestisce anche i formati legacy (DD-MM-YYYY, M/D/YY)
+import { formatAmount } from '../lib/format';
 
 type SortKey = 'operation_date' | 'movement_type' | 'ticker' | 'asset_name' | 'euro_amount' | 'currency';
 type SortDirection = 'asc' | 'desc';
@@ -61,17 +64,6 @@ const formatDate = (dateStr: string | null) => {
 };
 
 /**
- * Formatta un importo numerico con 2 decimali in formato italiano.
- */
-const formatAmount = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return '—';
-  return value.toLocaleString('it-IT', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-};
-
-/**
  * Restituisce la classe CSS per il colore in base al segno dell'importo.
  * I movimenti in entrata sono verdi, in uscita rossi, neutri se zero.
  */
@@ -98,6 +90,17 @@ export default function Movements() {
   const [typeFilter, setTypeFilter] = useState('');
   const [symbolFilter, setSymbolFilter] = useState('');
   const [search, setSearch] = useState('');
+  // Debounce della ricerca: senza, ogni tasto digitato scatenava una chiamata API
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Stato cancellazione movimento: ID in fase di eliminazione + chiave di reload
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(id);
+  }, [search]);
 
   // Load dei dati
   useEffect(() => {
@@ -110,10 +113,15 @@ export default function Movements() {
     if (endDate) query.set('endDate', endDate);
     if (typeFilter) query.set('type', typeFilter);
     if (symbolFilter) query.set('symbol', symbolFilter);
-    if (search) query.set('search', search);
+    if (debouncedSearch) query.set('search', debouncedSearch);
+
+    // AbortController: cambiando filtri rapidamente le risposte possono arrivare
+    // out-of-order e una risposta STALE sovrascriverebbe i dati più recenti.
+    // L'abort della richiesta precedente garantisce che solo l'ultima scriva lo stato.
+    const controller = new AbortController();
 
     setLoading(true);
-    apiFetch(`/api/movements?${query.toString()}`)
+    apiFetch(`/api/movements?${query.toString()}`, { signal: controller.signal })
       .then(r => {
         if (!r.ok) throw new Error('Errore nel caricamento dei movimenti');
         return r.json();
@@ -123,11 +131,15 @@ export default function Movements() {
         setError(null);
       })
       .catch(err => {
+        // Richiesta annullata da un filtro più recente: non è un errore da mostrare
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error(err);
         setError('Errore nel caricamento dei movimenti');
       })
       .finally(() => setLoading(false));
-  }, [sortKey, sortDirection, startDate, endDate, typeFilter, symbolFilter, search]);
+
+    return () => controller.abort();
+  }, [sortKey, sortDirection, startDate, endDate, typeFilter, symbolFilter, debouncedSearch, reloadKey]);
 
   // Load dei simboli per il dropdown filtro
   useEffect(() => {
@@ -163,7 +175,7 @@ export default function Movements() {
   // Calcola il totale importo dei movimenti filtrati
   const totalAmount = movements.reduce((sum, mv) => sum + (mv.euro_amount ?? 0), 0);
 
-  const hasActiveFilters = Boolean(startDate || endDate || typeFilter || symbolFilter || search);
+  const hasActiveFilters = Boolean(startDate || endDate || typeFilter || symbolFilter || debouncedSearch);
 
   const resetFilters = () => {
     setStartDate('');
@@ -171,6 +183,36 @@ export default function Movements() {
     setTypeFilter('');
     setSymbolFilter('');
     setSearch('');
+  };
+
+  /**
+   * Elimina un singolo movimento dopo conferma esplicita dell'utente.
+   * Al successo ricarica la lista (incrementando reloadKey).
+   */
+  const handleDelete = async (mv: CashMovementItem) => {
+    const label = `${MOVEMENT_TYPE_LABELS[mv.movement_type] || mv.movement_type} del ${formatDate(mv.operation_date)} (${formatAmount(mv.euro_amount)} €)`;
+    if (!window.confirm(`Eliminare definitivamente il movimento "${label}"?`)) {
+      return;
+    }
+
+    setDeletingId(mv.id);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/movements/${encodeURIComponent(mv.id)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `Errore HTTP ${res.status}`);
+      }
+      // Ricarica la lista (e invalida lato server la cache analytics)
+      setReloadKey(k => k + 1);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Errore nell'eliminazione del movimento");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -299,6 +341,9 @@ export default function Movements() {
                 <th className={thClass('currency')} onClick={() => handleSort('currency')}>
                   Valuta{sortArrow('currency')}
                 </th>
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">
+                  Azioni
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
@@ -328,18 +373,32 @@ export default function Movements() {
                     {formatAmount(mv.euro_amount)}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-400">{mv.currency}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => handleDelete(mv)}
+                      disabled={deletingId !== null}
+                      title="Elimina movimento"
+                      className="inline-flex items-center justify-center p-1.5 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {deletingId === mv.id ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={15} />
+                      )}
+                    </button>
+                  </td>
                 </tr>
               ))}
               {movements.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                     Nessun movimento trovato
                   </td>
                 </tr>
               )}
               {loading && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                     Caricamento...
                   </td>
                 </tr>
@@ -349,7 +408,7 @@ export default function Movements() {
             {movements.length > 0 && hasActiveFilters && (
               <tfoot>
                 <tr className="border-t-2 border-slate-600 bg-slate-800/80">
-                  <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-white text-right uppercase tracking-wider">
+                  <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-white text-right uppercase tracking-wider">
                     Totale
                   </td>
                   <td className={`px-4 py-3 text-sm text-right font-bold whitespace-nowrap ${amountColorClass(totalAmount)}`}>
@@ -357,6 +416,7 @@ export default function Movements() {
                     <span className="text-slate-500 font-normal ml-1">€</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-400">EUR</td>
+                  <td />
                 </tr>
               </tfoot>
             )}

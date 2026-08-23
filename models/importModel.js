@@ -30,6 +30,22 @@ export function createImportSession(sessionData) {
 }
 
 /**
+ * Aggiorna una sessione di import con l'esito finale dell'elaborazione.
+ * @param {string} id - ID della sessione
+ * @param {Object} outcome - Esito dell'import
+ * @param {number} outcome.recordsImported - Numero di record effettivamente importati
+ * @param {string} outcome.status - Stato finale ('SUCCESS' | 'FAILED')
+ * @param {string|null} [outcome.errors=null] - Log degli errori per-record
+ */
+export function updateImportSession(id, { recordsImported, status, errors = null }) {
+  db.prepare(`
+    UPDATE import_sessions
+    SET records_imported = ?, status = ?, errors = ?
+    WHERE id = ?
+  `).run(recordsImported, status, errors, id);
+}
+
+/**
  * Ottiene lo storico delle sessioni di import.
  * @returns {Array} Sessioni di import ordinate per data decrescente
  */
@@ -154,17 +170,13 @@ export function insertAssetPrice(priceData) {
   const id = randomUUID();
   const { assetId, currentPrice, averagePrice, extractionDate, importSessionId } = priceData;
 
-  // Elimina eventuale record esistente per la stessa coppia (asset_id, extraction_date)
-  const existing = db
-    .prepare('SELECT id FROM asset_prices WHERE asset_id = ? AND extraction_date = ?')
-    .get(assetId, extractionDate);
-
-  if (existing) {
-    db.prepare('DELETE FROM asset_prices WHERE id = ?').run(existing.id);
-  }
-
+  // INSERT OR REPLACE: il vincolo UNIQUE(asset_id, extraction_date) fa sì che un
+  // record esistente per la stessa coppia venga sostituito in un'unica operazione
+  // (la versione precedente faceva SELECT + DELETE + INSERT: tre roundtrip).
+  // Nota: OR REPLACE cambia l'id del record — accettabile perché nessuna altra
+  // tabella referenzia asset_prices per id.
   db.prepare(`
-    INSERT INTO asset_prices (id, asset_id, current_price, average_price, extraction_date, import_session_id)
+    INSERT OR REPLACE INTO asset_prices (id, asset_id, current_price, average_price, extraction_date, import_session_id)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(id, assetId, currentPrice, averagePrice, extractionDate, importSessionId);
 

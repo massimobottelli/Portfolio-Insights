@@ -25,12 +25,20 @@ export function getMovements(options = {}) {
     search
   } = options;
 
-  // Whitelist delle colonne ordinabili per prevenire SQL injection
-  const allowedSortColumns = [
-    'operation_date', 'value_date', 'movement_type', 'euro_amount',
-    'currency', 'ticker', 'name'
-  ];
-  const safeSortBy = allowedSortColumns.includes(sortBy) ? sortBy : 'operation_date';
+  // Whitelist delle colonne ordinabili per prevenire SQL injection.
+  // Mappa i nomi esposti all'API (camelCase del frontend) alle colonne SQL reali:
+  // 'asset_name' è l'alias usato dal frontend per la colonna a.name.
+  const allowedSortColumns = {
+    'operation_date': 'cm.operation_date',
+    'value_date': 'cm.value_date',
+    'movement_type': 'cm.movement_type',
+    'euro_amount': 'cm.euro_amount',
+    'currency': 'cm.currency',
+    'ticker': 'a.ticker',
+    'name': 'a.name',
+    'asset_name': 'a.name'
+  };
+  const safeSortBy = allowedSortColumns[sortBy] || 'cm.operation_date';
   const safeSortOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
   // Costruzione dinamica della clausola WHERE
@@ -88,11 +96,23 @@ export function getMovements(options = {}) {
     FROM cash_movements cm
     LEFT JOIN assets a ON cm.asset_id = a.id
     ${whereClause}
-    ORDER BY cm.${safeSortBy} ${safeSortOrder}
+    ORDER BY ${safeSortBy} ${safeSortOrder}
   `;
   const data = db.prepare(dataQuery).all(...params);
 
   return { data, total };
+}
+
+/**
+ * Elimina un singolo movimento di cassa per ID.
+ * @param {string} id - ID del movimento (UUID)
+ * @returns {boolean} true se il movimento è stato eliminato, false se non esiste
+ */
+export function deleteMovement(id) {
+  const result = db
+    .prepare('DELETE FROM cash_movements WHERE id = ?')
+    .run(id);
+  return result.changes > 0;
 }
 
 /**

@@ -1,16 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { db } from '../database.js';
 import { TARGETABLE_ASSET_TYPES } from '../config/assetTypes.js';
-import { calculateCashBalance } from './analyticsModel.js';
-import { getExchangeRate } from '../utils/currencyService.js';
-
-/**
- * Helper: verifica se un asset è un BTP (quotato in percentuale, quantità / 100).
- * @param {string} name - Nome dell'asset
- * @param {string} ticker - Ticker dell'asset
- * @returns {boolean} true se è un BTP
- */
-const isBtpAsset = (name, ticker) =>
-  name.toLowerCase().includes('btp') || ticker.toLowerCase().includes('btp');
+import { calculateCashBalance, calculatePositions } from './analyticsModel.js';
+import { correctedQuantity } from '../utils/domainHelpers.js';
 
 /**
  * Ottiene il catalogo asset type dalla tabella DB.
@@ -75,7 +67,7 @@ export function saveAllocationTarget(tolerance, targets) {
         throw new Error(`Categoria non target-abile: ${t.assetType}`);
       }
       insert.run(
-        crypto.randomUUID(),
+        randomUUID(),
         typeRow.id,
         t.targetPercent,
         tolerance
@@ -101,55 +93,28 @@ export function saveAllocationTarget(tolerance, targets) {
  * @returns {{totalValue: number, categories: Array<{assetType: string, value: number, percent: number}>}}
  */
 export async function calculateCurrentAllocation() {
-  // 1. Posizioni attive con prezzo corrente (stessa logica di analyticsModel.calculatePositions)
-  const positions = db
-    .prepare(`
-      SELECT
-        a.id AS asset_id,
-        a.name,
-        a.ticker,
-        a.asset_type,
-        a.currency,
-        SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) AS quantity,
-        ap.current_price AS current_price
-      FROM market_orders mo
-      JOIN assets a ON a.id = mo.asset_id
-      LEFT JOIN (
-        SELECT asset_id, current_price, extraction_date
-        FROM asset_prices
-        WHERE (asset_id, extraction_date) IN (
-          SELECT asset_id, MAX(extraction_date)
-          FROM asset_prices
-          GROUP BY asset_id
-        )
-      ) ap ON ap.asset_id = a.id
-      GROUP BY a.id, a.name, a.ticker, a.asset_type, a.currency, ap.current_price
-      HAVING quantity > 0
-    `)
-    .all();
+  // 1. Posizioni attive con prezzo corrente.
+  // Riusa calculatePositions() di analyticsModel: la query era duplicata qui e
+  // NON passava dalla cache, quindi ogni chiamata ricalcolava tutto (join +
+  // conversioni ECB). Ora sfrutta la cache condivisa (TTL 5 min).
+  const positions = await calculatePositions();
 
   // 2. Valore di mercato per posizione (con correzione BTP), convertito in EUR.
-  // I prezzi sono in valuta di quotazione: per gli asset non-EUR si usa
-  // il tasso di cambio odierno ECB. Se il tasso non è disponibile,
-  // l'asset viene escluso dal totale (non distorce l'allocazione).
+  // I prezzi sono già convertiti in EUR da calculatePositions (current_price_eur).
+  // Se l'asset è in valuta estera ma il tasso ECB non è disponibile
+  // (current_price_eur null), l'asset viene escluso dal totale:
+  // sommarlo al cambio originale distorcerebbe l'allocazione.
   const categoryValues = {};
   let totalPositionsValue = 0;
 
-  const nonEurCurrencies = [...new Set(positions.map(p => p.currency).filter(c => c && c !== 'EUR'))];
-  const rates = {};
-  for (const currency of nonEurCurrencies) {
-    const rate = await getExchangeRate(currency);
-    if (rate !== null) rates[currency] = rate;
-  }
-
   for (const pos of positions) {
     if (pos.current_price === null) continue;
-    // Se l'asset è in valuta estera ma il tasso non è disponibile, salta
-    if (pos.currency && pos.currency !== 'EUR' && !rates[pos.currency]) continue;
-    const qty = isBtpAsset(pos.name, pos.ticker) ? pos.quantity / 100 : pos.quantity;
-    const priceEUR = pos.currency && pos.currency !== 'EUR'
-      ? pos.current_price / rates[pos.currency]
-      : pos.current_price;
+    const isNonEurWithoutRate =
+      pos.currency && pos.currency !== 'EUR' && pos.current_price_eur === null;
+    if (isNonEurWithoutRate) continue;
+
+    const qty = correctedQuantity(pos.name, pos.ticker, pos.quantity);
+    const priceEUR = pos.current_price_eur ?? pos.current_price;
     const marketValue = qty * priceEUR;
     const type = pos.asset_type || 'UNKNOWN';
     categoryValues[type] = (categoryValues[type] || 0) + marketValue;
