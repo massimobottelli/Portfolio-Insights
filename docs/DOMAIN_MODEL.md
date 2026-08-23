@@ -70,11 +70,10 @@ It does not represent ownership, valuation or performance.
 
 Examples:
 
-* ETF
-* ETC
-* ETN
-* Stock
 * Bond
+* Stock
+* Fund
+* Commodity
 
 ---
 
@@ -195,6 +194,14 @@ AssetPrice
 ImportSession
 ```
 
+Oltre ai fatti finanziari importati, il database persiste due entità di **configurazione utente** (non fatti finanziari):
+
+```
+AssetType (catalogo dei tipi, con flag is_targetable)
+
+AllocationTarget (target di allocazione per categoria)
+```
+
 ---
 
 # 5. Derived Models
@@ -215,6 +222,26 @@ Dashboard
 KPIs
 
 TWR (Time-Weighted Return)
+```
+
+Con MVP2 il layer derivato si è esteso alle metriche di **Performance & Risk**, tutte calcolate dalla *canonical return series* (`buildReturnSeries()` in `performanceModel.js`):
+
+```
+Canonical Return Series (rendimenti giornalieri corretti per i flussi esterni)
+
+Cumulative Performance
+
+CAGR
+
+Volatility (daily + annualizzata √365)
+
+Sharpe Ratio (risk-free rate configurabile dall'utente)
+
+Monthly / Annual Returns (compounding geometrico)
+
+Period Statistics (positivi/negativi/flat, best/worst mese e anno)
+
+Drawdown (max DD, peak/trough/recovery, durate)
 ```
 
 ---
@@ -252,7 +279,7 @@ Broker-specific identifiers are not used as domain identifiers.
 | ticker         | Yes      | Directa reports    | Trading symbol         |
 | name           | Yes      | Directa reports    | Instrument description |
 | currency       | Yes      | Directa reports    | Trading currency       |
-| assetType      | Yes      | Manual classification | ETF, ETC, ETN, STOCK, BOND, FUND, COMMODITY, CASH, UNKNOWN |
+| assetType      | Yes      | Manual classification | BOND, STOCK, CASH, FUND, COMMODITY, UNKNOWN |
 | exchange       | No       | Future enrichment  | Trading venue          |
 | directaCode    | No       | Future integration | Broker identifier      |
 
@@ -262,27 +289,27 @@ Broker-specific identifiers are not used as domain identifiers.
 
 Asset Type represents the financial category of the instrument.
 
-Possible values:
+Possible values (allineati alla tabella DB `asset_types` e a `config/assetTypes.js`):
 
 ```
-ETF
-ETC
-ETN
-STOCK
 BOND
+STOCK
+CASH
 FUND
 COMMODITY
-CASH
 UNKNOWN
 ```
 
-In MVP1:
+I tipi `ETF`, `ETC` ed `ETN` sono stati **decommissionati**: una migrazione automatica all'avvio del server riassegna gli asset con quei tipi a `UNKNOWN`.
+
+In MVP1/MVP2:
 
 * the attribute exists in the model;
 * the default value is UNKNOWN;
 * no automatic classification is performed;
 * the user can manually classify assets via the Portfolio page dropdown (PATCH `/api/assets/:id/type`);
-* on re-import, manually assigned types are preserved and not overwritten.
+* on re-import, manually assigned types are preserved and not overwritten;
+* solo le categorie target-abili (`BOND`, `STOCK`, `CASH`, `FUND`, `COMMODITY`) possono avere un target di allocazione; `UNKNOWN` è escluso.
 
 ---
 
@@ -598,9 +625,10 @@ BTPs (Italian government bonds) are quoted in percentage (e.g., 102.50 instead o
 
 The quantity imported from Directa is divided by 100 for display and calculation purposes.
 
-This transformation is applied:
+This transformation is centralized in `utils/domainHelpers.js` (`isBtpAsset()`, `correctedQuantity()`) e applicata:
 
 * In the Analytics Engine (`analyticsModel.js`) for allocation calculation
+* In `allocationModel.js` per l'allocazione attuale per categoria
 * In the frontend (`Portfolio.tsx`) for display and sorting
 
 The raw quantity in the database is never modified.

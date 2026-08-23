@@ -1,5 +1,32 @@
 # Performance & Risk Analytics — Design Document
 
+> ## ✅ STATO: IMPLEMENTATO
+>
+> Questa feature è stata implementata (Fasi 0–11 del piano sottostante). Riepilogo dello stato attuale:
+>
+> | Elemento del design | Implementazione effettiva |
+> |---|---|
+> | Canonical return series | `buildReturnSeries()` in `models/performanceModel.js` (una sola lettura dal DB, base unica per tutte le metriche) |
+> | Cumulative performance + CAGR | `calculateCumulativePerformance()`, `calculateCAGR()` (anni = giorni / 365.2425, flag `periodLessThanOneYear`) |
+> | Rendimenti mensili/annuali | `calculateMonthlyReturns()`, `calculateAnnualReturns()` (compounding geometrico) |
+> | Statistiche periodi + best/worst | `calculatePeriodStatsFromSeries()`, `calculateBestWorst()` (zero = flat, mai negativo) |
+> | Volatilità | `calculateVolatility()` con fattore di annualizzazione √365 |
+> | Sharpe + risk-free configurabile | `calculateSharpe(series, annualRf)`; il rate è parametro HTTP in %, validato (`-100 < rate < 100` → altrimenti 400). Default UI: 2,20%. Non persistito in DB. |
+> | Drawdown + recovery | `calculateDrawdown()` (max DD, peak/trough/recovery, durate, drawdown non recuperato → `recoveryDate: null`) |
+> | API aggregata | `GET /api/analytics/performance?from=&to=&riskFreeRate=` (`performanceController.js`) + endpoint individuali `/volatility` e `/sharpe` per debugging |
+> | UI | Pagina `client/src/pages/Performance.tsx` + componenti in `client/src/components/performance/` (MonthlyReturnsChart, MonthlyReturnsHeatmap, PeriodStatistics, RiskMetrics, DrawdownAnalysis, DrawdownChart) |
+> | Test | `models/__tests__/performanceAPI.test.js` (Vitest): return series, CAGR, volatilità, Sharpe, rendimenti, best/worst, drawdown con casi edge |
+> | Migrazioni DB | Nessuna (come da design): usa solo `daily_portfolio_snapshots` e `cash_movements` |
+>
+> **Differenze rispetto al design originale:**
+> - La pagina Performance calcola le metriche sempre sull'**intero periodo di investimento** (i filtri temporali 1M/3M/6M/1Y/YTD sono rimasti solo sulla Dashboard); l'API supporta comunque i parametri `from`/`to`.
+> - Il default del risk-free rate nella UI è **2,20%** (non 0%).
+> - La risposta dell'endpoint aggregato espone `bestWorst` con chiavi `month`/`worst`/`year`/`worstYear`.
+>
+> Il resto del documento resta valido come riferimento progettuale e per il piano di implementazione a fasi.
+
+---
+
 ## 1. Obiettivo
 
 Introdurre in **Portfolio Insights** una nuova sezione di analisi della performance e del rischio del **portafoglio complessivo**, senza analisi storica per singolo asset/asset class e senza rendimento reale rispetto all'inflazione.

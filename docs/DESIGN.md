@@ -9,7 +9,7 @@
 ### Project Overview
 Portfolio Insights is a self-hostable web application that analyzes a single investment portfolio exported from the Directa broker.
 
-The application focuses on long-term investments (ETFs, ETCs, ETNs and Stocks) and provides advanced insights into portfolio composition, historical evolution and investment performance.
+The application focuses on long-term investments (Bonds, Stocks, Funds and Commodities) and provides advanced insights into portfolio composition, historical evolution, investment performance and risk.
 
 ---
 
@@ -50,17 +50,20 @@ The first release focuses on providing a complete overview of the current portfo
 
 ---
 
-### MVP2
+### MVP2 (implementato)
 
 #### Pages
 - Asset Detail
-- Portfolio History
+- Allocation (target & rebalancing)
+- Performance & Risk
 
 #### Features
-- Historical portfolio evolution
-- Asset analytics
-- Advanced charts
-- Historical comparisons
+- Asset analytics (scheda di dettaglio con ordini, dividendi, cedole)
+- Target di allocazione per categoria con divergenze e suggerimenti di ribilanciamento
+- Canonical return series (rendimenti giornalieri corretti per i flussi esterni)
+- CAGR, volatilità annualizzata (√365), Sharpe ratio con risk-free rate configurabile
+- Rendimenti mensili e annuali (compounding), statistiche periodi positivi/negativi/flat
+- Maximum drawdown con peak/trough/recovery e tempi
 
 ---
 
@@ -150,12 +153,13 @@ The TWR is calculated using sub-periods delimited by external cash flows (deposi
 - **Settings** — App information display
 
 ### MVP2
-- Asset Detail (Analisi singolo strumento)
-- Portfolio History (Evoluzione temporale del patrimonio)
+- **Asset Detail** — Analisi singolo strumento (KPI posizione, cronologia ordini, dividendi/cedole)
+- **Allocation** — Editor target per categoria + soglia tolleranza, pie chart in tempo reale, divergenze attuale vs target, suggerimenti COMPRA/VENDI
+- **Performance** — KPI performance (cumulativo, CAGR, best/worst), rendimenti mensili (bar chart + heatmap), statistiche periodi, metriche di rischio (volatilità √365, Sharpe con risk-free configurabile), analisi e grafico drawdown
 
 ---
 
-## 🛠️ 8. Technical Stack
+## ️ 8. Technical Stack
 
 La filosofia di questo stack unisce il **minimalismo tecnologico** sul database e sulle logiche di parsing con la **produttività e stabilità** di Express per la gestione del server web.
 
@@ -167,6 +171,7 @@ La filosofia di questo stack unisce il **minimalismo tecnologico** sul database 
 | **Backend** | **Node.js + Express.js** | Express gestisce in modo robusto il routing delle API, il parsing automatico dei body JSON/Multipart e serve i file statici di React tramite middleware integrati. |
 | **Database** | **SQLite (Nativo)** | Gestione dei dati tramite il modulo nativo `node:sqlite` (Node 22+). Nessun ORM (No Prisma); le query SQL sono scritte in codice nativo. |
 | **Validazione** | **JavaScript Nativo** | Validazione dei tipi e parsing dei file CSV di Directa eseguiti tramite funzioni pure e moduli nativi di pulizia stringhe. |
+| **Testing** | **Vitest** | Test unit e integration sulle formule finanziarie (return series, CAGR, volatilità, Sharpe, drawdown). Esecuzione non parallela (`fileParallelism: false`) perché i test condividono lo stesso file SQLite. |
 
 ---
 
@@ -194,36 +199,62 @@ Il progetto segue un'architettura monorepo chiara basata sull'utilizzo di Expres
 ```text
 portfolio-insights/
 ├── config/
-│   └── assetTypes.js           # Centralized asset type definitions (shared BE/FE)
+│   ├── assetTypes.js           # Centralized asset type definitions (shared BE/FE)
+│   └── auth.js                 # API token management (env var o generazione automatica)
+├── middleware/
+│   ├── authMiddleware.js       # Verifica Bearer token su /api/*
+│   ├── rateLimit.js            # Rate limiter nativo (login anti brute-force)
+│   └── errorHandler.js         # Security headers, 404 API, error handler centralizzato
 ├── models/
 │   ├── assetModel.js           # Query SQLite per la gestione degli asset
 │   ├── analyticsModel.js       # Query SQLite per i dati storici e i calcoli delle metriche
 │   ├── importModel.js          # Query SQLite per l'inserimento delle transazioni e log di import
-│   └── movementModel.js        # Query SQLite per i movimenti di cassa con filtri
+│   ├── movementModel.js        # Query SQLite per i movimenti di cassa con filtri
+│   ├── allocationModel.js      # Target di allocazione, allocazione attuale, ribilanciamento
+│   ├── performanceModel.js     # Canonical return series + metriche performance/risk
+│   └── __tests__/              # Test Vitest (performanceAPI.test.js)
 ├── controllers/
 │   ├── assetController.js      # Logica per recuperare e formattare i dati degli asset
 │   ├── analyticsController.js  # Calcoli KPI, allocazione e orchestrazione della Dashboard
 │   ├── importController.js     # Gestione dell'upload, validazione e salvataggio dei CSV
-│   └── movementController.js   # Logica per recuperare e filtrare i movimenti di cassa
+│   ├── movementController.js   # Logica per recuperare e filtrare i movimenti di cassa
+│   ├── allocationController.js # Endpoint allocazione e ribilanciamento
+│   └── performanceController.js# Endpoint volatility, sharpe, performance aggregato
 ├── routes/
 │   ├── assetRoutes.js          # Definizione endpoint Express per gli strumenti (Asset)
 │   ├── analyticsRoutes.js      # Definizione endpoint Express per la Dashboard e KPI
+│   ├── performanceRoutes.js    # Endpoint volatility/sharpe/performance (/api/analytics)
 │   ├── importRoutes.js         # Definizione endpoint Express per l'importazione dei file Directa
-│   └── movementRoutes.js       # Definizione endpoint Express per i movimenti di cassa
+│   ├── movementRoutes.js       # Definizione endpoint Express per i movimenti di cassa
+│   ├── allocationRoutes.js     # Endpoint asset-types e allocation/* (montato su /api)
+│   └── authRoutes.js           # GET /api/auth/check (non protetto, rate-limited)
 ├── utils/
-│   └── csvParser.js            # Parser CSV nativo per i tre formati Directa
+│   ├── csvParser.js            # Parser CSV nativo per i tre formati Directa
+│   ├── currencyService.js      # Tassi di cambio ECB con cache giornaliera
+│   └── domainHelpers.js        # Helper dominio condivisi (correzione BTP)
+├── vitest.config.js            # Config Vitest (node env, no parallelismo file)
 ├── database.js                 # Inizializzazione della connessione a SQLite nativo
 ├── app.js                      # Configurazione di Express (middleware, routes, static files)
 ├── server.js                   # Entry point del server HTTP (avvio di app.listen)
+├── scripts/                    # build.sh, dev.sh, install/update-debian.sh, diagnose-performance.js
 ├── client/                     # Frontend React (sorgente TypeScript)
 │   ├── src/
-│   │   ├── App.tsx             # Router principale
+│   │   ├── App.tsx             # Router principale (lazy loading pagine)
 │   │   ├── types.ts            # TypeScript type definitions
 │   │   ├── components/
-│   │   │   └── Layout.tsx      # Sidebar + main layout (collapsible, responsive)
+│   │   │   ├── Layout.tsx      # Sidebar + main layout (collapsible, responsive)
+│   │   │   ├── ErrorBoundary.tsx
+│   │   │   └── performance/    # Chart mensili, heatmap, risk metrics, drawdown
+│   │   ├── hooks/
+│   │   │   └── useIsMobile.ts  # Rilevamento viewport mobile
+│   │   ├── lib/                # api.ts, format.ts, timeRange.ts, performanceApi.ts, ...
 │   │   └── pages/
+│   │       ├── Login.tsx       # Login con token API
 │   │       ├── Dashboard.tsx   # KPI, chart, allocation
 │   │       ├── Portfolio.tsx   # Positions table + Asset Class summary
+│   │       ├── Allocation.tsx  # Editor target + ribilanciamento
+│   │       ├── Performance.tsx # Performance & Risk (CAGR, volatilità, Sharpe, drawdown)
+│   │       ├── AssetDetail.tsx # Scheda dettaglio singolo strumento
 │   │       ├── Movements.tsx   # Cash movements with filters
 │   │       ├── ImportPage.tsx  # CSV upload + clear database
 │   │       └── Settings.tsx    # App info
@@ -233,7 +264,7 @@ portfolio-insights/
 
 ---
 
-## 📜 11. Development Rules
+##  11. Development Rules
 
 - **Strict MVC Separation:** Le rotte Express definiscono solo gli endpoint e chiamano i Controller. I Controller non contengono query SQL dirette, ma delegano ai Model.
 - **Express Middleware Usage:** Sfruttare i middleware nativi di Express come `express.json()` per il parsing dei dati in ingresso, ed evitare configurazioni custom ridondanti.
@@ -241,7 +272,9 @@ portfolio-insights/
 - **Business logic belongs to the Analytics package:** I calcoli complessi non vengono salvati nel DB ma generati a runtime dai controller preposti.
 - **Importers never perform business calculations:** L'importatore si occupa solo di ripulire, validare e salvare i dati grezzi in modo idempotente.
 - **Keep modules small and explicit:** Preferire funzioni pure, composizione rispetto all'ereditarietà ed evitare dipendenze circolari.
-- **Shared configuration:** I tipi di asset sono definiti in `config/assetTypes.js` e importati sia dal backend che dal frontend, garantendo un'unica fonte di verità.
+- **Shared configuration:** I tipi di asset sono definiti in `config/assetTypes.js` e allineati alla tabella DB `asset_types`; importati sia dal backend che dal frontend, garantendo un'unica fonte di verità.
+- **Canonical return series:** Tutte le metriche di performance/rischio derivano da un'unica serie di rendimenti giornalieri (`buildReturnSeries()` in `performanceModel.js`), costruita con una sola lettura dal DB — garanzia di coerenza tra TWR, CAGR, volatilità, Sharpe e drawdown.
+- **Test before changing financial logic:** Le formule finanziarie (return series, CAGR, volatilità, Sharpe, drawdown) sono coperte da test Vitest; eseguire `npm run test:run` prima e dopo ogni modifica alla logica finanziaria.
 - **Date format normalization:** Tutte le date sono memorizzate in formato ISO (YYYY-MM-DD) per garantire confronti cronologici corretti.
 
 ---
@@ -252,6 +285,7 @@ portfolio-insights/
 - Backup automatici del file SQLite locale.
 - Supporto per l'importazione da altri broker (es. Degiro, Fineco).
 - Benchmark avanzati delle performance di portafoglio rispetto ad indici globali (es. MSCI World).
+- Filtri temporali sulla pagina Performance (l'API supporta già `from`/`to`, la UI li usa solo sulla Dashboard).
 
 ---
 

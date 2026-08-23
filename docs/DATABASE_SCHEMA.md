@@ -21,7 +21,7 @@ Fields:
 - ticker: String
 - name: String
 - currency: String (e.g., "EUR", "USD")
-- assetType: AssetType (Enum: ETF, ETC, ETN, STOCK, BOND, FUND, COMMODITY, CASH, UNKNOWN)
+- assetType: AssetType (Enum: BOND, STOCK, CASH, FUND, COMMODITY, UNKNOWN — FK verso `asset_types.name`)
 - exchange: String (Nullable)
 - directaCode: String (Nullable, mapping internal Directa code if present, e.g., M.512272)
 
@@ -29,7 +29,8 @@ Rules:
 - ISIN unique
 - ISIN immutable
 - Asset type can be manually updated by the user via PATCH `/api/assets/:id/type`
-- On re-import, if the user has manually classified an asset (e.g. "ETF"), the type is preserved and not overwritten by "UNKNOWN"
+- On re-import, if the user has manually classified an asset (e.g. "BOND"), the type is preserved and not overwritten by "UNKNOWN"
+- I tipi `ETF`, `ETC`, `ETN` sono stati decommissionati: una migrazione automatica all'avvio del server li riassegna a `UNKNOWN` (l'utente può riclassificarli manualmente)
 
 ---
 
@@ -148,3 +149,42 @@ Fields:
 - status: ImportStatus (Enum: SUCCESS, FAILED)
 - recordsImported: Int
 - errors: String (Nullable, error logs if failed)
+
+---
+
+# Configuration Entities
+
+Oltre ai fatti finanziari importati, il database persiste due tabelle di **configurazione utente** (non fatti finanziari):
+
+## AssetType
+Purpose:
+Catalogo dei tipi di asset, popolato automaticamente all'avvio del server (INSERT OR IGNORE). È la controparte DB di `config/assetTypes.js`.
+
+Fields:
+- id: String (PK, es. 'bond', 'stock', ...)
+- name: String (Unique — il nome del tipo, es. 'BOND')
+- isTargetable: Integer (0/1 — indica se la categoria può avere un target di allocazione)
+
+Rules:
+- Popolato idempotentemente con 5 tipi target-abili (`BOND`, `STOCK`, `CASH`, `FUND`, `COMMODITY`) e `UNKNOWN` (non target-abile)
+- `assets.asset_type` ha una FK verso `asset_types.name`
+- I tipi decommissionati (`ETF`, `ETC`, `ETN`) non sono presenti nel catalogo
+
+---
+
+## AllocationTarget
+Purpose:
+Target di allocazione configurato dall'utente per categoria di asset (pagina Allocation).
+
+Fields:
+- id: String (UUID)
+- assetTypeId: String (FK to AssetType.id, ON DELETE CASCADE)
+- targetPercent: Decimal (percentuale obiettivo per la categoria)
+- tolerance: Decimal (soglia di tolleranza globale, default 5.0)
+
+Rules:
+- Unique constraint su `assetTypeId` (un solo target per categoria)
+- Il salvataggio è transazionale: i target esistenti vengono cancellati e sostituiti integralmente
+- La somma dei `targetPercent` deve essere 100% (validata a livello API)
+- Solo le categorie con `is_targetable = 1` possono avere un target
+- La tolerance è globale (stesso valore su tutti i record; letta dal primo)
