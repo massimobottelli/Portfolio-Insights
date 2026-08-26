@@ -1,232 +1,638 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Portfolio Insights - Update Script for Debian Linux
+# Portfolio Insights - Update Script
 # =============================================================================
-#  This script pulls the latest changes from GitHub and updates the running
-#  application on a Debian system where the app was installed via
-#  scripts/install-debian.sh.
 #
-#  Usage:
-#    sudo bash scripts/update-debian.sh
+# Aggiorna Portfolio Insights su Debian/Ubuntu.
+#
+# Uso:
+#   sudo bash update-new.sh
+#
+# Il deploy:
+#   1. verifica root e ambiente
+#   2. aggiorna il repository da origin/main
+#   3. protegge temporaneamente il database SQLite
+#   4. reinstalla le dipendenze backend con npm ci
+#   5. reinstalla le dipendenze frontend con npm ci
+#   6. ricostruisce il frontend
+#   7. rigenera il servizio systemd
+#   8. corregge i permessi
+#   9. riavvia il servizio
+#  10. verifica HTTP e systemd
+#
+# IMPORTANTE:
+#   - NON usa "npm audit fix --force"
+#   - node_modules viene eliminato come root prima di npm ci
+#   - npm viene eseguito come utente "portfolio"
 # =============================================================================
 
-set -euo pipefail
+set -Eeuo pipefail
 
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
-INSTALL_DIR="/opt/portfolio-insights"
-SERVICE_USER="portfolio"
-SERVICE_NAME="portfolio-insights"
 
-# Colors for output
+INSTALL_DIR="/opt/portfolio-insights"
+BACKEND_DIR="${INSTALL_DIR}"
+CLIENT_DIR="${INSTALL_DIR}/client"
+
+SERVICE_NAME="portfolio-insights"
+SERVICE_USER="portfolio"
+SERVICE_GROUP="portfolio"
+
+REPO_URL="https://github.com/massimobottelli/Portfolio-Insights.git"
+BRANCH="main"
+
+PORT="3000"
+
+DB_DIR="${INSTALL_DIR}/db"
+PUBLIC_DIR="${INSTALL_DIR}/public"
+
+# -----------------------------------------------------------------------------
+# Colors
+# -----------------------------------------------------------------------------
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+BLUE='\033[0;34m'
+NC='\033[0m'
 
 # -----------------------------------------------------------------------------
-# Helper functions
+# Logging
 # -----------------------------------------------------------------------------
-log_info()  { echo -e "${GREEN}[INFO]${NC}  $1"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-check_root() {
-    if [[ "$EUID" -ne 0 ]]; then
-        log_error "This script must be run as root (use sudo)."
-        exit 1
-    fi
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $*"
 }
 
-check_directory() {
-    if [[ ! -d "$INSTALL_DIR" ]]; then
-        log_error "Installation directory '$INSTALL_DIR' not found."
-        log_error "Has the application been installed? Run scripts/install-debian.sh first."
-        exit 1
-    fi
+log_ok() {
+    echo -e "${GREEN}[OK]${NC} $*"
+}
 
-    if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-        log_error "No Git repository found in '$INSTALL_DIR'."
-        log_error "The application must be installed via git clone."
-        exit 1
-    fi
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $*"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $*" >&2
+}
+
+die() {
+    log_error "$*"
+    exit 1
+}
+
+section() {
+    echo ""
+    echo "============================================================================="
+    echo "  $*"
+    echo "============================================================================="
+    echo ""
 }
 
 # -----------------------------------------------------------------------------
-# Phase 1: Pull latest code from GitHub
+# Error handler
 # -----------------------------------------------------------------------------
-pull_latest_code() {
-    log_info "Checking for updates from GitHub..."
 
-    cd "$INSTALL_DIR"
+on_error() {
+    local exit_code=$?
+    local line_no=$1
 
-    # Mark the directory as safe for Git (avoids "dubious ownership" error
-    # when running as root on a repo owned by the portfolio user)
-    git config --global --add safe.directory "$INSTALL_DIR"
+    echo ""
+    log_error "Update failed."
+    log_error "Line: ${line_no}"
+    log_error "Exit code: ${exit_code}"
+    echo ""
 
-    # Fetch remote changes (do not merge yet — we'll reset explicitly below)
-    git fetch origin main
-
-    # -------------------------------------------------------------------------
-    # Transitional safety: if the SQLite database or TypeScript build info are
-    # still tracked from an older install (they were committed in the past),
-    # untrack them WITHOUT deleting the files from disk. This preserves the
-    # user's financial data and prevents "local changes would be overwritten"
-    # errors during the pull.
-    # -------------------------------------------------------------------------
-    if git ls-files --error-unmatch db/portfolio.db >/dev/null 2>&1; then
-        log_warn "Updating git tracking: db/portfolio.db will no longer be tracked (data kept on disk)..."
-        git rm --cached -q db/portfolio.db
-    fi
-    if git ls-files --error-unmatch client/tsconfig.tsbuildinfo >/dev/null 2>&1; then
-        log_warn "Updating git tracking: client/tsconfig.tsbuildinfo will no longer be tracked..."
-        git rm --cached -q client/tsconfig.tsbuildinfo
+    if systemctl is-active --quiet "${SERVICE_NAME}" 2>/dev/null; then
+        log_info "The service is still running."
+    else
+        log_warn "The service is not currently running."
     fi
 
-    # If we staged any untracking, commit it so that HEAD no longer contains
-    # these runtime files. This is REQUIRED before reset --hard, otherwise
-    # reset would delete the (now untracked) db file from disk.
-    if ! git diff --cached --quiet; then
-        git commit -q -m "chore: untrack runtime-only files (db, tsbuildinfo)" || true
+    log_info "Useful commands:"
+    echo "  sudo systemctl status ${SERVICE_NAME} --no-pager"
+    echo "  sudo journalctl -u ${SERVICE_NAME} -n 100 --no-pager"
+
+    exit "${exit_code}"
+}
+
+trap 'on_error ${LINENO}' ERR
+
+# -----------------------------------------------------------------------------
+# Phase 0 - Checks
+# -----------------------------------------------------------------------------
+
+check_environment() {
+    section "Environment checks"
+
+    if [[ "${EUID}" -ne 0 ]]; then
+        die "This script must be run as root.
+Use: sudo bash update-new.sh"
     fi
 
-    # Save the current HEAD commit hash before updating
-    local before
-    before=$(git rev-parse HEAD)
+    if [[ ! -d "${INSTALL_DIR}" ]]; then
+        die "Installation directory does not exist: ${INSTALL_DIR}"
+    fi
 
-    # Reset the checkout to the latest remote commit. This discards any local
-    # modifications to tracked files (the code should be identical to the
-    # deployed version). Untracked runtime files like db/portfolio.db are
-    # preserved on disk.
-    git reset --hard FETCH_HEAD
+    if ! id "${SERVICE_USER}" >/dev/null 2>&1; then
+        die "Service user does not exist: ${SERVICE_USER}"
+    fi
 
-    # Check if anything actually changed
-    local after
-    after=$(git rev-parse HEAD)
+    if ! command -v git >/dev/null 2>&1; then
+        die "git is not installed."
+    fi
 
-    if [[ "$before" == "$after" ]]; then
-        log_info "No changes found. The application is already up to date."
+    if ! command -v node >/dev/null 2>&1; then
+        die "node is not installed."
+    fi
+
+    if ! command -v npm >/dev/null 2>&1; then
+        die "npm is not installed."
+    fi
+
+    if ! command -v systemctl >/dev/null 2>&1; then
+        die "systemctl is not available."
+    fi
+
+    log_info "Node version: $(node --version)"
+    log_info "npm version:  $(npm --version)"
+    log_info "Install dir:  ${INSTALL_DIR}"
+    log_info "Service user: ${SERVICE_USER}"
+
+    if [[ ! -f "${BACKEND_DIR}/package.json" ]]; then
+        die "Backend package.json not found."
+    fi
+
+    if [[ ! -f "${CLIENT_DIR}/package.json" ]]; then
+        die "Frontend package.json not found."
+    fi
+
+    if [[ ! -f "${BACKEND_DIR}/package-lock.json" ]]; then
+        die "Backend package-lock.json not found."
+    fi
+
+    if [[ ! -f "${CLIENT_DIR}/package-lock.json" ]]; then
+        die "Frontend package-lock.json not found."
+    fi
+
+    log_ok "Environment checks passed."
+}
+
+# -----------------------------------------------------------------------------
+# Database backup
+# -----------------------------------------------------------------------------
+
+DB_BACKUP=""
+
+backup_database() {
+    section "Protecting SQLite database"
+
+    mkdir -p "${DB_DIR}"
+
+    local db_files=()
+
+    while IFS= read -r -d '' file; do
+        db_files+=("$file")
+    done < <(
+        find "${DB_DIR}" \
+            -maxdepth 1 \
+            -type f \
+            \( \
+                -name "*.db" \
+                -o -name "*.sqlite" \
+                -o -name "*.sqlite3" \
+            \) \
+            -print0
+    )
+
+    if [[ "${#db_files[@]}" -eq 0 ]]; then
+        log_info "No SQLite database file found."
         return 0
     fi
 
-    log_info "Changes detected. Updating application..."
-    return 1
+    DB_BACKUP="$(mktemp -d /tmp/portfolio-insights-db.XXXXXX)"
+
+    for db_file in "${db_files[@]}"; do
+        cp -a "${db_file}" "${DB_BACKUP}/"
+        log_info "Backed up: $(basename "${db_file}")"
+    done
+
+    log_ok "SQLite database backed up temporarily."
+}
+
+restore_database() {
+    if [[ -z "${DB_BACKUP}" || ! -d "${DB_BACKUP}" ]]; then
+        return 0
+    fi
+
+    log_info "Restoring SQLite database..."
+
+    shopt -s nullglob
+
+    local backup_file
+    for backup_file in "${DB_BACKUP}"/*; do
+        cp -a "${backup_file}" "${DB_DIR}/"
+        log_info "Restored: $(basename "${backup_file}")"
+    done
+
+    shopt -u nullglob
+
+    rm -rf "${DB_BACKUP}"
+    DB_BACKUP=""
+
+    chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${DB_DIR}"
+
+    log_ok "SQLite database restored."
+}
+
+cleanup_backup() {
+    if [[ -n "${DB_BACKUP}" && -d "${DB_BACKUP}" ]]; then
+        rm -rf "${DB_BACKUP}"
+        DB_BACKUP=""
+    fi
+}
+
+trap cleanup_backup EXIT
+
+# -----------------------------------------------------------------------------
+# Phase 1 - Source code
+# -----------------------------------------------------------------------------
+
+update_source() {
+    section "Phase 1/8 - Updating source code"
+
+    cd "${INSTALL_DIR}"
+
+    log_info "Checking git repository..."
+
+    if [[ ! -d "${INSTALL_DIR}/.git" ]]; then
+        die "${INSTALL_DIR} is not a git repository."
+    fi
+
+    log_info "Fetching origin/${BRANCH}..."
+    git fetch origin "${BRANCH}"
+
+    local current_commit
+    local remote_commit
+
+    current_commit="$(git rev-parse HEAD)"
+    remote_commit="$(git rev-parse "origin/${BRANCH}")"
+
+    if [[ "${current_commit}" == "${remote_commit}" ]]; then
+        log_info "No source-code changes detected."
+        return 0
+    fi
+
+    log_info "Current commit: ${current_commit}"
+    log_info "New commit:     ${remote_commit}"
+
+    backup_database
+
+    log_info "Resetting working tree to origin/${BRANCH}..."
+
+    git reset --hard "origin/${BRANCH}"
+    git clean -fd
+
+    restore_database
+
+    log_ok "Source code updated."
 }
 
 # -----------------------------------------------------------------------------
-# Phase 2: Update npm dependencies
+# Fix npm ownership BEFORE npm operations
 # -----------------------------------------------------------------------------
-update_dependencies() {
-    log_info "Updating backend npm dependencies..."
-    cd "$INSTALL_DIR"
-    npm install
 
-    log_info "Updating frontend npm dependencies..."
-    cd "$INSTALL_DIR/client"
-    npm install
+prepare_npm_permissions() {
+    section "Preparing npm permissions"
+
+    log_info "Fixing ownership of application files..."
+
+    chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_DIR}"
+
+    # Ensure the service user can traverse the whole installation.
+    chmod u+rwx "${INSTALL_DIR}"
+    chmod u+rwx "${CLIENT_DIR}"
+
+    log_ok "Application ownership restored."
 }
 
 # -----------------------------------------------------------------------------
-# Phase 3: Rebuild frontend
+# Remove node_modules safely
 # -----------------------------------------------------------------------------
+
+clean_node_modules() {
+    local dir="$1"
+    local label="$2"
+
+    log_info "Removing ${label} node_modules..."
+
+    if [[ -d "${dir}/node_modules" ]]; then
+        # node_modules can contain files created by root.
+        # Therefore deletion MUST happen as root.
+        rm -rf --one-file-system "${dir}/node_modules"
+    fi
+
+    mkdir -p "${dir}/node_modules"
+
+    chown "${SERVICE_USER}:${SERVICE_GROUP}" "${dir}/node_modules"
+    chmod 755 "${dir}/node_modules"
+
+    log_ok "${label} node_modules cleaned."
+}
+
+# -----------------------------------------------------------------------------
+# Phase 2 - Backend dependencies
+# -----------------------------------------------------------------------------
+
+install_backend_dependencies() {
+    section "Phase 2/8 - Installing backend dependencies"
+
+    cd "${BACKEND_DIR}"
+
+    if [[ ! -f package-lock.json ]]; then
+        die "Backend package-lock.json is missing."
+    fi
+
+    clean_node_modules "${BACKEND_DIR}" "backend"
+
+    log_info "Running npm ci as user '${SERVICE_USER}'..."
+
+    sudo -u "${SERVICE_USER}" \
+        env HOME="/home/${SERVICE_USER}" \
+        npm ci --omit=dev
+
+    log_ok "Backend dependencies installed."
+}
+
+# -----------------------------------------------------------------------------
+# Phase 3 - Frontend dependencies
+# -----------------------------------------------------------------------------
+
+install_frontend_dependencies() {
+    section "Phase 3/8 - Installing frontend dependencies"
+
+    cd "${CLIENT_DIR}"
+
+    if [[ ! -f package-lock.json ]]; then
+        die "Frontend package-lock.json is missing."
+    fi
+
+    clean_node_modules "${CLIENT_DIR}" "frontend"
+
+    log_info "Running npm ci as user '${SERVICE_USER}'..."
+
+    sudo -u "${SERVICE_USER}" \
+        env HOME="/home/${SERVICE_USER}" \
+        npm ci
+
+    log_ok "Frontend dependencies installed."
+}
+
+# -----------------------------------------------------------------------------
+# Phase 4 - Build frontend
+# -----------------------------------------------------------------------------
+
 build_frontend() {
-    log_info "Rebuilding React frontend..."
-    cd "$INSTALL_DIR/client"
-    npm run build
+    section "Phase 4/8 - Building React frontend"
+
+    cd "${CLIENT_DIR}"
+
+    log_info "Running production build as user '${SERVICE_USER}'..."
+
+    sudo -u "${SERVICE_USER}" \
+        env HOME="/home/${SERVICE_USER}" \
+        NODE_ENV=production \
+        npm run build
+
+    if [[ ! -f "${PUBLIC_DIR}/index.html" ]]; then
+        die "Frontend build completed but ${PUBLIC_DIR}/index.html was not created."
+    fi
+
+    log_ok "Frontend build completed."
 }
 
 # -----------------------------------------------------------------------------
-# Phase 4: Regenerate systemd service configuration
+# Phase 5 - Systemd service
 # -----------------------------------------------------------------------------
+
 regenerate_systemd_service() {
+    section "Phase 5/8 - Configuring systemd service"
+
     local service_file="/etc/systemd/system/${SERVICE_NAME}.service"
 
-    log_info "Regenerating systemd service file at '$service_file'..."
+    log_info "Writing ${service_file}..."
 
-    cat > "$service_file" <<EOF
+    cat > "${service_file}" <<EOF
 [Unit]
 Description=Portfolio Insights - Personal Finance Portfolio Manager
-Documentation=https://github.com/massimobottelli/Portfolio-Insights
+Documentation=${REPO_URL}
 After=network.target
 
 [Service]
 Type=simple
 User=${SERVICE_USER}
-Group=${SERVICE_USER}
+Group=${SERVICE_GROUP}
+
 WorkingDirectory=${INSTALL_DIR}
-ExecStart=/usr/bin/node server.js
+
+ExecStart=/usr/bin/node ${INSTALL_DIR}/server.js
+
 Restart=on-failure
 RestartSec=5
+
 StandardOutput=journal
 StandardError=journal
+
 Environment=NODE_ENV=production
-Environment=PORT=3000
-# Carica il token API dal file .env (generato in install-debian.sh)
-EnvironmentFile=${INSTALL_DIR}/.env
+Environment=PORT=${PORT}
+
+EnvironmentFile=-${INSTALL_DIR}/.env
 
 # Security hardening
 NoNewPrivileges=true
-# ProtectSystem=full rende /usr, /etc e /opt in sola lettura. Dobbiamo
-# permettere la scrittura esplicita nella directory del database.
 ProtectSystem=full
-ReadWritePaths=${INSTALL_DIR}/db
 ProtectHome=true
 PrivateTmp=true
+
+# Allow the application to write its database.
+ReadWritePaths=${DB_DIR}
+
+# Do not expose root's home.
 InaccessiblePaths=/root
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
+    chmod 644 "${service_file}"
+
     systemctl daemon-reload
-    log_info "Systemd service configuration updated."
+    systemctl enable "${SERVICE_NAME}" >/dev/null
+
+    log_ok "Systemd service configured."
 }
 
 # -----------------------------------------------------------------------------
-# Phase 5: Fix permissions
+# Phase 6 - Permissions
 # -----------------------------------------------------------------------------
+
 fix_permissions() {
-    log_info "Restoring permissions for user '$SERVICE_USER'..."
-    chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
-    log_info "Permissions set."
+    section "Phase 6/8 - Fixing permissions"
+
+    log_info "Setting ownership to ${SERVICE_USER}:${SERVICE_GROUP}..."
+
+    chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_DIR}"
+
+    # Directories need execute permission.
+    find "${INSTALL_DIR}" \
+        -type d \
+        -exec chmod u+rwx {} \;
+
+    # Normal files need to be readable.
+    find "${INSTALL_DIR}" \
+        -type f \
+        -exec chmod u+rw {} \;
+
+    # Shell scripts executable.
+    find "${INSTALL_DIR}" \
+        -type f \
+        -name "*.sh" \
+        -exec chmod u+rwx {} \;
+
+    # server.js must be readable/executable by Node's user.
+    if [[ -f "${INSTALL_DIR}/server.js" ]]; then
+        chmod u+rw "${INSTALL_DIR}/server.js"
+    fi
+
+    # Keep .env private.
+    if [[ -f "${INSTALL_DIR}/.env" ]]; then
+        chown "${SERVICE_USER}:${SERVICE_GROUP}" "${INSTALL_DIR}/.env"
+        chmod 600 "${INSTALL_DIR}/.env"
+    fi
+
+    # Ensure database directory is writable.
+    mkdir -p "${DB_DIR}"
+    chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${DB_DIR}"
+    chmod 755 "${DB_DIR}"
+
+    log_ok "Permissions fixed."
 }
 
 # -----------------------------------------------------------------------------
-# Phase 7: Restart the service
+# Phase 7 - Restart service
 # -----------------------------------------------------------------------------
+
 restart_service() {
-    log_info "Restarting '$SERVICE_NAME' service..."
-    systemctl restart "$SERVICE_NAME"
+    section "Phase 7/8 - Restarting service"
 
-    sleep 2
+    log_info "Restarting ${SERVICE_NAME}..."
 
-    if systemctl is-active --quiet "$SERVICE_NAME"; then
-        log_info "Service '$SERVICE_NAME' is running."
+    systemctl restart "${SERVICE_NAME}"
+
+    log_info "Waiting for service to start..."
+
+    local attempts=0
+    local max_attempts=20
+
+    while [[ "${attempts}" -lt "${max_attempts}" ]]; do
+        if systemctl is-active --quiet "${SERVICE_NAME}"; then
+            log_ok "Service '${SERVICE_NAME}' is running."
+            return 0
+        fi
+
+        attempts=$((attempts + 1))
+        sleep 1
+    done
+
+    log_error "Service '${SERVICE_NAME}' failed to start."
+
+    systemctl status "${SERVICE_NAME}" --no-pager || true
+
+    echo ""
+    log_error "Last 100 journal lines:"
+    journalctl -u "${SERVICE_NAME}" -n 100 --no-pager || true
+
+    exit 1
+}
+
+# -----------------------------------------------------------------------------
+# Phase 8 - Verify application
+# -----------------------------------------------------------------------------
+
+verify_application() {
+    section "Phase 8/8 - Verifying application"
+
+    local http_code="000"
+
+    log_info "Checking http://127.0.0.1:${PORT} ..."
+
+    if command -v curl >/dev/null 2>&1; then
+        http_code="$(
+            curl \
+                --silent \
+                --show-error \
+                --output /dev/null \
+                --write-out "%{http_code}" \
+                --max-time 10 \
+                "http://127.0.0.1:${PORT}" \
+                2>/dev/null || true
+        )"
     else
-        log_error "Service '$SERVICE_NAME' failed to restart."
-        log_error "Check logs with: sudo journalctl -u $SERVICE_NAME -n 50 --no-pager"
-        exit 1
+        log_warn "curl is not installed; skipping HTTP check."
+    fi
+
+    if [[ "${http_code}" =~ ^[2345][0-9][0-9]$ ]]; then
+        log_ok "Application is responding with HTTP ${http_code}."
+    elif [[ "${http_code}" == "000" ]]; then
+        log_warn "Could not connect to application on port ${PORT}."
+        log_warn "Check: sudo journalctl -u ${SERVICE_NAME} -n 100 --no-pager"
+    else
+        log_warn "Application returned HTTP ${http_code}."
+    fi
+
+    echo ""
+
+    if systemctl is-enabled --quiet "${SERVICE_NAME}"; then
+        log_ok "Service is enabled at boot."
+    else
+        log_warn "Service is not enabled at boot."
+    fi
+
+    if systemctl is-active --quiet "${SERVICE_NAME}"; then
+        log_ok "Service is active."
+    else
+        die "Service is not active."
     fi
 }
 
 # -----------------------------------------------------------------------------
-# Phase 8: Verify
+# Show versions
 # -----------------------------------------------------------------------------
-verify_application() {
-    local http_code
-    http_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000" 2>/dev/null || echo "000")
 
-    if [[ "$http_code" != "000" ]]; then
-        log_info "Application is responding (HTTP ${http_code})."
-    else
-        log_warn "Could not verify HTTP response. Check the service logs."
-    fi
+show_versions() {
+    section "Installed frontend versions"
+
+    cd "${CLIENT_DIR}"
+
+    sudo -u "${SERVICE_USER}" \
+        env HOME="/home/${SERVICE_USER}" \
+        npm list \
+            vite \
+            @vitejs/plugin-react \
+            react-router \
+            react-router-dom \
+            esbuild \
+            nanoid \
+        --depth=0 \
+        2>/dev/null || true
 }
 
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
+
 main() {
     echo ""
     echo "============================================================================="
@@ -234,40 +640,41 @@ main() {
     echo "============================================================================="
     echo ""
 
-    check_root
-    check_directory
+    check_environment
 
-    local changes_detected=false
+    update_source
 
-    if pull_latest_code; then
-        # No code changes found — skip npm install/build but still
-        # regenerate the systemd service and restart to apply any
-        # configuration fixes (e.g. ReadWritePaths for the database).
-        echo ""
-        log_info "No code changes detected."
-        echo ""
-    else
-        changes_detected=true
-        update_dependencies
-        build_frontend
-    fi
+    prepare_npm_permissions
 
-    # Regenerate the systemd service on every update. This ensures that
-    # infrastructure fixes (like ReadWritePaths needed for SQLite writes)
-    # are applied even when the running code is already up to date.
+    install_backend_dependencies
+
+    install_frontend_dependencies
+
+    build_frontend
+
     regenerate_systemd_service
-    if [[ "$changes_detected" == "true" ]]; then
-        fix_permissions
-    fi
+
+    fix_permissions
+
     restart_service
+
     verify_application
+
+    show_versions
 
     echo ""
     echo "============================================================================="
     echo -e "  ${GREEN}Update complete!${NC}"
     echo "============================================================================="
     echo ""
-    log_info "The application has been updated successfully."
+
+    log_ok "Portfolio Insights has been updated successfully."
+
+    echo ""
+    echo "Useful commands:"
+    echo "  sudo systemctl status ${SERVICE_NAME} --no-pager"
+    echo "  sudo journalctl -u ${SERVICE_NAME} -f"
+    echo "  sudo systemctl restart ${SERVICE_NAME}"
     echo ""
 }
 
