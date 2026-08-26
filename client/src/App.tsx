@@ -14,6 +14,7 @@ const ImportPage = lazy(() => import('./pages/ImportPage'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
 const Performance = lazy(() => import('./pages/Performance'));
+const About = lazy(() => import('./pages/About'));
 
 // Fallback durante il caricamento dei chunk lazy
 function PageLoader() {
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/import" element={<ImportPage />} />
           <Route path="/performance" element={<Performance />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/about" element={<About />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
