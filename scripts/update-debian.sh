@@ -133,7 +133,7 @@ update_dependencies() {
 build_frontend() {
     log_info "Rebuilding React frontend..."
     cd "$INSTALL_DIR/client"
-    npm run build
+    runuser -u "$SERVICE_USER" -- npm run build
 }
 
 # -----------------------------------------------------------------------------
