@@ -120,11 +120,11 @@ pull_latest_code() {
 update_dependencies() {
     log_info "Updating backend npm dependencies..."
     cd "$INSTALL_DIR"
-    npm install
+    runuser -u "$SERVICE_USER" -- npm install
 
     log_info "Updating frontend npm dependencies..."
     cd "$INSTALL_DIR/client"
-    npm install
+    runuser -u "$SERVICE_USER" -- npm install
 }
 
 # -----------------------------------------------------------------------------
