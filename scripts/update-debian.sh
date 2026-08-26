@@ -120,11 +120,11 @@ pull_latest_code() {
 update_dependencies() {
     log_info "Updating backend npm dependencies..."
     cd "$INSTALL_DIR"
-    runuser -u "$SERVICE_USER" -- npm install
+    npm install
 
     log_info "Updating frontend npm dependencies..."
     cd "$INSTALL_DIR/client"
-    runuser -u "$SERVICE_USER" -- npm install
+    npm install
 }
 
 # -----------------------------------------------------------------------------
@@ -133,7 +133,7 @@ update_dependencies() {
 build_frontend() {
     log_info "Rebuilding React frontend..."
     cd "$INSTALL_DIR/client"
-    runuser -u "$SERVICE_USER" -- npm run build
+    npm run build
 }
 
 # -----------------------------------------------------------------------------
