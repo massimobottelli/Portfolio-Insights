@@ -382,7 +382,7 @@ export default function Allocation() {
                 <th className="px-4 py-3 text-right">Attuale</th>
                 <th className="px-4 py-3 text-right">Target</th>
                 <th className="px-4 py-3 text-right">Deviazione</th>
-                <th className="px-4 py-3 text-right">Importo</th>
+                <th className="px-4 py-3 text-right">Ribilanciamento</th>
                 <th className="px-4 py-3 text-center">Azione</th>
               </tr>
             </thead>
@@ -421,7 +421,7 @@ export default function Allocation() {
                       {formatPercent(divergence)}
                     </td>
                     <td className={`px-4 py-3 text-right ${divergenceColor(divergence)}`}>
-                      {divergence !== 0 ? `€${formatAmount(amount)}` : '—'}
+                      {divergence !== 0 ? `€${formatAmount(amount)}` : '+'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {isOver && divergence !== 0 ? (
