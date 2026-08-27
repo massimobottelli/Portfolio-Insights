@@ -381,8 +381,8 @@ export default function Allocation() {
                 <th className="px-4 py-3">Categoria</th>
                 <th className="px-4 py-3 text-right">Attuale</th>
                 <th className="px-4 py-3 text-right">Target</th>
+                <th className="px-4 py-3 text-right">Deviazione %</th>
                 <th className="px-4 py-3 text-right">Deviazione</th>
-                <th className="px-4 py-3 text-right">Ribilanciamento</th>
                 <th className="px-4 py-3 text-center">Azione</th>
               </tr>
             </thead>
