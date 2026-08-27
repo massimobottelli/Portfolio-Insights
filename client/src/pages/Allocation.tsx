@@ -421,7 +421,7 @@ export default function Allocation() {
                       {formatPercent(divergence)}
                     </td>
                     <td className={`px-4 py-3 text-right ${divergenceColor(divergence)}`}>
-                      {divergence !== 0 ? `€${formatAmount(amount)}` : '+'}
+                      {divergence !== 0 ? `€${formatAmount(amount)}` : '-'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {isOver && divergence !== 0 ? (
