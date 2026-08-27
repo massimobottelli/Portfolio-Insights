@@ -410,15 +410,14 @@ export default function Portfolio() {
                  return (
                   <tr
                     key={pos.asset_id}
-                    className="hover:bg-slate-700/30 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/asset/${pos.asset_id}`)}
-                  >
+                    className="hover:bg-slate-700/30 transition-colors cursor-pointer">
                     <td className="px-4 py-3 text-sm font-medium text-white">{pos.ticker}</td>
                     <td className="px-4 py-3 text-sm text-slate-400 font-mono">{pos.isin}</td>
                     <td className="px-4 py-3 text-sm">
                       <span
                         className="text-slate-300 hover:text-white hover:underline cursor-pointer transition-colors"
                         title="Click per Scheda Asset"
+                        onClick={() => navigate(`/asset/${pos.asset_id}`)}
                       >
                         {pos.name}
                       </span>
