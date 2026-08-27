@@ -69,8 +69,8 @@ Portfolio Insights è un'applicazione web **self-hostable** che analizza un port
 
 ```bash
 # Clona il repository
-git clone https://github.com/massimobottelli/Portfolio-Insights.git
-cd Portfolio-Insights
+git clone https://github.com/massimobottelli/portfolio-insights.git
+cd portfolio-insights
 
 # Installa le dipendenze backend
 npm install
