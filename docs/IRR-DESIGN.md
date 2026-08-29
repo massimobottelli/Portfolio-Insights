@@ -1,8 +1,8 @@
 # Internal Rate of Return (IRR) — Money-Weighted CAGR per Asset e Asset Type
 
-> ## STATO: FASE 0→5 COMPLETATE ✅ | Fasi 6–8 PENDING
+> ## STATO: FASE 0→6 COMPLETATE ✅ | Fasi 7–8 PENDING
 >
-> Fase 0 (Baseline e verifica) eseguita il 29/08/2026. Fase 1 (Motore IRR pure functions) eseguita il 29/08/2026. Fase 2 (Model: integrazione con DB) eseguita il 29/08/2026. Fase 3 (Controller + Route) completata il 29/08/2026. Fase 4 (Tipizzazione TypeScript frontend) completata il 29/08/2026. Fase 5 (UI: Asset Detail KPI cards) completata il 29/08/2026.
+> Fase 0 (Baseline e verifica) eseguita il 29/08/2026. Fase 1 (Motore IRR pure functions) eseguita il 29/08/2026. Fase 2 (Model: integrazione con DB) eseguita il 29/08/2026. Fase 3 (Controller + Route) completata il 29/08/2026. Fase 4 (Tipizzazione TypeScript frontend) completata il 29/08/2026. Fase 5 (UI: Asset Detail KPI cards) completata il 29/08/2026. Fase 6 (UI: IRR per Asset Type nella pagina Performance) completata il 29/08/2026.
 
 ---
 
@@ -241,7 +241,7 @@ Se la quantità netta è zero (tutte le quote vendute):
 |                      Frontend                                    |
 |                                                                  |
 |  AssetDetail.tsx ──► mostra IRR per asset                        |
-|  Portfolio.tsx ────► mostra IRR per asset type                   |
+|  Performance.tsx ──► mostra IRR per asset type                  |
 |                                                                  |
 |         GET /api/analytics/asset/:id                             |
 |         GET /api/analytics/asset-type/irr                        |
@@ -720,52 +720,207 @@ La `KpiCard` esistente accetta già `label`, `value`, `sublabel`. Usarla così c
 
 ---
 
-### Fase 6 — UI: IRR per Asset Type nella pagina Portfolio
+### Fase 6 — UI: IRR per Asset Type nella pagina Performance
 
-**File:** `client/src/pages/Portfolio.tsx`
+**File:** `client/src/pages/Performance.tsx`
 
-#### 6a. Colonna aggiuntiva nella tabella Asset Class
+#### 6a. Nuova tabella nella pagina Performance
 
-La tabella riepilogativa per Asset Class mostra già colonne: Carico, Attuale, Gain/EUR, Gain/%, Count.
+Invece di modificare la tabella Asset Class della pagina Portfolio, creiamo una **nuova tabella dedicata** nella pagina **Performance**, posizionata:
 
-Aggiungere una colonna **IRR** tra Gain/% e Count.
+- **Dopo** il box grande "CAGR" (Compound Annual Growth Rate)
+- **Prima** del diagramma a barre "Rendimenti Mensili"
 
-Header tabella aggiornato:
+Questa collocazione è semanticamente corretta: la tabella completa il quadro di performance con una metrica money-weighted (IRR) affianco alla metrica time-weighted esistente (CAGR).
+
+##### Header
 
 ```
 Tipo Asset | Carico | Attuale | Gain/EUR | Gain/% | IRR | Count
 ```
 
-Layout righe:
+##### Layout esempio
 
 ```
-STOCK    | €95.4k | €98.2k | +€2.8k | +2,93% | +9,81% | 8
-BOND     | €45.0k | €48.2k | +€3.2k | +7,11% | +5,23% | 4
-FUND     | €50.0k | €53.6k | +€3.6k | +7,20% | +7,12% | 6
-...
-TOTALE   | €250k  | €260k  | +€10k  | +4,00% | —    | 27
+┌──────────┬─────────┬─────────┬──────────┬────────┬────────┬───────┐
+│ Tipo     │ Carico  │ Attuale │ Gain/EUR │ Gain/% │ IRR    │ Count │
+├──────────┼─────────┼─────────┼──────────┼────────┼────────┼───────┤
+│ STOCK    │ €95,4k  │ €98,2k  │ +€2,8k   │ +2,93% │ +9,81% │   8   │
+│ ├ MEUD   │  €12,0k │  €11,8k │  -€0,2k  │  -1,67%│        │   1   │
+│ ├ SGLD   │  €31,0k │  €28,5k │  -€2,5k  │  -8,06%│        │   1   │
+│ ├ IEVL   │  €15,0k │  €16,2k │  +€1,2k  │  +8,00%│        │   1   │
+│ └ ...    │   ...   │   ...   │    ...   │   ...  │        │   ... │
+├──────────┼─────────┼─────────┼──────────┼────────┼────────┼───────┤
+│ BOND     │ €45,0k  │ €48,2k  │ +€3,2k   │ +7,11% │ +5,23% │   4   │
+│ ├ M.512  │  €10,0k │  €10,5k │  +€0,5k  │  +5,00%│        │   1   │
+│ └ ...    │   ...   │   ...   │    ...   │   ...  │        │   ... │
+└──────────┴─────────┴─────────┴──────────┴────────┴────────┴───────┘
+│ TOTALE   │ €250,4k │ €260k   │ +€9,6k   │ +3,84% │   —    │  27   │
+└──────────┴─────────┴─────────┴──────────┴────────┴────────┴───────┘
 ```
 
-Nota: l'IRR sul **Totale** non è significativo (mescola asset diversi senza fondere i cash flow), quindi mostrare `—`.
+**Dettaglio regole:**
+- **Row aggregata (es. STOCK)**: mostra i valori somma aggregati su tutti gli asset del tipo, **con IRR** calcolato sui flussi fusi dal backend. Label con badge colorato basato su `getAssetTypeStyle(type)`.
+- **Righe asset singolo**: indentate con prefisso `├` / `└`, mostrano ticker, carico, attuale, gain/eur, gain/%, count=1. **Senza colonna IRR**.
+- **Riga TOTALE**: somme aggregate; gain/% = totale gain/totale carico; IRR = `—`; Count = somma totale.
+- **Ordinamento**: `['STOCK', 'BOND', 'COMMODITY', 'FUND', 'CASH']`. Ogni gruppo ordinato per valore attuale decrescente.
+- **Asset type senza dati**: saltati completamente.
+
+##### Format numerico
+
+| Colonna | Formato | Esempio |
+|---|---|---|
+| Carico | `formatAmount()` | `€95,4k` / `€30.234` |
+| Attuale | `formatAmount()` | `€98,2k` / `€31.500` |
+| Gain/EUR | `formatAmount()` con segno | `+€2,8k` / `-€2,5k` |
+| Gain/% | `formatPercent()` colore emerald/rosso | `+2,93%` / `-8,06%` |
+| IRR | `formatPercent(irr, 2)` colore emerald/rosso | `+9,81%` / `-1,23%` |
+| Count | numero intero | `8` / `1` |
 
 #### 6b. Strategia di fetching
 
-Single request GET `/api/analytics/asset-type/irr` (senza parametro `assetType`) che restituisce IRR per TUTTI i tipi contemporaneamente. Più efficiente di N chiamate separate.
+**Two-pronged approach** con due chiamate parallele (`Promise.all`):
 
-#### 6c. Modifiche UI
+1. **`GET /api/analytics/asset-type/irr`** (senza parametro) → restituisce mappa `{ STOCK: {...}, BOND: {...}, ... }` con IRR aggregata per tipo. Usa la funzione `fetchAssetTypeIRRs()` già implementata in Fase 4.
 
-Aggiornare:
-- Header tabella: aggiungere `<th>IRR</th>`
-- Riga per tipo: usare i dati fetched dalla chiamata aggregata
-- Formattazione: usare `formatPercent(irr, 2)` con colore emerald/rosso
-- Totale: cella vuota o `—`
+2. **Posizioni portfolio** (`GET /api/portfolio/positions`) → riutilizza i dati già fetchati altrove nell'app. Le posizioni contengono `asset_type`, `quantity`, `average_price`, `current_price`, `current_value_eur`, `book_value_eur`.
+
+Calcolo per-row dalle posizioni:
+```ts
+const carico = position.bookValueEUR ?? (position.averagePrice * position.quantity);
+const attuale = position.currentValueEUR ?? (position.currentPrice * position.quantity);
+const gainEur = attuale - carico;
+const gainPct = carico !== 0 ? (gainEur / carico) * 100 : null;
+```
+
+**Vantaggio:** nessuna nuova query al DB necessaria.
+
+#### 6c. Implementazione UI
+
+Componente dedicato: `AssetTypeIRRTable.tsx` (nuovo file in `client/src/components/performance/`).
+
+**Struttura JSX:**
+
+```tsx
+<div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+  <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-4">
+    IRR per Tipo Asset
+  </h3>
+  <table className="w-full text-sm">
+    <thead>
+      <tr className="border-b border-slate-700">
+        <th className="text-left py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider">Tipo</th>
+        <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider">Carico</th>
+        <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider">Attuale</th>
+        <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider">Gain/EUR</th>
+        <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider">Gain/%</th>
+        <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider">IRR</th>
+        <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider">Count</th>
+      </tr>
+    </thead>
+    <tbody>{renderedGroups}</tbody>
+    <tfoot>
+      <tr className="border-t-2 border-slate-600">/* riga TOTALE */</tr>
+    </tfoot>
+  </table>
+</div>
+```
+
+**Inserimento in Performance.tsx** — dopo il box CAGR (linea ~149), prima del div "Monthly Returns Bar Chart" (linea ~151):
+
+```tsx
+{irrs && Object.keys(irrs).length > 0 && (
+  <AssetTypeIRRTable irrs={irrs} positions={portfolioPositions} />
+)}
+```
+
+**Fetch dei dati** all'inizio del component (parallelo a `fetchData` del CAGR):
+
+```ts
+const [irrs, setIrrs] = useState<Record<string, AssetTypeIRRResponse | null>>({});
+const [portfolioData, setPortfolioData] = useState<PositionItem[]>([]);
+
+useEffect(() => {
+  let cancelled = false;
+  Promise.all([
+    fetchAssetTypeIRRs(),
+    apiFetch('/api/portfolio/positions').then(r => r.json()),
+  ]).then(([irrData, posData]) => {
+    if (!cancelled) { setIrrs(irrData); setPortfolioData(posData.positions); }
+  });
+  return () => { cancelled = true; };
+}, []);
+```
+
+#### 6d. Comportamenti condizionali
+
+| Scenario | Visualizzazione |
+|---|---|
+| `irr` valido | Mostra valore colorato emerald (positivo) o rosso (negativo), formato `+X,XX%` |
+| `irr === null` | Mostra `—` in grigio |
+| Asset type assente nei dati | Nessun gruppo renderizzato (non compare affatto) |
+| Nessun dato affatto | Tabella non renderizzata (hidden) |
+| Posizioni vuote | Tabella non renderizzata |
 
 **Definition of Done:**
 
-- [ ] Colonna IRR visibile nella tabella Asset Class di Portfolio
-- [ ] Valori calcolati con una sola chiamata API aggiuntiva
-- [ ] Righe per asset type senza dati mostrano `—`
-- [ ] Riglia Totale non mostra IRR (non significativo)
+- [x] Nuova tabella visibile nella pagina Performance, sotto il box CAGR e prima del grafico "Rendimenti Mensili"
+- [x] Valori calcolati con due chiamate API parallele (asset-type IRR + posizioni portfolio)
+- [x] Righe aggregate per asset type mostrano IRR correttamente formattato
+- [x] Sottorighes per asset singoli indentate, senza IRR
+- [x] Riga TOTALE finale con somme aggregate e IRR = `—`
+- [x] Ordinamento corretto: STOCK → BOND → COMMODITY → FUND → CASH
+- [x] Nessun errore di rendering se i dati sono incompleti o vuoti
+
+## Esito Fase 6 — UI: IRR per Asset Type nella pagina Performance (29/08/2026)
+
+| Task | Esito | Dettaglio |
+|---|---|---|
+| `AssetTypeIRRTable.tsx` creato | ✅ **IMPLEMENTATO** | Componente dedicato in `client/src/components/performance/` con logica raggruppamento, calcolo per-row e rendering tabella |
+| Import in `Performance.tsx` | ✅ **IMPLEMENTATO** | Import component + import `fetchAssetTypeIRRs` + import `apiFetch` + import tipo `PositionItem` |
+| Stato React aggiunto | ✅ **IMPLEMENTATO** | `useState<Record<string, AssetTypeIRRResponse \| null>>({})` + `useState<PositionItem[]>([])` |
+| useEffect fetch parallelo | ✅ **IMPLEMENTATO** | `Promise.all([fetchAssetTypeIRRs(), apiFetch('/api/analytics/portfolio')])` con cleanup cancellation |
+| Rendering condizionale | ✅ **IMPLEMENTATO** | `{Object.keys(irrs).length > 0 && positions.length > 0 && (...)}` tra box CAGR e Monthly Returns Chart |
+| `npm run typecheck` | ✅ **PASS** | Zero errori TypeScript (`tsc -b --noEmit`) |
+| `npm run build:all` | ✅ **PASS** | Build frontend pulita in 2.30s, zero errori/warning |
+| `npm run test:run` | ✅ **PASS** | 26/26 test superati (nessuna regressione) |
+
+### Dettagli implementazione
+
+**Componente `AssetTypeIRRTable`:**
+- Raggruppa posizioni per `asset_type` usando una `Map<string, GroupedAsset[]>`
+- Calcola per-row: `carico`, `attuale`, `gainEur`, `gainPct` dai campi `average_price_eur`, `current_price_eur`, `quantity`
+- Ordina asset interni per valore attuale decrescente
+- Ordina gruppi secondo `TYPE_ORDER` → `['STOCK', 'BOND', 'COMMODITY', 'FUND', 'CASH']`
+- Badge colorato per ogni tipo asset con `getAssetTypeStyle(type)`
+- Connettori Unicode `\u251C` (├) / `\u2514` (└) per righe singolo asset
+- Separator visivo tra gruppi con bordo sottile
+- Riga TOTALE in `<tfoot>` con somma aggregate e IRR = `\u2014`
+- Restituisce `null` se nessun dato disponibile (nessun spazio occupato)
+
+**Posizionamento in `Performance.tsx`:**
+- Dopo closing tag del box CAGR (linea ~169)
+- Prima del div "Monthly Returns Bar Chart" (linea ~176)
+- Condizionale: renderizzata solo quando entrambi gli array hanno dati
+
+### Fix applicati durante l'implementazione
+
+| Problema | Soluzione |
+|---|---|
+| `PositionItem` usa snake_case (`average_price`) non camelCase | Corretti tutti i riferimenti a `pos.average_price`, `pos.current_price`, `pos.average_price_eur`, `pos.current_price_eur` |
+| `bookValueEUR` / `currentValueEUR` non esistono su PositionItem | Calcolati come `average_price * quantity` / `current_price * quantity` |
+| `formatPercent` condiviso accetta solo 1 arg | Rimosso secondo argomento `2` da `formatPercent(group.irr.irr, 2)` → `formatPercent(group.irr.irr)` (il format condiviso usa sempre 2 decimali hardcoded) |
+
+### Patch successive (post-implementazione)
+
+| Problema | Soluzione |
+|---|---|
+| IRR mostrato `/100` (es. +0,17% invece di +17%) | Sostituito `formatPercent(irr)` con `` `${(irr * 100).toFixed(2).replace(".", ",")}%` `` — moltiplica per 100 perché `formatPercent` fa `.toFixed(2)` senza scaling |
+| Mancava colonna Nome asset | Aggiunta colonna `Nome` tra Ticker e Carico; cella con `truncate max-w-[180px]` + `title={asset.name}` per tooltip hover |
+| Simboli box-drawing ├└ visibili | Rimossi `const conn = ... \u2514/\u251C`; le sotto-righe ora sono piane |
+| Sfondo riga tipo uguale alle sotto-righe | Righe aggregate: `bg-slate-700/20`; sotto-righe: `bg-slate-800/30` — contrasto visibile |
+| Valori asset singoli in font-medium | Rimossi `font-medium` da Gain/EUR e Gain/% delle sotto-righe — ora text-normal default |
+
 
 ---
 
@@ -841,7 +996,8 @@ Test delle API end-to-end usando il database di test esistente.
 | `client/src/types.ts` | **MODIFICARE** — aggiungere `AssetIRRData`, aggiornare `AssetDetailData` | 4 |
 | `client/src/lib/performanceApi.ts` | **MODIFICARE** — aggiungere helper fetch asset-type IRR | 4 |
 | `client/src/pages/AssetDetail.tsx` | ✅ **MODIFICATO** — layout KPI cards 2 righe×3, aggiunta IRR card + Carico vs Attuale | 5 |
-| `client/src/pages/Portfolio.tsx` | **MODIFICARE** — aggiungere colonna IRR nella tabella Asset Class | 6 |
+| `client/src/pages/Performance.tsx` | **MODIFICARE** — inserire nuova tabella IRR per tipo asset dopo box CAGR | 6 |
+| `client/src/components/performance/AssetTypeIRRTable.tsx` | **NUOVO** — componente tabella raggruppata per asset type con sotto-righe | 6 |
 | `docs/IRR-DESIGN.md` | **QUESTO FILE** | — |
 
 ---

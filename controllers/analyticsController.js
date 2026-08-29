@@ -10,7 +10,8 @@ import {
   calculateTWR,
   getAssetDetail,
   getDistinctPortfolioCurrencies,
-  calculateAssetTypeIRR
+  calculateAssetTypeIRR,
+  calculateAllAssetIRRs,
 } from '../models/analyticsModel.js';
 import { getRatesForCurrencies } from '../utils/currencyService.js';
 import { TARGETABLE_ASSET_TYPES } from '../config/assetTypes.js';
@@ -194,6 +195,32 @@ export async function getAllAssetTypeIRRs(req, res) {
   } catch (error) {
     console.error('Asset Type IRR error:', error);
     res.status(500).json({ error: 'Errore nel calcolo dell\'IRR per asset type' });
+  }
+}
+
+/**
+ * POST /api/analytics/assets/irr/batch
+ * Calcola l'IRR per un array di asset IDs in una sola chiamata.
+ *
+ * Request body: { ids: [string, string, ...] }
+ * Response:      { [assetId]: { irr, years, firstDate, lastDate } | null }
+ */
+export async function getAllAssetIRRsBatch(req, res) {
+  try {
+    const { ids } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Body deve contenere array "ids" non vuoto' });
+    }
+
+    // Rimuovi duplicati e valori nulli
+    const uniqueIds = [...new Set(ids)].filter(Boolean);
+    const results = calculateAllAssetIRRs(uniqueIds);
+
+    res.json(results);
+  } catch (error) {
+    console.error('Asset Batch IRR error:', error);
+    res.status(500).json({ error: 'Errore nel calcolo dell\'IRR per asset' });
   }
 }
 

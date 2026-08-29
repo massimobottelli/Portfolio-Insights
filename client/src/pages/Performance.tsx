@@ -7,14 +7,18 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Calendar } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 import type { PerformanceAnalytics } from '../lib/performanceApi';
 import { fetchPerformanceAnalytics } from '../lib/performanceApi';
+import { fetchAssetTypeIRRs, type AssetTypeIRRResponse } from '../lib/performanceApi';
+import type { PositionItem } from '../types';
 import MonthlyReturnsChart from '../components/performance/MonthlyReturnsChart';
 import MonthlyReturnsHeatmap from '../components/performance/MonthlyReturnsHeatmap';
 import PeriodStatistics from '../components/performance/PeriodStatistics';
 import RiskMetrics from '../components/performance/RiskMetrics';
 import DrawdownAnalysis from '../components/performance/DrawdownAnalysis';
 import DrawdownChart from '../components/performance/DrawdownChart';
+import AssetTypeIRRTable from '../components/performance/AssetTypeIRRTable';
 
 // ──────────────────────────────────────────────
 // Formatting helpers
@@ -46,6 +50,44 @@ export default function Performance() {
   // Callback stabile passata a RiskMetrics
   const handleRiskFreeRateChange = useCallback((rate: number) => {
     setRiskFreeRate(rate);
+  }, []);
+
+  // Fetch IRR per tipo asset + posizioni portfolio + singoli asset IRR (parallelo, una sola volta)
+  const [irrs, setIrrs] = useState<Record<string, AssetTypeIRRResponse | null>>({});
+  const [positions, setPositions] = useState<PositionItem[]>([]);
+  const [assetIrrs, setAssetIrrs] = useState<Record<string, { irr: number | null; years: number | null }>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetchAssetTypeIRRs(),
+      apiFetch('/api/analytics/portfolio').then(r => r.json()),
+    ]).then(([irrData, posData]) => {
+      if (!cancelled) {
+        setIrrs(irrData);
+        const pos = posData.positions;
+        setPositions(pos);
+        // Per ogni asset, fetch individuale dell'IRR (usa l'endpoint /api/analytics/asset/:id
+        // che è già testato e funziona correttamente anche per BPT/BOND).
+        // Promise.all: tutte le chiamate partono in parallelo.
+        if (pos.length > 0) {
+          const ids = [...new Set(pos.map((p: PositionItem) => p.asset_id))];
+          const requests = ids.map(id =>
+            apiFetch(`/api/analytics/asset/${id}`).then(r => r.json())
+          );
+          Promise.all(requests).then(assetsData => {
+            if (!cancelled) {
+              const irrMap: Record<string, { irr: number | null; years: number | null }> = {};
+              for (const data of assetsData) {
+                irrMap[data.asset.id] = data.irr ?? null;
+              }
+              setAssetIrrs(irrMap);
+            }
+          }).catch(err => console.error('Failed to fetch individual asset IRRs:', err));
+        }
+      }
+    }).catch(err => console.error('Failed to fetch asset-type IRRs:', err));
+    return () => { cancelled = true; };
   }, []);
 
   // Fetch analytics sull'INTERO periodo di investimento ('all' = nessun cutoff)
@@ -147,6 +189,11 @@ export default function Performance() {
               {metadata.periodLessThanOneYear && <> <span className="font-normal">(Periodo inferiore a 1 anno, CAGR stimato)</span></>}
             </p>
           </div>
+
+          {/* IRR per Tipo Asset — tabella raggruppata sotto CAGR */}
+          {Object.keys(irrs).length > 0 && positions.length > 0 && (
+            <AssetTypeIRRTable irrs={irrs} positions={positions} assetIrrs={assetIrrs} />
+          )}
 
           {/* Monthly Returns Bar Chart */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">

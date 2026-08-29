@@ -573,7 +573,7 @@ export function buildAssetCashFlows(assetId) {
  * @param {number|null} [currentPrice] - Prezzo corrente dall'ultimo snapshot
  * @returns {{ irr: number, years: number, firstDate: string, lastDate: string }|null}
  */
-export async function calculateAssetIRR(assetId, displayQuantity = null, currentPrice = null) {
+export function calculateAssetIRR(assetId, displayQuantity = null, currentPrice = null) {
   // Build cash flows dal DB (ordini + dividendi + cedole aggregati per data)
   let flows = buildAssetCashFlows(assetId);
   if (!flows || flows.length === 0) return null;
@@ -782,6 +782,81 @@ export function calculateAssetTypeIRR(assetType) {
     lastDate,
     assetCount: includedAssets
   };
+}
+
+/**
+ * Batch: calcola l'IRR per un array di asset IDs.
+ * Versione SYNC (senza async): non chiama getExchangeRate o altre chiamate DB async,
+ * quindi restituisce un oggetto concreto, non una Promise.
+ */
+export function calculateAllAssetIRRs(assetIds) {
+  const results = {};
+  const stmt = db.prepare(`SELECT id FROM assets WHERE id IN (${assetIds.map(() => '?').join(',')})`);
+  const assets = stmt.all(...assetIds);
+  const assetIdSet = new Set(assets.map(a => a.id));
+
+  for (const id of assetIds) {
+    if (!assetIdSet.has(id)) {
+      results[id] = null;
+      continue;
+    }
+    try {
+      // Chiamiamo buildAssetCashFlows + solveIRR direttamente (sync) invece di
+      // passare attraverso calculateAssetIRR (che è async → Promise → JSON "{}")
+      let flows = buildAssetCashFlows(id);
+      if (!flows || flows.length === 0) { results[id] = null; continue; }
+
+      const priceInfo = db.prepare(`
+        SELECT current_price, extraction_date
+        FROM asset_prices
+        WHERE asset_id = ?
+        ORDER BY extraction_date DESC
+        LIMIT 1
+      `).get(id);
+
+      const qtyRaw = db.prepare(
+        "SELECT SUM(CASE WHEN type = 'SELL' THEN -quantity ELSE quantity END) AS net_qty FROM market_orders WHERE asset_id = ?"
+      ).get(id)?.net_qty;
+
+      if (!qtyRaw || qtyRaw <= 0) { results[id] = null; continue; }
+
+      if (priceInfo && priceInfo.current_price !== null && qtyRaw > 0) {
+        const currentValue = parseFloat((qtyRaw * priceInfo.current_price).toFixed(2));
+        const lastFlowDate = flows[flows.length - 1].date;
+        const extractDate = priceInfo.extraction_date.split(' ')[0].replace(/\//g, '-');
+
+        if (lastFlowDate < extractDate) {
+          flows.push({ date: extractDate, amount: currentValue });
+        } else {
+          flows[flows.length - 1] = {
+            date: lastFlowDate,
+            amount: parseFloat((flows[flows.length - 1].amount + currentValue).toFixed(2))
+          };
+        }
+      }
+
+      if (flows.length < 2) { results[id] = null; continue; }
+
+      const irr = solveIRR(flows);
+      if (irr === null || irr <= -1 || !Number.isFinite(irr)) { results[id] = null; continue; }
+
+      const firstDate = flows[0].date;
+      const lastDate = flows[flows.length - 1].date;
+      const days = (new Date(lastDate) - new Date(firstDate)) / (1000 * 60 * 60 * 24);
+      const years = days / 365.2425;
+
+      results[id] = {
+        irr: parseFloat(irr.toFixed(6)),
+        years: Math.max(parseFloat(years.toFixed(4)), 0),
+        firstDate,
+        lastDate
+      };
+    } catch (err) {
+      console.error(`[Batch IRR Model] Error for asset ${id}:`, err.message);
+      results[id] = null;
+    }
+  }
+  return results;
 }
 
 // =============================================================================
