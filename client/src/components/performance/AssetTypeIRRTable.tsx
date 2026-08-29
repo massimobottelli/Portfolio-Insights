@@ -220,14 +220,20 @@ function _renderTable(
             >
               {formatPercent(group.gainPct)}
             </td>
-            {/* FIX 1: moltiplica IRR × 100 perché formatPercent usa .toFixed(2) senza scaling */}
-            <td
-              className={`px-3 py-2.5 text-sm text-right font-medium ${group.irr?.irr != null ? (group.irr.irr >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500"} align-middle`}
-            >
-              {group.irr?.irr != null
-                ? `${(group.irr.irr * 100).toFixed(2).replace(".", ",")}%`
-                : DASH}
-            </td>
+            {/* IRR aggregato per tipo: allineato alla sottoriga quando c'è un unico asset */}
+            {group.assets.length === 1 && group.assets[0].irr ? (
+              // Unico asset nel gruppo: uso il suo IRR reale (allineato alla sottoriga)
+              <td className={`px-3 py-2.5 text-sm text-right font-medium ${group.assets[0].irr.irr != null ? (group.assets[0].irr.irr >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500"} align-middle`}>
+                {group.assets[0].irr.irr != null
+                  ? `${(group.assets[0].irr.irr * 100).toFixed(2).replace(".", ",")}%`
+                  : DASH}
+              </td>
+            ) : (
+              // Più asset nel gruppo o nessun IRR individuale: nessun IRR aggregato significativo
+              <td className="px-3 py-2.5 text-sm text-right text-slate-500 align-middle">
+                {DASH}
+              </td>
+            )}
         </tr>
         {/* Sottorighes: singolo asset per tipo */}
         {group.assets.map((asset) => (
@@ -293,9 +299,14 @@ function _renderTable(
   });
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
-      <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-4">
-        IRR per Tipo Asset
-      </h3>
+      <div className="mb-4">
+        <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider">
+          Internal Rate of Return (IRR) 
+        </h3>
+        <p className="text-slate-400 text-xs mt-1">
+          Rendimento money-weighted per classe asset e posizione individuale
+        </p>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
