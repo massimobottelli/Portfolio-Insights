@@ -304,7 +304,7 @@ function _renderTable(
           Internal Rate of Return (IRR) 
         </h3>
         <p className="text-slate-400 text-xs mt-1">
-          Rendimento money-weighted per classe asset e posizione individuale
+          Rendimento annualizzato money-weighted per classe asset e posizione individuale
         </p>
       </div>
       <div className="overflow-x-auto">

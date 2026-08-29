@@ -185,7 +185,7 @@ export default function Performance() {
               {formatPercent(performance.cagr)}
             </p>
             <p className="text-slate-300 mt-2 text-base lg:text-lg font-medium">
-              Rendimento annuo composto
+              Rendimento annuo composto time-weighted
               {metadata.periodLessThanOneYear && <> <span className="font-normal">(Periodo inferiore a 1 anno, CAGR stimato)</span></>}
             </p>
           </div>
