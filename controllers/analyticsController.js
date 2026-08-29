@@ -9,9 +9,11 @@ import {
   getDepositHistory,
   calculateTWR,
   getAssetDetail,
-  getDistinctPortfolioCurrencies
+  getDistinctPortfolioCurrencies,
+  calculateAssetTypeIRR
 } from '../models/analyticsModel.js';
 import { getRatesForCurrencies } from '../utils/currencyService.js';
+import { TARGETABLE_ASSET_TYPES } from '../config/assetTypes.js';
 
 /**
  * GET /api/analytics/dashboard
@@ -144,10 +146,54 @@ export async function getAssetDetailHandler(req, res) {
       return res.status(404).json({ error: 'Asset non trovato' });
     }
 
+    // Il campo irr è già incluso da getAssetDetail() che chiama calculateAssetIRR() internamente.
     res.json(detail);
   } catch (error) {
     console.error('Asset detail error:', error);
     res.status(500).json({ error: 'Errore nel recupero del dettaglio asset' });
+  }
+}
+
+/**
+ * GET /api/analytics/asset-type/irr
+ * Restituisce l'IRR money-weighted aggregato per categoria di attività.
+ *
+ * Parametri query:
+ * - assetType (opzionale): se presente, restituisce solo quel tipo
+ *   Deve essere uno dei TARGETABLE_ASSET_TYPES (BOND, STOCK, CASH, FUND, COMMODITY)
+ *
+ * Response (senza parametro): { BOND: {...}, STOCK: {...}, ... }
+ * Response (con parametro):   { STOCK: {...} } o errore 400
+ *
+ * Struttura valore:
+ * { irr: number|null, years: number, firstDate: string, lastDate: string, assetCount: number }
+ */
+export async function getAllAssetTypeIRRs(req, res) {
+  try {
+    const { assetType } = req.query;
+
+    let typesToQuery;
+    if (assetType) {
+      const normalized = assetType.toUpperCase().trim();
+      if (!TARGETABLE_ASSET_TYPES.includes(normalized)) {
+        return res.status(400).json({
+          error: `Tipo di asset non valido: ${assetType}. Tipi consentiti: ${TARGETABLE_ASSET_TYPES.join(', ')}`
+        });
+      }
+      typesToQuery = [normalized];
+    } else {
+      typesToQuery = [...TARGETABLE_ASSET_TYPES];
+    }
+
+    const results = {};
+    for (const type of typesToQuery) {
+      results[type] = calculateAssetTypeIRR(type) ?? null;
+    }
+
+    res.json(results);
+  } catch (error) {
+    console.error('Asset Type IRR error:', error);
+    res.status(500).json({ error: 'Errore nel calcolo dell\'IRR per asset type' });
   }
 }
 

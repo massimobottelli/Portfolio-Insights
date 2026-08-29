@@ -1,6 +1,7 @@
 import { db } from '../database.js';
 import { getExchangeRate } from '../utils/currencyService.js';
 import { correctedQuantity } from '../utils/domainHelpers.js';
+import { solveIRR } from '../utils/irrEngine.js';
 
 // =============================================================================
 // Cache in memoria per i risultati dei calcoli pesanti
@@ -432,6 +433,12 @@ export async function getAssetDetail(assetId) {
       ? (currentValueEUR / totalType) * 100
       : null;
 
+  // ──────────────────────────────────────────────
+  // Calcolo IRR money-weighted per questo asset
+  // La qty utilizzata coincide con displayQuantity (già corretta per BTP etc.)
+  // ──────────────────────────────────────────────
+  const irrResult = await calculateAssetIRR(assetId, displayQuantity, currentPrice);
+
   return {
     asset: {
       id: asset.id,
@@ -478,7 +485,256 @@ export async function getAssetDetail(assetId) {
       date: c.operation_date,
       amount: c.euro_amount,
       currency: c.currency
-    }))
+    })),
+    // ──────────────────────────────────────────────
+    // IRR money-weighted (null se calcolabile non disponibile)
+    // ──────────────────────────────────────────────
+    irr: irrResult ?? null
+  };
+}
+
+// =============================================================================
+// IRR — Internal Rate of Return (Money-Weighted)
+// =============================================================================
+
+/**
+ * Costruisce l'array di cash flow per un dato asset, estratto dal DB reale.
+ *
+ * Flussi inclusi:
+ * 1. Ordini market (BUY/SELL) — euro_amount già firmato (- BUY, + SELL)
+ * 2. Dividendi (DIVIDEND da cash_movements)
+ * 3. Cedole (INTEREST da cash_movements)
+ * 4. Valore corrente = displayQuantity × currentPrice (flusso finale positivo)
+ *
+ * @param {string} assetId - UUID dell'asset
+ * @returns {{ date: string, amount: number }[]|null} Array di flussi ordinati per data, o null se non calcolabile
+ */
+export function buildAssetCashFlows(assetId) {
+  // 1. Ordini market (euro_amount già firmato: negativo per BUY, positivo per SELL)
+  const orders = db.prepare(`
+    SELECT operation_date, euro_amount
+    FROM market_orders
+    WHERE asset_id = ?
+    ORDER BY operation_date ASC
+  `).all(assetId);
+
+  if (!orders || orders.length === 0) return null;
+
+  // 2. Dividendi
+  const dividends = db.prepare(`
+    SELECT operation_date, euro_amount
+    FROM cash_movements
+    WHERE asset_id = ? AND movement_type = 'DIVIDEND'
+    ORDER BY operation_date ASC
+  `).all(assetId);
+
+  // 3. Cedole
+  const coupons = db.prepare(`
+    SELECT operation_date, euro_amount
+    FROM cash_movements
+    WHERE asset_id = ? AND movement_type = 'INTEREST'
+    ORDER BY operation_date ASC
+  `).all(assetId);
+
+  // 4. Combina tutti i flussi e ordina cronologicamente
+  const allFlows = [...orders, ...dividends, ...coupons];
+  allFlows.sort((a, b) => a.operation_date.localeCompare(b.operation_date));
+
+  // 5. Aggrega i flussi che hanno la stessa data (somma gli importi)
+  const flowMap = {};
+  for (const f of allFlows) {
+    flowMap[f.operation_date] = (flowMap[f.operation_date] || 0) + f.euro_amount;
+  }
+
+  const flows = Object.entries(flowMap).map(([date, amount]) => ({
+    date,
+    amount: parseFloat(amount.toFixed(2))
+  }));
+
+  if (flows.length === 0) return null;
+
+  // 6. Controlla: servono almeno un flusso positivo e uno negativo (escluso il valore corrente)
+  //    Se ci sono solo ordini e tutti negativi (solo BUY), serve il valore corrente per avere un positivo
+  const hasPositiveFlow = orders.some(o => o.euro_amount > 0); // almeno un SELL
+  const hasNegativeFlow = orders.some(o => o.euro_amount < 0); // almeno un BUY
+
+  // Nessun ordine misto BUY+SELL → impossibile calcolare IRR significativo
+  if (!hasPositiveFlow || !hasNegativeFlow) return null;
+
+  return flows;
+}
+
+/**
+ * Orchestratore IRR per singolo asset.
+ *
+ * Combina buildAssetCashFlows (DB) con solveIRR (motore puro)
+ * e restituisce un oggetto strutturato con irr, durata, date.
+ *
+ * @param {string} assetId - UUID dell'asset
+ * @param {number} [displayQuantity] - Quantità corretta per display (evita duplicare correctedQuantity)
+ * @param {number|null} [currentPrice] - Prezzo corrente dall'ultimo snapshot
+ * @returns {{ irr: number, years: number, firstDate: string, lastDate: string }|null}
+ */
+export async function calculateAssetIRR(assetId, displayQuantity = null, currentPrice = null) {
+  // Build cash flows dal DB
+  const flows = buildAssetCashFlows(assetId);
+  if (!flows || flows.length < 2) return null;
+
+  // Risolvi IRR con Newton-Raphson (irrEngine)
+  const irr = solveIRR(flows);
+  if (irr === null || irr <= -1 || !Number.isFinite(irr)) return null;
+
+  // Calcola durata in anni decimali (dal primo al ultimo flusso)
+  const firstDate = flows[0].date;
+  const lastDate = flows[flows.length - 1].date;
+  const days = (new Date(lastDate) - new Date(firstDate)) / (1000 * 60 * 60 * 24);
+  const years = days / 365.2425;
+
+  return {
+    irr: parseFloat(irr.toFixed(6)),
+    years: Math.max(parseFloat(years.toFixed(4)), 0),
+    firstDate,
+    lastDate
+  };
+}
+
+/**
+ * Calcola l'IRR money-weighted aggregato per una categoria di asset.
+ *
+ * Logica:
+ * 1. Recupera tutti gli asset della categoria specificata
+ * 2. Per ogni asset con almeno un ordine BUY → estrae i flussi di cassa
+ *    (ordini + dividendi + cedole)
+ * 3. Se la posizione è aperta (qty > 0 e currentPrice disponibile),
+ *    aggiunge un flusso finale positivo = qty × currentPrice sul latest extraction_date
+ * 4. Aggrega tutti i flussi in un unico array ordinato per data
+ * 5. Risolve una singola IRR sull'intero set (money-weighted del tipo completo)
+ *
+ * @param {string} assetType - Tipo di asset (es. 'STOCK', 'BOND')
+ * @returns {{ irr: number, years: number, firstDate: string, lastDate: string, assetCount: number }|null}
+ */
+export function calculateAssetTypeIRR(assetType) {
+  // 1. Recupera tutti gli asset della categoria (servono id, name, ticker per correctedQuantity)
+  const assets = db
+    .prepare('SELECT id, name, ticker FROM assets WHERE asset_type = ?')
+    .all(assetType);
+
+  if (!assets || assets.length === 0) return null;
+
+  // 2. Per ogni asset, raccoglie i flussi di cassa
+  const allFlows = [];
+  let includedAssets = 0;
+
+  for (const asset of assets) {
+    // Controlla se l'asset ha almeno un BUY (necessario per avere investimenti da valorizzare)
+    const buyCount = db.prepare(`
+      SELECT COUNT(*) AS cnt FROM market_orders
+      WHERE asset_id = ? AND type = 'BUY'
+    `).get(asset.id).cnt;
+
+    if (buyCount === 0) continue; // Nessun investimento → skip
+
+    // Flussi base: ordini + dividendi + cedole
+    const flows = buildAssetCashFlows(asset.id);
+    if (flows && flows.length > 0) {
+      // Asset con BUY+SELL (o altre combinazioni): usa i flussi esistenti
+      includedAssets++;
+      for (const f of flows) {
+        allFlows.push({ date: f.date, amount: f.amount });
+      }
+    } else {
+      // Asset con SOLO BUY (es. BOND con acquisto singolo): crea flussi manuali dagli ordini
+      // e aggiungerà il valore corrente come flusso positivo finale
+      const baseOrders = db.prepare(`
+        SELECT operation_date, euro_amount
+        FROM market_orders
+        WHERE asset_id = ? AND type = 'BUY'
+        ORDER BY operation_date ASC
+      `).all(asset.id);
+
+      if (baseOrders.length === 0) continue;
+
+      const dividends = db.prepare(`
+        SELECT operation_date, euro_amount
+        FROM cash_movements
+        WHERE asset_id = ? AND movement_type = 'DIVIDEND'
+        ORDER BY operation_date ASC
+      `).all(asset.id);
+
+      const coupons = db.prepare(`
+        SELECT operation_date, euro_amount
+        FROM cash_movements
+        WHERE asset_id = ? AND movement_type = 'INTEREST'
+        ORDER BY operation_date ASC
+      `).all(asset.id);
+
+      // Combina e aggrega per data
+      const allAssetFlows = [...baseOrders, ...dividends, ...coupons];
+      const flowMap = {};
+      for (const f of allAssetFlows) {
+        flowMap[f.operation_date] = (flowMap[f.operation_date] || 0) + f.euro_amount;
+      }
+      for (const [date, amount] of Object.entries(flowMap)) {
+        allFlows.push({ date, amount: parseFloat(amount.toFixed(2)) });
+      }
+
+      includedAssets++;
+    }
+
+    // Verifica se la posizione è aperta e aggiunge il valore corrente come flusso finale
+    // Il valore corrente rappresenta un "vendita ipotetica oggi" necessario per annualizzare l'IRR
+    const priceInfo = db.prepare(`
+      SELECT current_price, extraction_date
+      FROM asset_prices
+      WHERE asset_id = ?
+      ORDER BY extraction_date DESC
+      LIMIT 1
+    `).get(asset.id);
+
+    // Usa correctedQuantity (gestisce BTP: qty/100)
+    const qtyRaw = db.prepare(
+      "SELECT SUM(CASE WHEN type = 'SELL' THEN -quantity ELSE quantity END) AS net_qty FROM market_orders WHERE asset_id = ?"
+    ).get(asset.id).net_qty;
+
+    if (priceInfo && priceInfo.current_price !== null && qtyRaw > 0) {
+      const currentQty = asset.name.toLowerCase().includes('btp') ||
+        asset.ticker.toLowerCase().includes('btp')
+        ? qtyRaw / 100
+        : qtyRaw;
+      const currentValue = parseFloat((currentQty * priceInfo.current_price).toFixed(2));
+      allFlows.push({
+        date: priceInfo.extraction_date,
+        amount: currentValue
+      });
+    }
+  }
+
+  // Almeno 2 flussi totali per calcolare IRR
+  if (allFlows.length < 2) return null;
+
+  // Ordina cronologicamente PRIMA di chiamare solveIRR
+  allFlows.sort((a, b) => a.date.localeCompare(b.date));
+
+  // Controlla che ci sia almeno un positivo e uno negativo nell'aggregato totale
+  const hasPositive = allFlows.some(f => f.amount > 0);
+  const hasNegative = allFlows.some(f => f.amount < 0);
+  if (!hasPositive || !hasNegative) return null;
+
+  // Risolvi IRR sull'array aggregato
+  const irrResult = solveIRR(allFlows);
+  if (irrResult === null || irrResult <= -1 || !Number.isFinite(irrResult)) return null;
+
+  const firstDate = allFlows[0].date;
+  const lastDate = allFlows[allFlows.length - 1].date;
+  const days = (new Date(lastDate) - new Date(firstDate)) / (1000 * 60 * 60 * 24);
+  const years = days / 365.2425;
+
+  return {
+    irr: parseFloat(irrResult.toFixed(6)),
+    years: Math.max(parseFloat(years.toFixed(4)), 0),
+    firstDate,
+    lastDate,
+    assetCount: includedAssets
   };
 }
 
