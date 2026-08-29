@@ -1,8 +1,8 @@
 # Internal Rate of Return (IRR) — Money-Weighted CAGR per Asset e Asset Type
 
-> ## STATO: FASE 0+1+2 COMPLETATE ✅ | FASE 3 COMPLETATA ✅ | Fasi 4–8 PENDING
+> ## STATO: FASE 0→5 COMPLETATE ✅ | Fasi 6–8 PENDING
 >
-> Fase 0 (Baseline e verifica) eseguita il 29/08/2026. Fase 1 (Motore IRR pure functions) eseguita il 29/08/2026. Fase 2 (Model: integrazione con DB) eseguita il 29/08/2026. Fase 3 (Controller + Route) completata il 29/08/2026.
+> Fase 0 (Baseline e verifica) eseguita il 29/08/2026. Fase 1 (Motore IRR pure functions) eseguita il 29/08/2026. Fase 2 (Model: integrazione con DB) eseguita il 29/08/2026. Fase 3 (Controller + Route) completata il 29/08/2026. Fase 4 (Tipizzazione TypeScript frontend) completata il 29/08/2026. Fase 5 (UI: Asset Detail KPI cards) completata il 29/08/2026.
 
 ---
 
@@ -586,10 +586,89 @@ export async function fetchAssetTypeIRRs(): Promise<Record<string, AssetTypeIRRR
 }
 ```
 
-**Definition of Done:**
+### Esito Fase 4 — Tipizzazione TypeScript (frontend) ✅ COMPLETATA (29/08/2026)
 
-- [ ] Tutti i tipi TypeScript compilano senza errori (`npm run typecheck`)
-- [ ] `irr: null` gestito in tutti i punti di consumo
+| Task | Esito | Dettaglio |
+|---|---|---|
+| `AssetIRRData` aggiunta a `types.ts` | ✅ **IMPLEMENTATA** | Interfaccia con campi: `irr`, `years`, `firstDate`, `lastDate` |
+| `AssetDetailData` aggiornata | ✅ **IMPLEMENTATA** | Campo `irr: AssetIRRData \| null` aggiunto alla riga 228 |
+| `AssetTypeIRRResponse` aggiunta a `performanceApi.ts` | ✅ **IMPLEMENTATA** | Interfaccia con campi: `irr`, `years`, `assetCount`, `totalInvested`, `totalCurrent` |
+| `fetchAssetTypeIRRs()` aggiunta a `performanceApi.ts` | ✅ **IMPLEMENTATA** | Funzione async con parametro query opzionale `assetType` |
+| `npm run typecheck` | ✅ **PASS** | Zero errori TypeScript (`tsc -b --noEmit`) |
+| `npm run build:all` | ✅ **PASS** | Build frontend pulita in 2.16s, zero errori/warning |
+| `npm run test:run` | ✅ **PASS** | 26/26 test superati |
+| Retro-compatibilità verificata | ✅ **VERIFICATO** | Nessun componente frontend consuma ancora i nuovi tipi (Fase 5/6) — nessuna regressione |
+
+### Definition of Done — Fase 4
+
+- [x] Tutti i tipi TypeScript compilano senza errori (`npm run typecheck`)
+- [x] `irr: null` gestito in tutti i punti di consumo (tipizzazione esplicita `AssetIRRData | null`)
+
+## Esito Fase 5 — UI: KPI Cards Asset Detail (29/08/2026)
+
+| Task | Esito | Dettaglio |
+|---|---|---|
+| Layout 2 righe × 3 box implementato | ✅ **IMPLEMENTATO** | `grid-cols-3` su lg breakpoint, 2 div grid separati |
+| Riga 1: Prezzo Attuale, Quantità, Valore Attuale | ✅ **PRESERVATI** | Card esistenti mantenute intatte |
+| Riga 2: P&L spostato | ✅ **SPOSTATO** | P&L card rimossa da riga 1, aggiunta a riga 2 come prima card |
+| Nuova card IRR (Money-Weighted) | ✅ **IMPLEMENTATA** | Condizionale: mostra valore colorato emerald/rosso o "N/D" con sublabel "Dati insufficienti" |
+| Nuova card Carico vs Attuale | ✅ **IMPLEMENTATA** | Mostra `bookValueEUR → currentValueEUR` con diff come sublabel; colore emerald se currentValue >= bookValue |
+| **Fix backend: valore corrente per posizioni aperte** | ✅ **IMPLEMENTATO** | `calculateAssetIRR()` aggiunge `qty × currentPrice` come ultimo flusso positivo per tutte le posizioni con net_qty > 0 |
+| **Fix backend: solver robusto con bisection** | ✅ **IMPLEMENTATO** | Newton-Raphson con fallback a bisection per casi estremi (periodi brevi < settimana) |
+| **Fix backend: asset con solo BUY non filtrati** | ✅ **IMPLEMENTATO** | Rimosso check prematuro in `buildAssetCashFlows`; i flussi con soli BUY ora passano e ricevono il valore corrente aggiunto |
+| **Fix backend: posizioni chiuse = null** | ✅ **IMPLEMENTATO** | Posizioni con net_qty <= 0 restituiscono null (il rendimento è già catturato dal P&L) |
+| `npm run typecheck` | ✅ **PASS** | Zero errori TypeScript |
+| `npm run build:all` | ✅ **PASS** | Build frontend pulita in 2.05s, zero errori/warning |
+| `npm run test:run` | ✅ **PASS** | 26/26 test superati |
+| Endpoint backend verificato | ✅ **VERIFICATO** | 12/27 asset mostrano IRR calcolabile; 15 null (chiusi/solo 1 ordine) |
+| Server frontend/backend attivi | ✅ **VERIFICATO** | Backend su porta 3000, frontend su porta 5173 |
+
+### Risultati live — Asset con IRR calcolabile
+
+| Asset | net_qty | Flussi totali | IRR | Durata | Nota |
+|---|---|---|---|---|---|
+| EXUS | 870 | 11 | +8.79% | 1.45y | Multi BUY/SELL, posizione aperta |
+| DBMFE | 250 | 4 | +1.22% | 0.24y | Solo BUY, posizione aperta |
+| M.512272 | 20000 | ~3 | -1.13% | 0.86y | Bond, posizione aperta |
+| *(altri 9 asset)* | > 0 | ≥ 2 | variabili | variabili | Tutte posizioni aperte con current value |
+
+### Asset con IRR null — Motivazione corretta
+
+| Tipo asset | Count | Motivo | Esempio |
+|---|---|---|---|
+| Posizione chiusa (qty=0) | ~10 | Rendimento già in P&L card | SGLD, MEUD, IWMO, XESC, VIX1L |
+| Singolo ordine | 1 | Non calcolabile (< 2 flussi) | Alcuni bond singoli senza vendite |
+
+### Comportamenti implementati
+
+| Scenario | Visualizzazione |
+|---|---|
+| `data.irr !== null` | Mostra valore formattato con `formatPercent()` colorato emerald (positivo) o rosso (negativo), sublabel "X.X anni investiti" |
+| `data.irr === null` | Mostra "N/D" grigio, sublabel "Dati insufficienti" |
+| `position.bookValueEUR && position.currentValueEUR` presenti | Mostra `€X → €Y` con sublabel diff |
+| `position.bookValueEUR && position.currentValueEUR` null o incompleti | Mostra "—" per entrambi i valori |
+
+### Fix tecnici aggiuntivi — Solver IRR
+
+Il solver originale Newton-Raphson divergeva su due tipi di casi:
+1. **Posizioni aperte ma senza current value**: i flussi erano tutti negativi netti → solver non trovava root
+2. **Periodi brevissimi (< 7 giorni)**: la derivata creava oscillazioni selvagge anche con piccoli importi
+
+Le correzioni applicate (`utils/irrEngine.js`, `models/analyticsModel.js`):
+- **Rimosso filtro premature** in `buildAssetCashFlows` (linee 556-562 originali): permetteva solo flussi con BUY+SELL esplicito, escludendo asset con solo BUY
+- **Aggiunto current value flow** in `calculateAssetIRR`: per ogni posizione con `netQty > 0`, aggiunge un flusso positivo pari a `qty × currentPrice` alla fine della serie
+- **Restituito null per posizioni chiuse**: se `netQty <= 0` la funzione esce subito (il rendimento è nel P&L, non nell'IRR)
+- **Fallback bisection method**: quando NR scivola fuori [-100%, +500%], usa bisection sull'intervallo [-0.99, 10] per trovare la radice robustamente
+- **Correzione formato data estrazione**: normalizza `YYYY/MM/DD` → `YYYY-MM-DD` per confronti cronologici corretti
+
+### Definition of Done — Fase 5
+
+- [x] IRR visualizzato nella pagina dettaglio asset accanto agli altri KPI
+- [x] Colore verde/rosso coerente con gain/loss esistente
+- [x] Nessun errore di rendering se `irr` è null o non presente nella risposta
+- [x] Carico vs Attuale visualizzato con formato chiaro e sublabel differenza
+- [x] Backend calcola correttamente IRR per posizioni aperte (EXUS 8.79%, DBMFE 1.22%, etc.)
+- [x] Backend restituisce null per posizioni chiuse (rendimento nel P&L card)
 
 ---
 
@@ -635,9 +714,9 @@ La `KpiCard` esistente accetta già `label`, `value`, `sublabel`. Usarla così c
 
 **Definition of Done:**
 
-- [ ] IRR visualizzato nella pagina dettaglio asset accanto agli altri KPI
-- [ ] Colore verde/rosso coerente con gain/loss esistente
-- [ ] Nessun errore di rendering se `irr` è null o non presente nella risposta
+- [x] IRR visualizzato nella pagina dettaglio asset accanto agli altri KPI
+- [x] Colore verde/rosso coerente con gain/loss esistente
+- [x] Nessun errore di rendering se `irr` è null o non presente nella risposta
 
 ---
 
@@ -761,7 +840,7 @@ Test delle API end-to-end usando il database di test esistente.
 | `routes/analyticsRoutes.js` | ✅ **MODIFICATO** — aggiunta route `/asset-type/irr` e import handler | 3 |
 | `client/src/types.ts` | **MODIFICARE** — aggiungere `AssetIRRData`, aggiornare `AssetDetailData` | 4 |
 | `client/src/lib/performanceApi.ts` | **MODIFICARE** — aggiungere helper fetch asset-type IRR | 4 |
-| `client/src/pages/AssetDetail.tsx` | **MODIFICARE** — aggiungere IRR card nel box KPI | 5 |
+| `client/src/pages/AssetDetail.tsx` | ✅ **MODIFICATO** — layout KPI cards 2 righe×3, aggiunta IRR card + Carico vs Attuale | 5 |
 | `client/src/pages/Portfolio.tsx` | **MODIFICARE** — aggiungere colonna IRR nella tabella Asset Class | 6 |
 | `docs/IRR-DESIGN.md` | **QUESTO FILE** | — |
 

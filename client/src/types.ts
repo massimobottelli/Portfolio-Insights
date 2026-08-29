@@ -133,6 +133,14 @@ export interface AssetDetailDividend {
   currency: string;
 }
 
+/** Dati IRR (Internal Rate of Return) per un singolo asset */
+export interface AssetIRRData {
+  irr: number;              // Decimal return (es. 0,0847 = +8,47%)
+  years: number;            // Durata in anni decimali
+  firstDate: string;        // Data primo flusso
+  lastDate: string;         // Data ultimo flusso
+}
+
 export interface AssetTypeInfo {
   name: string;
   isTargetable: boolean;
@@ -217,4 +225,5 @@ export interface AssetDetailData {
   orders: AssetDetailOrder[];
   dividends: AssetDetailDividend[];
   coupons: AssetDetailDividend[];
+  irr: AssetIRRData | null;
 }

@@ -107,3 +107,35 @@ export async function fetchPerformanceAnalytics(
 
   return response.json() as Promise<PerformanceAnalytics>;
 }
+
+// ──────────────────────────────────────────────
+// Types & fetch for Asset Type IRR
+// ──────────────────────────────────────────────
+
+/** Risposta per singolo asset type dall'endpoint /api/analytics/asset-type/irr */
+export interface AssetTypeIRRResponse {
+  irr: number | null;
+  years: number | null;
+  assetCount: number;
+  totalInvested: number;
+  totalCurrent: number;
+}
+
+/**
+ * Fetch IRR aggregated by asset type(s).
+ * Returns a map keyed by asset type (e.g. { STOCK: {...}, BOND: {...} }).
+ * Each value is null when there is insufficient data for that type.
+ */
+export async function fetchAssetTypeIRRs(
+  assetType?: string
+): Promise<Record<string, AssetTypeIRRResponse | null>> {
+  const params = assetType ? `?assetType=${encodeURIComponent(assetType)}` : '';
+  const url = `/api/analytics/asset-type/irr${params}`;
+  const response = await apiFetch(url);
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch asset type IRRs');
+  }
+
+  return response.json() as Promise<Record<string, AssetTypeIRRResponse | null>>;
+}

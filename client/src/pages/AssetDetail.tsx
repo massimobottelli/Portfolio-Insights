@@ -128,7 +128,8 @@ export default function AssetDetail() {
       </div>
 
       {/* 2. KPI Card — Situazione Corrente */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* RIGA 1: Prezzo, Quantità, Valore */}
         <KpiCard
           label="Prezzo Attuale"
           value={formatPrice(position.currentPrice)}
@@ -148,12 +149,54 @@ export default function AssetDetail() {
               : null
           }
         />
+      </div>
+
+      {/* RIGA 2: P&L, IRR, Carico vs Attuale */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard
           label="P&L"
           value={`${formatAmount(position.pnl)} ${asset.currency}`}
           sublabel={position.pnlPercent !== null ? formatPercent(position.pnlPercent) : null}
           valueClass={gainColorClass(position.pnl)}
           sublabelClass={gainColorClass(position.pnlPercent)}
+        />
+
+        {data.irr ? (
+          <KpiCard
+            label="IRR (Money-Weighted)"
+            value={`${(data.irr.irr * 100).toFixed(2)}%`}
+            sublabel={`${data.irr.years.toFixed(1)} anni investiti`}
+            valueClass={data.irr.irr >= 0 ? 'text-emerald-400' : 'text-red-400'}
+            sublabelClass="text-slate-300"
+          />
+        ) : (
+          <KpiCard
+            label="IRR (Money-Weighted)"
+            value="N/D"
+            sublabel="Dati insufficienti"
+            valueClass="text-slate-400"
+            sublabelClass="text-slate-400"
+          />
+        )}
+
+        <KpiCard
+          label="Carico vs Attuale"
+          value={`${formatAmount(position.bookValueEUR)} → ${formatAmount(position.currentValueEUR)}`}
+          sublabel={
+            position.bookValueEUR && position.currentValueEUR
+              ? `Diff: ${formatAmount(position.currentValueEUR - position.bookValueEUR)} EUR`
+              : null
+          }
+          valueClass={
+            position.bookValueEUR && position.currentValueEUR && position.currentValueEUR >= position.bookValueEUR
+              ? 'text-emerald-400'
+              : 'text-white'
+          }
+          sublabelClass={
+            position.bookValueEUR && position.currentValueEUR && position.currentValueEUR >= position.bookValueEUR
+              ? 'text-emerald-400'
+              : 'text-slate-300'
+          }
         />
       </div>
 

@@ -51,17 +51,18 @@ export function npvDerivative(cashFlowsWithWeights, rate) {
 }
 
 // ──────────────────────────────────────────────
-// Solver IRR — Newton-Raphson
+// Solver IRR — Newton-Raphson con fallback bisezione
 // ──────────────────────────────────────────────
 
 /**
  * Risolve l'IRR usando Newton-Raphson su una serie di flussi di cassa.
+ * Se Newton-Raphson diverge, usa il metodo di bisezione (più robusto).
  *
  * Algoritmo:
  *   1. Validazione input (almeno 2 flussi, entrambi positivo e negativo presenti)
  *   2. Ordinamento cronologico
  *   3. Calcolo pesi temporali in anni decimali (t_0 → 0, t_n → durata reale)
- *   4. Iterazioni Newton-Raphson fino a convergenza (< 1e-9) o max 100 iterazioni
+ *   4. Newton-Raphson per 30 iterazioni; se diverge → switch a bisezione
  *   5. Validazione risultato (rate > -1, finite)
  *
  * @param {{ date: string, amount: number }[]} cashFlows
@@ -103,11 +104,12 @@ export function solveIRR(cashFlows) {
     return null; // Nessun flusso netto possibile
   }
 
-  // 5. Newton-Raphson
-  let rate = 0.1; // Guess iniziale: 10%
+  // 5. Newton-Raphson con limiti di sicurezza
+  let rate = 0.1;
   let iterations = 0;
+  let npvStableCount = 0;
 
-  while (iterations < 100) {
+  while (iterations < 80) {
     const fv = npv(weights, rate);
     const fp = npvDerivative(weights, rate);
 
@@ -117,17 +119,76 @@ export function solveIRR(cashFlows) {
 
     const nextRate = rate - fv / fp;
 
-    if (Math.abs(nextRate - rate) < 1e-9) {
-      if (nextRate > -1 && Number.isFinite(nextRate)) {
-        return nextRate;
+    // Se NR va fuori range accettabile o NaN, passa a bisezione
+    if (nextRate <= -0.99 || nextRate >= 10 || Number.isNaN(nextRate) || !Number.isFinite(nextRate)) {
+      // Bisection amplia: prova prima [-0.99, +2.0] (copre fino al 200%)
+      let lo = -0.99;
+      let hi = 2.0;
+      let fLo = npv(weights, lo);
+      let fHi = npv(weights, hi);
+
+      // Se NPV non cambia segno, estendi l'intervallo verso l'alto
+      while (fLo * fHi > 0 && hi < 50) {
+        hi *= 2; // raddoppia fino a coprire rendimenti enormi
+        fHi = npv(weights, hi);
+        if (hi >= 50) break; // max 5000% per evitare loop infiniti
       }
-      return null; // Convergenza a valore non valido
+
+      if (fLo * fHi > 0) {
+        return null; // Nessuno cambio di segno anche con intervallo ampio
+      }
+
+      // Assicura che fLo < 0 e fHi > 0 (inverti se necessario)
+      if (fLo > 0) {
+        [lo, hi] = [hi, lo];
+        [fLo, fHi] = [fHi, fLo];
+      }
+
+      // Bisection pura (200 iterazioni max per alta precisione)
+      for (let bi = 0; bi < 200; bi++) {
+        const mid = (lo + hi) / 2;
+        const fMid = npv(weights, mid);
+        if (Math.abs(fMid) < 1e-10) {
+          rate = mid;
+          break;
+        }
+        if (fLo * fMid < 0) {
+          hi = mid;
+        } else {
+          lo = mid;
+          fLo = fMid;
+        }
+      }
+      rate = (lo + hi) / 2;
+
+      if (rate > -1 && Number.isFinite(rate)) {
+        return rate;
+      }
+      return null;
     }
 
     rate = nextRate;
+
+    // Convergenza rapida?
+    const currentFv = Math.abs(npv(weights, rate));
+    if (currentFv < 1e-6 && npvStableCount >= 2) {
+      if (rate > -1 && Number.isFinite(rate)) {
+        return rate;
+      }
+      return null;
+    }
+    npvStableCount++;
+
     iterations++;
   }
 
-  return null; // Non converge in 100 iterazioni
+  // Fallback finale
+  if (Number.isFinite(rate) && rate > -1 && rate < 10) {
+    if (Math.abs(npv(weights, rate)) < 1) {
+      return rate;
+    }
+  }
+
+  return null;
 }
 

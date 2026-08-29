@@ -553,13 +553,11 @@ export function buildAssetCashFlows(assetId) {
 
   if (flows.length === 0) return null;
 
-  // 6. Controlla: servono almeno un flusso positivo e uno negativo (escluso il valore corrente)
-  //    Se ci sono solo ordini e tutti negativi (solo BUY), serve il valore corrente per avere un positivo
-  const hasPositiveFlow = orders.some(o => o.euro_amount > 0); // almeno un SELL
-  const hasNegativeFlow = orders.some(o => o.euro_amount < 0); // almeno un BUY
-
-  // Nessun ordine misto BUY+SELL → impossibile calcolare IRR significativo
-  if (!hasPositiveFlow || !hasNegativeFlow) return null;
+  // Nota: non filtriamo qui per assenza di flussi positivi o negativi.
+  // Gli asset con soli BUY (nessun SELL) hanno bisogno del valore corrente come
+  // flusso positivo finale — lo gestisce calculateAssetIRR aggiungendolo dopo.
+  // Gli asset con soli SELL (nessun BUY) restituiscono comunque i flussi, ma
+  // il solver irrEngine rifiuterà se non c'è almeno un negativo + uno positivo.
 
   return flows;
 }
@@ -576,9 +574,57 @@ export function buildAssetCashFlows(assetId) {
  * @returns {{ irr: number, years: number, firstDate: string, lastDate: string }|null}
  */
 export async function calculateAssetIRR(assetId, displayQuantity = null, currentPrice = null) {
-  // Build cash flows dal DB
-  const flows = buildAssetCashFlows(assetId);
-  if (!flows || flows.length < 2) return null;
+  // Build cash flows dal DB (ordini + dividendi + cedole aggregati per data)
+  let flows = buildAssetCashFlows(assetId);
+  if (!flows || flows.length === 0) return null;
+
+  // Per posizioni aperte (qty > 0): aggiungi il valore corrente come ultimo flusso positivo.
+  // Senza questo "vendita ipotetica oggi" il solver non può trovare un IRR significativo
+  // su portafogli dove sono ancora investiti i capitali versati (es. EXUS: net cash flow negativo).
+  const priceInfo = db.prepare(`
+    SELECT current_price, extraction_date
+    FROM asset_prices
+    WHERE asset_id = ?
+    ORDER BY extraction_date DESC
+    LIMIT 1
+  `).get(assetId);
+
+  const qtyRaw = db.prepare(
+    "SELECT SUM(CASE WHEN type = 'SELL' THEN -quantity ELSE quantity END) AS net_qty FROM market_orders WHERE asset_id = ?"
+  ).get(assetId)?.net_qty;
+
+  // Posizione completamente chiusa (net_qty <= 0): il rendimento è già catturato dal P&L.
+  // L'IRR non è significativo per posizioni chiuse con piccolo saldo finale (es. -€118 su €5078 in 1 giorno).
+  if (!qtyRaw || qtyRaw <= 0) return null;
+
+  // Usa displayQuantity/correctedQuantity se fornito, altrimenti calcola da DB
+  const useDisplayQty = displayQuantity !== null && currentPrice !== null;
+  const netQty = useDisplayQty ? displayQuantity : qtyRaw;
+
+  if (priceInfo && priceInfo.current_price !== null && netQty > 0) {
+    // Gestione speciale per BTP: correctedQuantity divide qty per 100, quindi il prezzo va moltiplicato per 100
+    const isBTP = assetId && db.prepare("SELECT asset_type FROM assets WHERE id = ?")
+      .get(assetId)?.asset_type === 'BOND';
+    // Per BTP, correctedQuantity = rawQty / 100, currentPrice resta invariato → currentValue = correctedQty × price è corretto
+    const currentValue = parseFloat((netQty * priceInfo.current_price).toFixed(2));
+
+    // Evita duplicati: se l'ultima data è già lo stesso giorno dell'ultimo ordine/dividendo, somma il valore corrente
+    const lastFlowDate = flows[flows.length - 1].date;
+    // Normalizza la data di estrazione (formato DB: 'YYYY/MM/DD HH:MM:SS' → 'YYYY-MM-DD')
+    const extractDate = priceInfo.extraction_date.split(' ')[0].replace(/\//g, '-');
+
+    if (lastFlowDate < extractDate) {
+      flows.push({ date: extractDate, amount: currentValue });
+    } else {
+      // Stessa data: somma al último flusso (il risultato sarà positivo per construction)
+      flows[flows.length - 1] = {
+        date: lastFlowDate,
+        amount: parseFloat((flows[flows.length - 1].amount + currentValue).toFixed(2))
+      };
+    }
+  }
+
+  if (flows.length < 2) return null;
 
   // Risolvi IRR con Newton-Raphson (irrEngine)
   const irr = solveIRR(flows);
