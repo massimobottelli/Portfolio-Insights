@@ -1,5 +1,7 @@
 # .clinerules
 
+do not use cat to create new files: always use vs code editor
+
 ## Project Overview
 - **Name:** Personal Finance Portfolio Manager
 - **Goal:** Single-user web app to manage investment portfolio.
