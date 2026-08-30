@@ -8,6 +8,20 @@
 
 Portfolio Insights è un'applicazione web **self-hostable** che analizza un portafoglio di investimenti esportato dal broker **Directa**. Si concentra su investimenti a lungo termine (Obbligazioni, Azioni, Fondi, Commodities) e fornisce analisi avanzate sulla composizione del portafoglio, l'evoluzione storica, le performance di investimento e il profilo di rischio.
 
+
+> ⚠️ **Disclaimer — Progetto amatoriale e sperimentale**
+>
+> **Portfolio Insights è un progetto personale, amatoriale e sperimentale, sviluppato principalmente per uso personale e didattico. Non è un software professionale né un prodotto finanziario.**
+>
+> Il progetto è stato sviluppato anche attraverso un approccio **AI-assisted / “vibe coding”** e, nonostante siano presenti test e verifiche, possono esserci errori, imprecisioni o comportamenti inattesi, inclusi errori nei calcoli o nell'interpretazione dei dati.
+>
+> Le informazioni, le metriche e gli eventuali suggerimenti di **Portfolio Insights sono forniti esclusivamente a scopo informativo e non costituiscono consulenza finanziaria, fiscale o di investimento, né una raccomandazione ad acquistare o vendere strumenti finanziari.**
+>
+> Il software è fornito **“AS IS”**, senza garanzie espresse o implicite sulla correttezza, completezza, accuratezza o affidabilità dei risultati. **L'utilizzo del software e qualsiasi decisione presa sulla base dei suoi risultati sono sotto la piena responsabilità dell'utente.**
+>
+> **Non viene fornita alcuna garanzia, assistenza professionale o assicurazione circa l'assenza di errori o la disponibilità del software.**
+
+
 ### 🚀 Live Demo
 
 Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](https://portfolio-insights-3jlp.onrender.com/)
@@ -45,6 +59,10 @@ Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](http
 - **Metriche di rischio**: volatilità giornaliera e annualizzata (√365), Sharpe ratio con **risk-free rate configurabile dall'utente**
 - **Analisi drawdown**: maximum drawdown, peak/trough/recovery, durata e tempo di recupero, grafico della curva di drawdown
 - Le metriche sono calcolate sull'intero periodo di investimento dalla **canonical return series** (serie unica di rendimenti giornalieri condivisa da tutte le metriche)
+
+
+> **⚠️ Nota importante:** le metriche e i risultati mostrati da Portfolio Insights sono calcolati automaticamente a partire dai dati importati e hanno esclusivamente finalità informative. Non devono essere interpretati come consulenza finanziaria o come base unica per prendere decisioni di investimento.
+
 
 ### 📋 Ordini
 - **Elenco completo**: tutti gli ordini di acquisto/vendita (BUY/SELL) con ticker, quantità, prezzo unitario implicito
