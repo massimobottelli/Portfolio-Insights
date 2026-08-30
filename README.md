@@ -1,12 +1,18 @@
 # 📊 Portfolio Insights
 
-<!-- SPDX-License-Identifier: CC-BY-NC-SA-4.0 -->
+<!-- SPDX-License-Identifier: CC-BY-NC-SA-4.0 --> 
 
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 > Applicazione web self-hostable per l'analisi avanzata del portafoglio di investimenti Directa.
 
 Portfolio Insights è un'applicazione web **self-hostable** che analizza un portafoglio di investimenti esportato dal broker **Directa**. Si concentra su investimenti a lungo termine (Obbligazioni, Azioni, Fondi, Commodities) e fornisce analisi avanzate sulla composizione del portafoglio, l'evoluzione storica, le performance di investimento e il profilo di rischio.
+
+### 🚀 Live Demo
+
+Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](https://portfolio-insights-3jlp.onrender.com/)
+
+> ⚠️ La demo mostra dati fittizi di esempio. Il token di accesso viene compilato automaticamente al caricamento della pagina di login.
 
 ---
 
