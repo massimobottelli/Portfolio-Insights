@@ -46,6 +46,14 @@ Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](http
 - **Analisi drawdown**: maximum drawdown, peak/trough/recovery, durata e tempo di recupero, grafico della curva di drawdown
 - Le metriche sono calcolate sull'intero periodo di investimento dalla **canonical return series** (serie unica di rendimenti giornalieri condivisa da tutte le metriche)
 
+### 📋 Ordini
+- **Elenco completo**: tutti gli ordini di acquisto/vendita (BUY/SELL) con ticker, quantità, prezzo unitario implicito
+- **Filtri avanzati**: intervallo date, tipo ordine, simbolo, ricerca testuale su nome/ticker/riferimento
+- **Ordinamento**: cliccabile su ogni colonna
+- **Posizioni chiuse**: sezione dedicata che raggruppa ticker con quantità netta zero, calcola e mostra Gain/Loss EUR aggregato con ordinamento
+- **Eliminazione ordine**: rimozione singolo ordine con invalidazione automatica della cache analytics
+- **Legenda tipologie**: descrizione estesa per BUY e SELL
+
 ### 💳 Movimenti
 - **Elenco completo**: tutti i movimenti di cassa (commissioni, dividendi, bolli, tasse, conferimenti)
 - **Filtri avanzati**: intervallo date, tipo movimento, simbolo, ricerca testuale
@@ -141,6 +149,7 @@ Accedi all'area personale Directa e scarica i seguenti report in formato CSV:
 - **Allocazione**: definisci i target per categoria e verifica le divergenze
 - **Performance**: analizza rendimento, rischio e drawdown
 - **Movimenti**: analizza i flussi di cassa con i filtri
+- **Ordini**: esplora gli ordini di mercato, monitora le posizioni chiuse con Gain/Loss
 
 ---
 
@@ -150,7 +159,7 @@ Accedi all'area personale Directa e scarica i seguenti report in formato CSV:
 portfolio-insights/
 ├── config/                  # Configurazioni condivise (asset types, auth token)
 ├── models/                  # Accesso ai dati (SQLite nativo) + calcoli analytics
-│   └── __tests__/           # Test Vitest (performance & risk)
+│   └── __tests__/           # Test Vitest (performance & risk, IRR)
 ├── controllers/             # Logica applicativa
 ├── routes/                  # Endpoint Express
 ├── middleware/              # Auth, rate limiting, error handling, security headers
@@ -216,6 +225,7 @@ Tutti i calcoli analitici (posizioni, allocazione, performance, rischio, TWR) so
 - **Sharpe Ratio**: rendimento in eccesso sul risk-free rate (configurabile) / volatilità
 - **Maximum Drawdown**: perdita massima dal picco, con peak/trough/recovery e tempi
 - **Rendimenti mensili e annuali**: aggregati per compounding (non somma aritmetica)
+- **IRR** (Internal Rate of Return): rendimento annualizzato money-weighted per singolo asset e per tipo asset (Newton-Raphson)
 
 ---
 
@@ -223,6 +233,8 @@ Tutti i calcoli analitici (posizioni, allocazione, performance, rischio, TWR) so
 
 - [x] MVP1 — Dashboard, Portfolio, Movements, Import
 - [x] MVP2 — Asset Detail, Allocazione & Ribilanciamento, Performance & Risk
+- [x] IRR — Rendimento money-weighted per asset singolo e per tipo asset
+- [x] Pagina Ordini — Elenco ordini di mercato con filtri + Posizioni chiuse con Gain/Loss
 
 ---
 
