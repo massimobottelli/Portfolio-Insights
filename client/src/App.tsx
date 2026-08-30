@@ -10,6 +10,7 @@ const Portfolio = lazy(() => import('./pages/Portfolio'));
 const Allocation = lazy(() => import('./pages/Allocation'));
 const AssetDetail = lazy(() => import('./pages/AssetDetail'));
 const Movements = lazy(() => import('./pages/Movements'));
+const Orders = lazy(() => import('./pages/Orders'));
 const ImportPage = lazy(() => import('./pages/ImportPage'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="/allocation" element={<Allocation />} />
           <Route path="/asset/:id" element={<AssetDetail />} />
           <Route path="/movements" element={<Movements />} />
+          <Route path="/orders" element={<Orders />} />
           <Route path="/import" element={<ImportPage />} />
           <Route path="/performance" element={<Performance />} />
           <Route path="/settings" element={<Settings />} />

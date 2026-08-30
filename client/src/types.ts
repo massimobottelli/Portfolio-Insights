@@ -116,6 +116,27 @@ export interface MovementsResponse {
   total: number;
 }
 
+export interface MarketOrderItem {
+  id: string;
+  operation_date: string;
+  value_date: string;
+  type: 'BUY' | 'SELL';
+  quantity: number;
+  euro_amount: number;
+  currency_amount: number | null;
+  currency: string;
+  order_reference: string;
+  asset_id: string | null;
+  isin: string | null;
+  ticker: string | null;
+  asset_name: string | null;
+}
+
+export interface OrdersResponse {
+  data: MarketOrderItem[];
+  total: number;
+}
+
 export interface AssetDetailOrder {
   date: string;
   valueDate: string;

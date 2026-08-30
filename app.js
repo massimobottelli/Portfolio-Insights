@@ -11,6 +11,7 @@ import importRoutes from './routes/importRoutes.js';
 import movementRoutes from './routes/movementRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import allocationRoutes from './routes/allocationRoutes.js';
+import orderRoutes from './routes/orderRoutes.js';
 
 // Middleware di autenticazione
 import { authMiddleware } from './middleware/authMiddleware.js';
@@ -65,6 +66,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/analytics', performanceRoutes);
 app.use('/api/movements', movementRoutes);
 app.use('/api', allocationRoutes);
+app.use('/api/orders', orderRoutes);
 
 // 8. Handler 404 per rotte API sconosciute.
 //     DEVE stare PRIMA del fallback SPA: altrimenti una GET /api/inesistente
