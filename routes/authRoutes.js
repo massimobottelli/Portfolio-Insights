@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { isTokenValid } from '../config/auth.js';
+import { getApiToken, isTokenValid } from '../config/auth.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
 const router = Router();
@@ -27,6 +27,14 @@ router.get('/check', authCheckLimiter, (req, res) => {
   }
 
   res.json({ valid: true });
+});
+
+// GET /api/auth/demo-token — Endpoint SOLO per la demo: restituisce il token API corrente.
+// NON proteggere questo endpoint perché serve per facilitare il login in demo.
+// In produzione questo endpoint DEVE essere rimosso o disabilitato.
+router.get('/demo-token', (_req, res) => {
+  const token = getApiToken();
+  res.json({ token });
 });
 
 export default router;

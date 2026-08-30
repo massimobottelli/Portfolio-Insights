@@ -64,3 +64,19 @@ export async function checkToken(token: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Recupera il token API dal server (solo per demo).
+ * Il server deve avere l'endpoint /api/auth/demo-token abilitato.
+ * Restituisce il token o null in caso di errore.
+ */
+export async function fetchDemoToken(): Promise<string | null> {
+  try {
+    const response = await fetch('/api/auth/demo-token');
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.token ?? null;
+  } catch {
+    return null;
+  }
+}

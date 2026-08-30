@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, KeyRound } from 'lucide-react';
-import { setToken, checkToken } from '../lib/api';
+import { Lock, KeyRound, Loader2 } from 'lucide-react';
+import { setToken, checkToken, fetchDemoToken } from '../lib/api';
 
 export default function Login() {
   const navigate = useNavigate();
   const [token, setTokenInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [autoLoading, setAutoLoading] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +34,24 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  // All'avvio, tenta di recuperare il token dal server (solo demo).
+  // Se l'endpoint /api/auth/demo-token non esiste, fallisce silenziosamente.
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchDemoToken().then((autoToken) => {
+      if (cancelled) return;
+      if (autoToken) {
+        setTokenInput(autoToken);
+      }
+      setAutoLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
@@ -63,10 +82,13 @@ export default function Login() {
                   type="password"
                   value={token}
                   onChange={e => setTokenInput(e.target.value)}
-                  placeholder="Inserisci il token..."
+                  placeholder={autoLoading ? 'Caricamento token...' : "Inserisci il token..."}
                   autoFocus
-                  className="w-full bg-slate-700/50 border border-slate-600 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                  className="w-full bg-slate-700/50 border border-slate-600 rounded-lg pl-10 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                 />
+                {autoLoading && (
+                  <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin" />
+                )}
               </div>
             </div>
 
@@ -86,7 +108,10 @@ export default function Login() {
           </form>
 
           <p className="text-xs text-slate-500 text-center mt-6">
-            Il token viene generato all'avvio del server e stampato nella console.
+            {autoLoading
+              ? 'Recupero automatico del token in corso...'
+              : 'Modalità demo: il token viene generato e compilato automaticamente.'
+            }
           </p>
         </div>
       </div>
