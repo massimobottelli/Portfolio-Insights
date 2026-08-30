@@ -213,7 +213,7 @@ function _renderTable(
                   : DASH}
               </td>
             ) : group.irr ? (
-              // Più asset nel gruppo: uso l'IRR aggregato del tipo dall'API 
+              // Più asset nel gruppo: uso l'IRR aggregato del tipo dall'API
               <td className={`px-3 py-2.5 text-sm text-right font-medium ${group.irr.irr != null ? (group.irr.irr >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500"} align-middle`}>
                 {group.irr.irr != null
                   ? `${(group.irr.irr * 100).toFixed(2).replace(".", ",")}%`
