@@ -224,6 +224,24 @@ function _renderTable(
                 {DASH}
               </td>
             )}
+            {/* Anni investiti per tipo */}
+            {group.assets.length === 1 && group.assets[0].irr ? (
+              <td className="px-3 py-2.5 text-sm text-right text-slate-300 align-middle">
+                {group.assets[0].irr.years != null
+                  ? `${group.assets[0].irr.years.toFixed(1)}`
+                  : DASH}
+              </td>
+            ) : group.irr ? (
+              <td className="px-3 py-2.5 text-sm text-right text-slate-300 align-middle">
+                {group.irr.years != null
+                  ? `${group.irr.years.toFixed(1)}`
+                  : DASH}
+              </td>
+            ) : (
+              <td className="px-3 py-2.5 text-sm text-right text-slate-500 align-middle">
+                {DASH}
+              </td>
+            )}
             <td
               className={`px-3 py-2.5 text-sm text-right font-medium ${gainColorClass(group.gainPct)} align-middle`}
             >
@@ -267,6 +285,12 @@ function _renderTable(
                 {'—'}
               </td>
             )}
+            {/* Anni investiti per singolo asset */}
+            <td className="px-3 py-1.5 text-sm text-right text-slate-300 align-middle">
+              {asset.irr?.years != null
+                ? `${asset.irr.years.toFixed(1)}`
+                : DASH}
+            </td>
             <td
               className={`px-3 py-1.5 text-sm text-right ${gainColorClass(
                 asset.gainPct,
@@ -283,7 +307,7 @@ function _renderTable(
         ))}
         {!isLastGroup && (
           <tr>
-            <td colSpan={6} className="py-0.5 px-3">
+            <td colSpan={7} className="py-0.5 px-3">
               <div className="border-t border-slate-700/30 mx-2" />
             </td>
           </tr>
@@ -317,6 +341,9 @@ function _renderTable(
               <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle">
                 IRR
               </th>
+              <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle whitespace-nowrap">
+                Anni investiti
+              </th>
               <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle">
                 Gain/Loss %
               </th>
@@ -333,6 +360,9 @@ function _renderTable(
               </td>
               <td className="px-3 py-3 text-sm text-right text-white align-middle"></td>
               <td className="px-3 py-3 text-sm text-right text-white align-middle"></td>
+              <td className="px-3 py-3 text-sm text-right text-slate-500 align-middle">
+                { '—' }
+              </td>
               <td className="px-3 py-3 text-sm text-right text-slate-500 align-middle">
                 { '—' }
               </td>

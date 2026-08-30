@@ -56,6 +56,7 @@ Le route sono organizzate per dominio e montate in `app.js`:
 | `/api/import` | `importRoutes.js` | Importazione CSV e sessioni |
 | `/api/movements` | `movementRoutes.js` | Movimenti di cassa |
 | `/api` | `allocationRoutes.js` | Catalogo asset types, allocazione e ribilanciamento |
+| `/api/orders` | `orderRoutes.js` | Ordini di mercato (MarketOrder) |
 
 ---
 
@@ -87,6 +88,9 @@ Le route sono organizzate per dominio e montate in `app.js`:
 | GET | `/api/analytics/volatility` | Volatilità giornaliera e annualizzata |
 | GET | `/api/analytics/sharpe` | Sharpe ratio con risk-free rate configurabile |
 | GET | `/api/analytics/performance` | Metriche aggregate Performance & Risk |
+| GET | `/api/orders` | Lista ordini di mercato con filtri e ordinamento |
+| GET | `/api/orders/symbols` | Ticker distinti per dropdown filtro |
+| DELETE | `/api/orders/:id` | Elimina un singolo ordine di mercato |
 
 ---
 
@@ -1095,7 +1099,128 @@ Restituisce le divergenze tra allocazione attuale e target per tutte le categori
 
 ---
 
-## 8. Codici di Errore
+## 8. Endpoint Orders (`/api/orders`)
+
+Gestione degli ordini di mercato (MarketOrder). Endpoint dedicato che espone i dati della tabella `market_orders` con JOIN su `assets` per ottenere ticker e nome dell'asset.
+
+### 8.1 GET `/api/orders`
+
+Restituisce la lista degli ordini di mercato (BUY/SELL) con filtri e ordinamento.
+
+**Query Parameters**
+
+| Parametro | Tipo | Default | Descrizione |
+|---|---|---|---|
+| `sortBy` | string | `operation_date` | Colonna per ordinamento |
+| `sortOrder` | string | `desc` | `asc` o `desc` |
+| `startDate` | string | — | Filtro data inizio (`YYYY-MM-DD`) |
+| `endDate` | string | — | Filtro data fine (`YYYY-MM-DD`) |
+| `type` | string | — | Filtro per tipo ordine (`BUY` / `SELL`) |
+| `symbol` | string | — | Filtro per ticker dell'asset |
+| `search` | string | — | Ricerca testuale su nome, ticker o riferimento ordine |
+
+**Colonne ordinabili (`sortBy`):** `operation_date`, `value_date`, `type`, `quantity`, `euro_amount`, `currency`, `ticker`, `asset_name`, `order_reference`
+
+**Esempio di Richiesta**
+
+```
+GET /api/orders?type=BUY&startDate=2025-01-01&symbol=X.SXRS&sortBy=operation_date&sortOrder=desc
+```
+
+**Risposta 200 OK**
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "operation_date": "2025-06-15",
+      "value_date": "2025-06-17",
+      "type": "BUY",
+      "quantity": 100,
+      "euro_amount": -1150.00,
+      "currency_amount": null,
+      "currency": "EUR",
+      "order_reference": "123456",
+      "asset_id": "uuid",
+      "isin": "IE00BDFL4P12",
+      "ticker": "X.SXRS",
+      "asset_name": "ISHARES DIV COMM SWAP ETF"
+    }
+  ],
+  "total": 188
+}
+```
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `data[].id` | string | ID dell'ordine |
+| `data[].operation_date` | string | Data operazione |
+| `data[].value_date` | string | Data valuta |
+| `data[].type` | string | `BUY` (acquisto) o `SELL` (vendita) |
+| `data[].quantity` | number | Numero di quote/azioni |
+| `data[].euro_amount` | number | Importo netto in euro (negativo per BUY, positivo per SELL) |
+| `data[].currency_amount` | number \| null | Importo nella valuta originale dell'asset |
+| `data[].currency` | string | Valuta della transazione |
+| `data[].order_reference` | string | Riferimento ordine Directa |
+| `data[].asset_id` | string \| null | ID dell'asset |
+| `data[].isin` | string \| null | ISIN dell'asset |
+| `data[].ticker` | string \| null | Ticker dell'asset |
+| `data[].asset_name` | string \| null | Nome dell'asset |
+| `total` | number | Conteggio totale degli ordini (senza paginazione) |
+
+**Note:**
+- La whitelist delle colonne ordinabili previene SQL injection.
+- La ricerca (`search`) usa `LIKE` su `a.name`, `a.ticker` e `mo.order_reference`.
+- I filtri `startDate`/`endDate` si applicano su `operation_date`.
+
+**Errori:** `500` — Errore nel recupero degli ordini.
+
+---
+
+### 8.2 GET `/api/orders/symbols`
+
+Restituisce la lista dei ticker distinti presenti nei `market_orders`, utile per popolare il dropdown filtro "Simbolo" nella pagina Ordini.
+
+**Risposta 200 OK**
+
+```json
+["ENI", "X.SXRS", "VWCE"]
+```
+
+**Note:** Restituisce un array di stringhe (ticker), ordinati alfabeticamente. Sono esclusi i ticker null o vuoti.
+
+**Errori:** `500` — Errore nel recupero dei simboli.
+
+---
+
+### 8.3 DELETE `/api/orders/:id`
+
+Elimina un singolo ordine di mercato per ID. Invalida automaticamente la cache analytics perché gli ordini influenzano quantità nette e prezzo medio di carico (PMA).
+
+**Parametri Path**
+
+| Parametro | Tipo | Descrizione |
+|---|---|---|
+| `id` | string | ID dell'ordine (UUID) |
+
+**Risposta 200 OK**
+
+```json
+{
+  "success": true,
+  "deletedId": "uuid"
+}
+```
+
+**Errori:**
+- `400` — ID ordine mancante o non valido (`{ "error": "ID ordine mancante o non valido" }`)
+- `404` — Ordine non trovato (`{ "error": "Ordine non trovato" }`)
+- `500` — Errore nell'eliminazione dell'ordine
+
+---
+
+## 9. Codici di Errore
 
 | Codice | Significato | Formato Risposta |
 |---|---|---|
@@ -1133,6 +1258,14 @@ Restituisce le divergenze tra allocazione attuale e target per tutte le categori
 }
 ```
 
+**404 — Ordine non trovato**
+
+```json
+{
+  "error": "Ordine non trovato"
+}
+```
+
 **400 — Risk-free rate non valido (endpoint performance)**
 
 ```json
@@ -1153,7 +1286,7 @@ Restituisce le divergenze tra allocazione attuale e target per tutte le categori
 
 ---
 
-## 9. Esempi di Utilizzo (cURL)
+## 10. Esempi di Utilizzo (cURL)
 
 > **Nota:** Tutti gli endpoint richiedono l'header `Authorization: Bearer <token>`.
 > Sostituisci `<token>` con il token API generato all'avvio del server.
@@ -1300,6 +1433,25 @@ curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/analytics/sha
 
 ```bash
 curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/analytics/performance?riskFreeRate=2.2"
+```
+
+### Lista Ordini con Filtri
+
+```bash
+curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/orders?type=BUY&startDate=2025-01-01&sortBy=euro_amount&sortOrder=desc"
+```
+
+### Simboli Ordini
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/orders/symbols
+```
+
+### Elimina Ordine
+
+```bash
+curl -X DELETE http://localhost:3000/api/orders/<order_id> \
+  -H "Authorization: Bearer <token>"
 ```
 
 ---

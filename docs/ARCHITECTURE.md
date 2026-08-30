@@ -66,6 +66,7 @@
 | **`analyticsModel.js`** | **Il cuore analitico**: calcola liquidità, capitale investito, posizioni correnti (BUY−SELL, con cache TTL 5 min), allocazione percentuale, storico snapshot, depositi cumulativi, dettaglio asset (con ordini aggregati per riferimento, dividendi, cedole) e **TWR** (Time-Weighted Rate of Return) con sottoperiodi delimitati dai depositi. |
 | **`importModel.js`** | Operazioni di import: crea sessioni, inserisce ordini, movimenti di cassa (idempotente), snapshot giornalieri, prezzi asset, e `clearDatabase` (svuota tutto in transazione). |
 | **`movementModel.js`** | Query sui movimenti di cassa con filtri (date, tipo, simbolo, ricerca) e ordinamento sicuro (whitelist colonne anti SQL injection). Fornisce anche la lista dei ticker distinti per il dropdown filtro. |
+| **`orderModel.js`** | Query sugli ordini di mercato (MarketOrder): `getOrders` con filtri (date, tipo, simbolo, ricerca) e ordinamento sicuro (whitelist colonne anti SQL injection), `deleteOrder` per eliminazione singolo ordine, `getOrderSymbols` per la lista dei ticker distinti per dropdown filtro. |
 | **`allocationModel.js`** | Gestione target di allocazione: catalogo asset types dalla tabella DB, target configurati (lettura/salvataggio transazionale), allocazione attuale per categoria (riusa `calculatePositions` di analyticsModel con la cache condivisa; liquidità attribuita a CASH), divergenze attuale vs target, suggerimenti di ribilanciamento (BUY/SELL oltre soglia tolleranza), conteggio asset UNKNOWN con posizione attiva. |
 | **`performanceModel.js`** | **Motore Performance & Risk**: costruisce la *canonical return series* (`buildReturnSeries`) dagli snapshot + cash flows (una sola lettura dal DB, base unica per tutte le metriche), poi calcola cumulative performance, CAGR, volatilità (√365), Sharpe ratio (risk-free configurabile), rendimenti mensili/annuali (compounding), statistiche periodi positivi/negativi/flat, best/worst mese/anno e drawdown (max DD, peak/trough/recovery, durate). |
 | **`__tests__/performanceAPI.test.js`** | Test Vitest delle formule Performance & Risk: return series, CAGR, volatilità, Sharpe, rendimenti mensili/annuali, best/worst, drawdown (inclusi casi edge: serie vuota, drawdown non recuperato, trough assoluto). Simula la logica del controller su serie deterministiche. |
@@ -80,6 +81,7 @@
 | **`analyticsController.js`** | Handler per: KPI dashboard, posizioni portfolio, allocazione, storico, TWR, dettaglio asset, tassi di cambio. |
 | **`importController.js`** | Handler per l'importazione: rileva il tipo di report, filtra record già presenti (incrementale), processa ogni record (ordini, movimenti, snapshot, prezzi), mappa le causali Directa in italiano ai MovementType del dominio. Gestisce anche storico sessioni e reset DB. |
 | **`movementController.js`** | Handler per: lista movimenti con filtri/ordinamento, lista simboli per dropdown. |
+| **`orderController.js`** | Handler per: lista ordini con filtri/ordinamento (`listOrders`), lista simboli per dropdown (`listOrderSymbols`), eliminazione singolo ordine con invalidazione cache (`deleteOrderHandler`). |
 | **`allocationController.js`** | Handler per: catalogo asset types, allocazione attuale (con conteggio UNKNOWN), target (GET/PUT con validazione somma=100% e categorie target-abili), ribilanciamento. |
 | **`performanceController.js`** | Handler per: volatilità (`GET /volatility`), Sharpe (`GET /sharpe`, con validazione risk-free rate −100 < rate < 100) e endpoint aggregato (`GET /performance`) che calcola tutte le metriche dalla stessa serie canonica e sanifica l'output (mai NaN/Infinity: valori non finiti → null). |
 
@@ -95,6 +97,7 @@
 | **`performanceRoutes.js`** | `GET /api/analytics/volatility`, `GET /api/analytics/sharpe`, `GET /api/analytics/performance` | Metriche di performance e rischio (endpoint individuali per debugging + endpoint aggregato). Montato sullo stesso prefisso `/api/analytics`. |
 | **`importRoutes.js`** | `POST /api/import`, `GET /api/import/sessions`, `DELETE /api/import/clear` | Importazione CSV e gestione DB. |
 | **`movementRoutes.js`** | `GET /api/movements`, `GET /api/movements/symbols` | Movimenti di cassa. |
+| **`orderRoutes.js`** | `GET /api/orders`, `GET /api/orders/symbols`, `DELETE /api/orders/:id` | Ordini di mercato. Montato su `/api/orders`. |
 | **`allocationRoutes.js`** | `GET /api/asset-types`, `GET/PUT /api/allocation/target`, `GET /api/allocation/current`, `GET /api/allocation/rebalance` | Allocazione e ribilanciamento. Montato direttamente su `/api`. |
 
 ---
@@ -123,7 +126,7 @@
 ### `client/src/components/`
 | File | Scopo |
 |---|---|
-| **`Layout.tsx`** | Layout principale con sidebar collassabile (desktop) e menu mobile (hamburger). Contiene la navigazione (Dashboard, Portfolio, Allocazione, Performance, Movimenti, Import) e il logout. |
+| **`Layout.tsx`** | Layout principale con sidebar collassabile (desktop) e menu mobile (hamburger). Contiene la navigazione (Dashboard, Portfolio, Allocazione, Performance, Movimenti, Ordini, Import) e il logout. Icone: LayoutDashboard, BarChart3, PieChart, TrendingUp, ArrowLeftRight, ListOrdered, Download, Info. |
 | **`ErrorBoundary.tsx`** | Error boundary React: cattura errori di rendering e mostra una schermata di errore invece di far crashare l'app. |
 
 ### `client/src/components/performance/`
@@ -152,16 +155,17 @@ Componenti della pagina Performance & Risk:
 | **`performanceApi.ts`** | Tipi TypeScript e funzione `fetchPerformanceAnalytics(timeRange, riskFreeRate)` per l'endpoint `/api/analytics/performance`. Converte il risk-free rate da decimale (stato React) a percentuale (parametro API). |
 | **`performanceFormat.ts`** | Helper di formattazione specifici per la pagina Performance (percentuali firmate, date, ecc.). |
 
-### `client/src/pages/` — Le 9 pagine dell'app
+### `client/src/pages/` — Le 10 pagine dell'app
 | File | Scopo |
 |---|---|
 | **`Login.tsx`** | Pagina di login: inserimento token, verifica via `/api/auth/check`, salvataggio in localStorage. |
 | **`Dashboard.tsx`** | **La pagina principale**: KPI (Valore Portafoglio, P&L, TWR, Capitale Investito, Liquidità), grafico storico combinato (Portfolio + Investito + TWR) con filtri temporali (1M/3M/6M/1Y/YTD/All), grafico a torta dell'allocazione con legenda interattiva. |
 | **`Portfolio.tsx`** | Tabella posizioni con ordinamento su ogni colonna, link alla scheda di dettaglio, dropdown per classificare manualmente il tipo asset, calcolo Gain/Loss per posizione, tabella riepilogativa per Asset Class con totali. |
 | **`Allocation.tsx`** | Editor target di allocazione (percentuali per categoria + soglia tolleranza), grafico a torta in tempo reale, tabella attuale vs target con deviazioni, suggerimenti di ribilanciamento (COMPRA/VENDI). |
-| **`Performance.tsx`** | Pagina Performance & Risk: KPI (rendimento cumulativo, CAGR, best/worst mese/anno), grafico rendimenti mensili, heatmap mensile, statistiche periodi, metriche di rischio con risk-free rate configurabile (default 2,20%), analisi e grafico drawdown. Le metriche sono calcolate sull'intero periodo di investimento (nessun filtro temporale). |
-| **`AssetDetail.tsx`** | Scheda dettaglio di un singolo asset: KPI (prezzo, quantità, valore, P&L), dettaglio posizione (carico vs attuale), cronologia ordini, cedole (per BOND) o dividendi. |
+| **`Performance.tsx`** | Pagina Performance & Risk: KPI (rendimento cumulativo, CAGR, best/worst mese/anno), grafico rendimenti mensili, heatmap mensile, statistiche periodi, metriche di rischio con risk-free rate configurabile (default 2,20%), analisi e grafico drawdown, tabella IRR per tipo asset. Le metriche sono calcolate sull'intero periodo di investimento (nessun filtro temporale). |
+| **`AssetDetail.tsx`** | Scheda dettaglio di un singolo asset: KPI (prezzo, quantità, valore, P&L, IRR money-weighted), dettaglio posizione (carico vs attuale), cronologia ordini, cedole (per BOND) o dividendi. |
 | **`Movements.tsx`** | Elenco movimenti di cassa con filtri avanzati (intervallo date, tipo, simbolo, ricerca), ordinamento, legenda tipologie, totale importi filtrati. |
+| **`Orders.tsx`** | Elenco ordini di mercato (BUY/SELL) con filtri avanzati (intervallo date, tipo, simbolo, ricerca), ordinamento cliccabile su ogni colonna, prezzo unitario implicito, sezione **Posizioni chiuse** con Gain/Loss aggregato per ticker a quantità netta zero, legenda tipologie. |
 | **`ImportPage.tsx`** | Importazione CSV: istruzioni per i 3 report Directa, area upload drag&drop, storico sessioni import, reset database con conferma. |
 | **`Settings.tsx`** | Pagina informativa: versione, stack tecnologico, posizione DB. |
 

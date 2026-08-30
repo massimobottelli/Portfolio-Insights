@@ -29,6 +29,7 @@ The first release focuses on providing a complete overview of the current portfo
 - Dashboard
 - Portfolio
 - Movements
+- Ordini
 - Import Manager
 - Settings
 
@@ -58,12 +59,21 @@ The first release focuses on providing a complete overview of the current portfo
 - Performance & Risk
 
 #### Features
-- Asset analytics (scheda di dettaglio con ordini, dividendi, cedole)
+- Asset analytics (scheda di dettaglio con ordini, dividendi, cedole, IRR money-weighted)
 - Target di allocazione per categoria con divergenze e suggerimenti di ribilanciamento
 - Canonical return series (rendimenti giornalieri corretti per i flussi esterni)
 - CAGR, volatilità annualizzata (√365), Sharpe ratio con risk-free rate configurabile
 - Rendimenti mensili e annuali (compounding), statistiche periodi positivi/negativi/flat
 - Maximum drawdown con peak/trough/recovery e tempi
+
+### Post-MVP2 (implementato)
+
+#### Pages
+- **Ordini** — Elenco completo degli ordini di mercato con filtri, ordinamento e sezione **Posizioni chiuse** con Gain/Loss aggregato per ticker a quantità netta zero.
+
+#### Features
+- API dedicata `/api/orders` con GET (lista filtrata), GET /symbols (ticker distinti), DELETE (elimina singolo ordine con invalidazione cache analytics)
+- **Posizioni chiuse**: raggruppamento automatico degli ordini per ticker con quantità netta zero, calcolo P&L aggregato (somma importi BUY/SELL), ordinamento per Gain/Loss EUR
 
 ---
 
@@ -150,12 +160,13 @@ The TWR is calculated using sub-periods delimited by external cash flows (deposi
 - **Portfolio** — Sortable table of current positions (ticker, ISIN, name, quantity, price, avg price, value, gain/loss), Asset Type dropdown for manual classification, Asset Class summary table with totals
 - **Movements** — Filterable/sortable table of cash movements with date range, type, symbol filters, text search, type legend, and total amount row
 - **Import Manager** — Upload CSV files (drag & drop or click), import session history, clear database with confirmation
+- **Ordini** — Filterable/sortable table of market orders (BUY/SELL) with date range, type, symbol filters, text search, implicit unit price, and **Posizioni chiuse** section showing aggregated Gain/Loss for tickers with zero net quantity
 - **Settings** — App information display
 
 ### MVP2
-- **Asset Detail** — Analisi singolo strumento (KPI posizione, cronologia ordini, dividendi/cedole)
+- **Asset Detail** — Analisi singolo strumento (KPI posizione, cronologia ordini, dividendi/cedole, IRR money-weighted)
 - **Allocation** — Editor target per categoria + soglia tolleranza, pie chart in tempo reale, divergenze attuale vs target, suggerimenti COMPRA/VENDI
-- **Performance** — KPI performance (cumulativo, CAGR, best/worst), rendimenti mensili (bar chart + heatmap), statistiche periodi, metriche di rischio (volatilità √365, Sharpe con risk-free configurabile), analisi e grafico drawdown
+- **Performance** — KPI performance (cumulativo, CAGR, best/worst), rendimenti mensili (bar chart + heatmap), statistiche periodi, metriche di rischio (volatilità √365, Sharpe con risk-free configurabile), analisi e grafico drawdown, tabella IRR per tipo asset con carico/attuale/gain per singolo asset
 
 ---
 
@@ -210,14 +221,16 @@ portfolio-insights/
 │   ├── analyticsModel.js       # Query SQLite per i dati storici e i calcoli delle metriche
 │   ├── importModel.js          # Query SQLite per l'inserimento delle transazioni e log di import
 │   ├── movementModel.js        # Query SQLite per i movimenti di cassa con filtri
+│   ├── orderModel.js           # Query SQLite per gli ordini di mercato con filtri, eliminazione e simboli
 │   ├── allocationModel.js      # Target di allocazione, allocazione attuale, ribilanciamento
 │   ├── performanceModel.js     # Canonical return series + metriche performance/risk
-│   └── __tests__/              # Test Vitest (performanceAPI.test.js)
+│   └── __tests__/              # Test Vitest (performanceAPI.test.js, irr.test.js)
 ├── controllers/
 │   ├── assetController.js      # Logica per recuperare e formattare i dati degli asset
 │   ├── analyticsController.js  # Calcoli KPI, allocazione e orchestrazione della Dashboard
 │   ├── importController.js     # Gestione dell'upload, validazione e salvataggio dei CSV
 │   ├── movementController.js   # Logica per recuperare e filtrare i movimenti di cassa
+│   ├── orderController.js      # Logica per recuperare, filtrare ed eliminare gli ordini di mercato
 │   ├── allocationController.js # Endpoint allocazione e ribilanciamento
 │   └── performanceController.js# Endpoint volatility, sharpe, performance aggregato
 ├── routes/
@@ -226,6 +239,7 @@ portfolio-insights/
 │   ├── performanceRoutes.js    # Endpoint volatility/sharpe/performance (/api/analytics)
 │   ├── importRoutes.js         # Definizione endpoint Express per l'importazione dei file Directa
 │   ├── movementRoutes.js       # Definizione endpoint Express per i movimenti di cassa
+│   ├── orderRoutes.js          # Definizione endpoint Express per gli ordini di mercato (/api/orders)
 │   ├── allocationRoutes.js     # Endpoint asset-types e allocation/* (montato su /api)
 │   └── authRoutes.js           # GET /api/auth/check (non protetto, rate-limited)
 ├── utils/
@@ -253,11 +267,13 @@ portfolio-insights/
 │   │       ├── Dashboard.tsx   # KPI, chart, allocation
 │   │       ├── Portfolio.tsx   # Positions table + Asset Class summary
 │   │       ├── Allocation.tsx  # Editor target + ribilanciamento
-│   │       ├── Performance.tsx # Performance & Risk (CAGR, volatilità, Sharpe, drawdown)
-│   │       ├── AssetDetail.tsx # Scheda dettaglio singolo strumento
+│   │       ├── Performance.tsx # Performance & Risk (CAGR, volatilità, Sharpe, drawdown, IRR per tipo)
+│   │       ├── AssetDetail.tsx # Scheda dettaglio singolo strumento (con IRR money-weighted)
 │   │       ├── Movements.tsx   # Cash movements with filters
+│   │       ├── Orders.tsx      # Market orders with filters + Posizioni chiuse Gain/Loss
 │   │       ├── ImportPage.tsx  # CSV upload + clear database
-│   │       └── Settings.tsx    # App info
+│   │       ├── Settings.tsx    # App info
+│   │       └── About.tsx       # Feature list and usage guide
 │   └── ...
 └── public/                     # Frontend React (build statica dell'interfaccia utente)
 ```
