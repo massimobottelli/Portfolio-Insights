@@ -204,23 +204,7 @@ function _renderTable(
             <td className="px-3 py-2.5 text-sm text-slate-500 align-middle">
               {'—'}
             </td>
-            <td className="px-3 py-2.5 text-sm text-right text-slate-300 align-middle">
-              {formatAmount(group.carico)}
-            </td>
-            <td className="px-3 py-2.5 text-sm text-right text-slate-300 align-middle">
-              {formatAmount(group.attuale)}
-            </td>
-            <td
-              className={`px-3 py-2.5 text-sm text-right font-medium ${gainColorClass(group.gainEur)} align-middle`}
-            >
-              {formatAmount(group.gainEur)}
-            </td>
-            <td
-              className={`px-3 py-2.5 text-sm text-right font-medium ${gainColorClass(group.gainPct)} align-middle`}
-            >
-              {formatPercent(group.gainPct)}
-            </td>
-            {/* IRR aggregato per tipo: allineato alla sottoriga quando c'è un unico asset */}
+            {/* IRR aggregato per tipo */}
             {group.assets.length === 1 && group.assets[0].irr ? (
               // Unico asset nel gruppo: uso il suo IRR reale (allineato alla sottoriga)
               <td className={`px-3 py-2.5 text-sm text-right font-medium ${group.assets[0].irr.irr != null ? (group.assets[0].irr.irr >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500"} align-middle`}>
@@ -228,12 +212,28 @@ function _renderTable(
                   ? `${(group.assets[0].irr.irr * 100).toFixed(2).replace(".", ",")}%`
                   : DASH}
               </td>
+            ) : group.irr ? (
+              // Più asset nel gruppo: uso l'IRR aggregato del tipo dall'API
+              <td className={`px-3 py-2.5 text-sm text-right font-medium ${group.irr.irr != null ? (group.irr.irr >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500"} align-middle`}>
+                {group.irr.irr != null
+                  ? `${(group.irr.irr * 100).toFixed(2).replace(".", ",")}%`
+                  : DASH}
+              </td>
             ) : (
-              // Più asset nel gruppo o nessun IRR individuale: nessun IRR aggregato significativo
               <td className="px-3 py-2.5 text-sm text-right text-slate-500 align-middle">
                 {DASH}
               </td>
             )}
+            <td
+              className={`px-3 py-2.5 text-sm text-right font-medium ${gainColorClass(group.gainPct)} align-middle`}
+            >
+              {formatPercent(group.gainPct)}
+            </td>
+            <td
+              className={`px-3 py-2.5 text-sm text-right font-medium ${gainColorClass(group.gainEur)} align-middle`}
+            >
+              {formatAmount(group.gainEur)}
+            </td>
         </tr>
         {/* Sottorighes: singolo asset per tipo */}
         {group.assets.map((asset) => (
@@ -247,34 +247,16 @@ function _renderTable(
             <td className="py-1.5 px-3 pl-6 text-sm text-slate-400 align-middle">
               {asset.ticker}
             </td>
-            <td className="py-1.5 px-3 text-sm" onClick={() => navigate(`/asset/${asset.asset_id}`)}>
+            <td className="py-1.5 px-3 text-sm min-w-[150px]" onClick={() => navigate(`/asset/${asset.asset_id}`)}>
               <span
-                className="text-slate-500 truncate max-w-[180px] hover:text-white hover:underline cursor-pointer transition-colors inline-block align-middle"
-                title="Click per Scheda Asset"
+                className="text-slate-500 hover:text-white hover:underline cursor-pointer transition-colors inline-block align-middle max-w-full"
+                title={asset.name}
               >
                 {asset.name}
               </span>
             </td>
-            <td className="px-3 py-1.5 text-sm text-right text-slate-400 align-middle">
-              {formatAmount(asset.bookValueEUR)}
-            </td>
-            <td className="px-3 py-1.5 text-sm text-right text-slate-400 align-middle">
-              {formatAmount(asset.currentValueEUR)}
-            </td>
-            <td
-              className={`px-3 py-1.5 text-sm text-right ${gainColorClass(asset.gainEur)} align-middle`}
-            >
-              {formatAmount(asset.gainEur)}
-            </td>
-            <td
-              className={`px-3 py-1.5 text-sm text-right ${gainColorClass(
-                asset.gainPct,
-              )} align-middle`}
-            >
-              {formatPercent(asset.gainPct)}
-            </td>
             {asset.irr && (
-              <td className={`px-3 py-1.5 text-sm text-right font-medium ${asset.irr.irr != null ? (asset.irr.irr >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-600"} align-middle`}>
+              <td className={`px-3 py-1.5 text-sm text-right ${asset.irr.irr != null ? (asset.irr.irr >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-600"} align-middle`}>
                 {asset.irr.irr != null
                   ? `${(asset.irr.irr * 100).toFixed(2).replace(".", ",")}%`
                   : DASH}
@@ -285,11 +267,23 @@ function _renderTable(
                 {'—'}
               </td>
             )}
+            <td
+              className={`px-3 py-1.5 text-sm text-right ${gainColorClass(
+                asset.gainPct,
+              )} align-middle`}
+            >
+              {formatPercent(asset.gainPct)}
+            </td>
+            <td
+              className={`px-3 py-1.5 text-sm text-right ${gainColorClass(asset.gainEur)} align-middle`}
+            >
+              {formatAmount(asset.gainEur)}
+            </td>
           </tr>
         ))}
         {!isLastGroup && (
           <tr>
-            <td colSpan={8} className="py-0.5 px-3">
+            <td colSpan={6} className="py-0.5 px-3">
               <div className="border-t border-slate-700/30 mx-2" />
             </td>
           </tr>
@@ -321,19 +315,13 @@ function _renderTable(
                 Nome
               </th>
               <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle">
-                Carico
-              </th>
-              <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle">
-                Attuale
-              </th>
-              <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle">
-                Gain/Loss €
+                IRR
               </th>
               <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle">
                 Gain/Loss %
               </th>
               <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle">
-                IRR
+                Gain/Loss €
               </th>
             </tr>
           </thead>
@@ -345,24 +333,18 @@ function _renderTable(
               </td>
               <td className="px-3 py-3 text-sm text-right text-white align-middle"></td>
               <td className="px-3 py-3 text-sm text-right text-white align-middle"></td>
-              <td className="px-3 py-3 text-sm text-right text-white align-middle">
-                {formatAmount(total.carico)}
-              </td>
-              <td className="px-3 py-3 text-sm text-right text-white align-middle">
-                {formatAmount(total.attuale)}
-              </td>
-              <td
-                className={`px-3 py-3 text-sm text-right ${gainColorClass(total.gainEur)} align-middle`}
-              >
-                {formatAmount(total.gainEur)}
+              <td className="px-3 py-3 text-sm text-right text-slate-500 align-middle">
+                { '—' }
               </td>
               <td
                 className={`px-3 py-3 text-sm text-right ${gainColorClass(total.gainPct)} align-middle`}
               >
                 {formatPercent(total.gainPct)}
               </td>
-              <td className="px-3 py-3 text-sm text-right text-slate-500 align-middle">
-                { '—' }
+              <td
+                className={`px-3 py-3 text-sm text-right ${gainColorClass(total.gainEur)} align-middle`}
+              >
+                {formatAmount(total.gainEur)}
               </td>
             </tr>
           </tbody>
