@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useLocation, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import type { AssetDetailData } from '../types';
 import { apiFetch } from '../lib/api';
@@ -59,8 +59,29 @@ function KpiCard({ label, value, sublabel, valueClass = 'text-white', sublabelCl
   );
 }
 
+/**
+ * destinazione del link "Torna a...": la pagina da cui si è arrivati.
+ * La provenienza viene passata via location.state.from da chi naviga verso
+ * /asset/:id (Portfolio, Performance...); fallback a Portfolio per accessi
+ * diretti via URL (refresh, link condiviso) dove lo state non esiste.
+ * Nota: NON si usa navigate(-1) perché con un accesso diretto il "back"
+ * del browser uscirebbe dall'app.
+ */
+const BACK_LABELS: Record<string, string> = {
+  '/portfolio': 'Torna al Portfolio',
+  '/performance': 'Torna alla Performance',
+};
+
+function backTarget(state: unknown): { to: string; label: string } {
+  const from = (state as { from?: string } | null)?.from;
+  if (from && BACK_LABELS[from]) return { to: from, label: BACK_LABELS[from] };
+  return { to: '/portfolio', label: 'Torna al Portfolio' };
+}
+
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const back = backTarget(location.state);
   const [data, setData] = useState<AssetDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,8 +109,8 @@ export default function AssetDetail() {
   if (error || !data) {
     return (
       <div className="space-y-4">
-        <Link to="/portfolio" className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
-          <ArrowLeft size={16} /> Torna al Portfolio
+        <Link to={back.to} className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
+          <ArrowLeft size={16} /> {back.label}
         </Link>
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-8 text-center">
           <p className="text-slate-400">{error || 'Asset non trovato'}</p>
@@ -105,9 +126,9 @@ export default function AssetDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Back link */}
-      <Link to="/portfolio" className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
-        <ArrowLeft size={16} /> Torna al Portfolio
+      {/* Back link — dinamico in base alla pagina di provenienza */}
+      <Link to={back.to} className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
+        <ArrowLeft size={16} /> {back.label}
       </Link>
 
       {/* 1. Header — Identità dell'Asset */}

@@ -265,7 +265,7 @@ function _renderTable(
             <td className="py-1.5 px-3 pl-6 text-sm text-slate-400 align-middle">
               {asset.ticker}
             </td>
-            <td className="py-1.5 px-3 text-sm min-w-[150px]" onClick={() => navigate(`/asset/${asset.asset_id}`)}>
+            <td className="py-1.5 px-3 text-sm min-w-[150px]" onClick={() => navigate(`/asset/${asset.asset_id}`, { state: { from: '/performance' } })}>
               <span
                 className="text-slate-500 hover:text-white hover:underline cursor-pointer transition-colors inline-block align-middle max-w-full"
                 title={asset.name}

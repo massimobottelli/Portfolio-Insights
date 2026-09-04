@@ -68,7 +68,7 @@ Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](http
 - **Elenco completo**: tutti gli ordini di acquisto/vendita (BUY/SELL) con ticker, quantità, prezzo unitario implicito
 - **Filtri avanzati**: intervallo date, tipo ordine, simbolo, ricerca testuale su nome/ticker/riferimento
 - **Ordinamento**: cliccabile su ogni colonna
-- **Posizioni chiuse**: sezione dedicata che raggruppa ticker con quantità netta zero, calcola e mostra Gain/Loss EUR aggregato con ordinamento
+- **Posizioni chiuse**: tabella nella pagina Performance (componente `ClosedPositions`) che raggruppa ticker con quantità netta zero, calcola e mostra Gain/Loss EUR aggregato con ordinamento; click sul nome → Ordini filtrati per simbolo
 - **Eliminazione ordine**: rimozione singolo ordine con invalidazione automatica della cache analytics
 - **Legenda tipologie**: descrizione estesa per BUY e SELL
 
@@ -165,9 +165,10 @@ Accedi all'area personale Directa e scarica i seguenti report in formato CSV:
 - **Dashboard**: panoramica con KPI e grafico storico
 - **Portfolio**: dettaglio delle posizioni, classifica gli asset manualmente
 - **Allocazione**: definisci i target per categoria e verifica le divergenze
-- **Performance**: analizza rendimento, rischio e drawdown
+- **Performance**: analizza rendimento, posizioni chiuse e statistiche periodi
+- **Rischi**: volatilità, Sharpe ratio con risk-free rate configurabile e analisi drawdown
 - **Movimenti**: analizza i flussi di cassa con i filtri
-- **Ordini**: esplora gli ordini di mercato, monitora le posizioni chiuse con Gain/Loss
+- **Ordini**: esplora gli ordini di mercato con filtri avanzati
 
 ---
 
