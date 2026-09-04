@@ -8,6 +8,20 @@
 
 Portfolio Insights è un'applicazione web **self-hostable** che analizza un portafoglio di investimenti esportato dal broker **Directa**. Si concentra su investimenti a lungo termine (Obbligazioni, Azioni, Fondi, Commodities) e fornisce analisi avanzate sulla composizione del portafoglio, l'evoluzione storica, le performance di investimento e il profilo di rischio.
 
+
+> ⚠️ **Disclaimer — Progetto amatoriale e sperimentale**
+>
+> **Portfolio Insights è un progetto personale, amatoriale e sperimentale, sviluppato principalmente per uso personale e didattico. Non è un software professionale né un prodotto finanziario.**
+>
+> Il progetto è stato sviluppato anche attraverso un approccio **AI-assisted / “vibe coding”** e, nonostante siano presenti test e verifiche, possono esserci errori, imprecisioni o comportamenti inattesi, inclusi errori nei calcoli o nell'interpretazione dei dati.
+>
+> Le informazioni, le metriche e gli eventuali suggerimenti di **Portfolio Insights sono forniti esclusivamente a scopo informativo e non costituiscono consulenza finanziaria, fiscale o di investimento, né una raccomandazione ad acquistare o vendere strumenti finanziari.**
+>
+> Il software è fornito **“AS IS”**, senza garanzie espresse o implicite sulla correttezza, completezza, accuratezza o affidabilità dei risultati. **L'utilizzo del software e qualsiasi decisione presa sulla base dei suoi risultati sono sotto la piena responsabilità dell'utente.**
+>
+> **Non viene fornita alcuna garanzia, assistenza professionale o assicurazione circa l'assenza di errori o la disponibilità del software.**
+
+
 ### 🚀 Live Demo
 
 Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](https://portfolio-insights-3jlp.onrender.com/)
@@ -45,6 +59,18 @@ Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](http
 - **Metriche di rischio**: volatilità giornaliera e annualizzata (√365), Sharpe ratio con **risk-free rate configurabile dall'utente**
 - **Analisi drawdown**: maximum drawdown, peak/trough/recovery, durata e tempo di recupero, grafico della curva di drawdown
 - Le metriche sono calcolate sull'intero periodo di investimento dalla **canonical return series** (serie unica di rendimenti giornalieri condivisa da tutte le metriche)
+
+
+> **⚠️ Nota importante:** le metriche e i risultati mostrati da Portfolio Insights sono calcolati automaticamente a partire dai dati importati e hanno esclusivamente finalità informative. Non devono essere interpretati come consulenza finanziaria o come base unica per prendere decisioni di investimento.
+
+
+### 📋 Ordini
+- **Elenco completo**: tutti gli ordini di acquisto/vendita (BUY/SELL) con ticker, quantità, prezzo unitario implicito
+- **Filtri avanzati**: intervallo date, tipo ordine, simbolo, ricerca testuale su nome/ticker/riferimento
+- **Ordinamento**: cliccabile su ogni colonna
+- **Posizioni chiuse**: tabella nella pagina Performance (componente `ClosedPositions`) che raggruppa ticker con quantità netta zero, calcola e mostra Gain/Loss EUR aggregato con ordinamento; click sul nome → Ordini filtrati per simbolo
+- **Eliminazione ordine**: rimozione singolo ordine con invalidazione automatica della cache analytics
+- **Legenda tipologie**: descrizione estesa per BUY e SELL
 
 ### 💳 Movimenti
 - **Elenco completo**: tutti i movimenti di cassa (commissioni, dividendi, bolli, tasse, conferimenti)
@@ -139,8 +165,10 @@ Accedi all'area personale Directa e scarica i seguenti report in formato CSV:
 - **Dashboard**: panoramica con KPI e grafico storico
 - **Portfolio**: dettaglio delle posizioni, classifica gli asset manualmente
 - **Allocazione**: definisci i target per categoria e verifica le divergenze
-- **Performance**: analizza rendimento, rischio e drawdown
+- **Performance**: analizza rendimento, posizioni chiuse e statistiche periodi
+- **Rischi**: volatilità, Sharpe ratio con risk-free rate configurabile e analisi drawdown
 - **Movimenti**: analizza i flussi di cassa con i filtri
+- **Ordini**: esplora gli ordini di mercato con filtri avanzati
 
 ---
 
@@ -150,7 +178,7 @@ Accedi all'area personale Directa e scarica i seguenti report in formato CSV:
 portfolio-insights/
 ├── config/                  # Configurazioni condivise (asset types, auth token)
 ├── models/                  # Accesso ai dati (SQLite nativo) + calcoli analytics
-│   └── __tests__/           # Test Vitest (performance & risk)
+│   └── __tests__/           # Test Vitest (performance & risk, IRR)
 ├── controllers/             # Logica applicativa
 ├── routes/                  # Endpoint Express
 ├── middleware/              # Auth, rate limiting, error handling, security headers
@@ -216,6 +244,7 @@ Tutti i calcoli analitici (posizioni, allocazione, performance, rischio, TWR) so
 - **Sharpe Ratio**: rendimento in eccesso sul risk-free rate (configurabile) / volatilità
 - **Maximum Drawdown**: perdita massima dal picco, con peak/trough/recovery e tempi
 - **Rendimenti mensili e annuali**: aggregati per compounding (non somma aritmetica)
+- **IRR** (Internal Rate of Return): rendimento annualizzato money-weighted per singolo asset e per tipo asset (Newton-Raphson)
 
 ---
 
@@ -223,6 +252,8 @@ Tutti i calcoli analitici (posizioni, allocazione, performance, rischio, TWR) so
 
 - [x] MVP1 — Dashboard, Portfolio, Movements, Import
 - [x] MVP2 — Asset Detail, Allocazione & Ribilanciamento, Performance & Risk
+- [x] IRR — Rendimento money-weighted per asset singolo e per tipo asset
+- [x] Pagina Ordini — Elenco ordini di mercato con filtri + Posizioni chiuse con Gain/Loss
 
 ---
 

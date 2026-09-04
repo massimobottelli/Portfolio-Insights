@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Search, X, ChevronDown } from 'lucide-react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import type { MarketOrderItem, OrdersResponse } from '../types';
 import { apiFetch } from '../lib/api';
 import { formatAmount } from '../lib/format';
@@ -37,17 +37,24 @@ export default function Orders() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [symbolFilter, setSymbolFilter] = useState('');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
 
-  // Sincronizza i filtri con l'URL: permette link diretti (es. /orders?symbol=TIC)
-  // e navigazione forward da altre componenti (es. Posizioni chiuse → Ordini filtrati)
-  const urlSymbol = searchParams.get('symbol') || '';
-  useEffect(() => { if (urlSymbol !== symbolFilter) setSymbolFilter(urlSymbol); }, [urlSymbol]);
-  useEffect(() => { if (urlSymbol) { setSearchParams({ symbol: symbolFilter }); } else if (symbolFilter) { setSearchParams({ symbol: symbolFilter }); } }, [symbolFilter]);
+  // Il filtro simbolo ha l'URL come UNICA fonte di verità: si deriva da ?symbol=.
+  // Permette link diretti (es. /orders?symbol=TIC) e navigazione forward da altre
+  // pagine (es. Posizioni chiuse → Ordini filtrati) SENZA loop di sincronizzazione:
+  // due useEffect che si copiano a vicenda stato↔URL entravano in ping-pong
+  // (ogni setSearchParams è una navigazione e ogni cambio filtro rilanciava il fetch).
+  const symbolFilter = searchParams.get('symbol') || '';
+
+  /** Aggiorna SOLO il parametro ?symbol= nell'URL (replace: niente voci inutili nella history) */
+  const setSymbolFilter = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (value) params.set('symbol', value); else params.delete('symbol');
+    setSearchParams(params, { replace: true });
+  };
+
   useEffect(() => { const id = setTimeout(() => setDebouncedSearch(search), 300); return () => clearTimeout(id); }, [search]);
 
   useEffect(() => {
@@ -75,18 +82,6 @@ export default function Orders() {
   const handleSort = (key: SortKey) => { if (sortKey === key) { setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc')); } else { setSortKey(key); setSortDirection('asc'); } };
   const sortArrow = (key: SortKey) => { if (sortKey !== key) return ' \u21f5'; return sortDirection === 'asc' ? ' \u2191' : ' \u2193'; };
 
-  // Freccia ordinamento per tabella posizioni chiuse
-  const closedSortArrow = (key: ClosedSortKey) => {
-    if (closedSortKey !== key) return ' \u21f5';
-    return closedSortDir === 'asc' ? ' \u2191' : ' \u2193';
-  };
-
-  // Gestione click colonna ordinamento posizioni chiuse
-  const handleClosedSort = (key: ClosedSortKey) => {
-    if (closedSortKey === key) setClosedSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
-    else { setClosedSortKey(key); setClosedSortDir('asc'); }
-  };
-
   const thClass = (key: SortKey, align: 'left' | 'right' = 'left') =>
     `cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors ${align === 'right' ? 'text-right' : 'text-left'} ${sortKey === key ? 'text-white' : 'text-slate-400'} hover:text-white`;
   const inputClass = 'bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors';
@@ -110,31 +105,6 @@ export default function Orders() {
   /** Calcola il totale quantità: BUY positivo, SELL negativo */
   const totalQuantity = orders.reduce((sum, ord) => sum + (ord.type === 'SELL' ? -(ord.quantity ?? 0) : (ord.quantity ?? 0)), 0);
 
-  // Stato ordinamento per la tabella "Posizioni chiuse"
-  type ClosedSortKey = 'ticker' | 'name' | 'pnl' | 'orderCount';
-  const [closedSortKey, setClosedSortKey] = useState<ClosedSortKey>('pnl');
-  const [closedSortDir, setClosedSortDir] = useState<'asc' | 'desc'>('desc');
-
-  const closedPositions = (() => {
-    const groups = new Map<string, MarketOrderItem[]>();
-    orders.forEach(o => { if (o.ticker) { const g = groups.get(o.ticker) || []; g.push(o); groups.set(o.ticker, g); } });
-    const result: { ticker: string; name: string | null; orderCount: number; pnl: number }[] = [];
-    for (const [ticker, items] of groups) {
-      const netQty = items.reduce((s, i) => s + (i.type === 'SELL' ? -(i.quantity ?? 0) : (i.quantity ?? 0)), 0);
-      if (netQty === 0) {
-        const pnl = items.reduce((s, i) => s + displayAmount(i), 0);
-        result.push({ ticker, name: items.find(i => i.asset_name)?.asset_name ?? null, orderCount: items.length, pnl });
-      }
-    }
-    return result.sort((a, b) => {
-      let cmp = 0;
-      if (closedSortKey === 'ticker') cmp = a.ticker.localeCompare(b.ticker);
-      else if (closedSortKey === 'name') cmp = (a.name || '').localeCompare(b.name || '');
-      else if (closedSortKey === 'pnl') cmp = a.pnl - b.pnl;
-      else if (closedSortKey === 'orderCount') cmp = a.orderCount - b.orderCount;
-      return closedSortDir === 'asc' ? cmp : -cmp;
-    });
-  })();
   /** Colore in base al segno dell'importo visualizzato e al tipo */
   return (
     <div className="space-y-6">
@@ -142,39 +112,6 @@ export default function Orders() {
         <h2 className="text-2xl font-bold text-white">Ordini</h2>
         {!loading && (<p className="text-slate-400 text-sm">{orders.length} ordini</p>)}
       </div>
-
-      {/* Posizioni chiuse */}
-      {!loading && closedPositions.length > 0 && (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-          <h3 className="text-base font-semibold text-white px-4 lg:px-5 pt-4 lg:pt-5 pb-2">Posizioni chiuse</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700 bg-slate-800/50">
-                  <th className={thClass('ticker')} onClick={() => handleClosedSort('ticker')}>Ticker{closedSortArrow('ticker')}</th>
-                  <th className={thClass('name' as SortKey)} onClick={() => handleClosedSort('name')}>Nome{closedSortArrow('name')}</th>
-                  <th className={thClass('pnl' as SortKey, 'right')} onClick={() => handleClosedSort('pnl')}>Gain/Loss EUR{closedSortArrow('pnl')}</th>
-                  <th className={thClass('orderCount' as SortKey, 'right')} onClick={() => handleClosedSort('orderCount')}>Num Ordini{closedSortArrow('orderCount')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700">
-                {closedPositions.map(pos => (
-                  <tr key={pos.ticker} className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-3 text-sm text-slate-300 whitespace-nowrap">{pos.ticker}</td>
-                    <td className="px-4 py-3 text-sm" onClick={() => navigate(`/orders?symbol=${encodeURIComponent(pos.ticker)}`)} title="Click per vedere gli ordini di questo asset">
-                      <span className="text-slate-300 hover:text-white hover:underline cursor-pointer transition-colors">{pos.name || '\u2014'}</span>
-                    </td>
-                    <td className={`px-4 py-3 text-sm text-right font-bold whitespace-nowrap ${pos.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {pos.pnl !== 0 && pos.pnl < 0 ? '-' : ''}{formatAmount(Math.abs(pos.pnl))}€
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-300 text-right whitespace-nowrap">{pos.orderCount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* Filtri */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 space-y-3">

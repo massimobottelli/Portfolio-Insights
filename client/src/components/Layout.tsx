@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BarChart3, PieChart, TrendingUp, ArrowLeftRight, Download, Info, LogOut, ListOrdered } from 'lucide-react';
+import { LayoutDashboard, BarChart3, PieChart, TrendingUp, ArrowLeftRight, Download, Info, LogOut, ListOrdered, ShieldAlert } from 'lucide-react';
 
 // Logo GitHub ufficiale (octicon "mark-github") — lucide-react non espone più icone brand
 function GithubIcon({ size = 14 }: { size?: number }) {
@@ -18,8 +18,9 @@ const navItems = [
   { to: '/portfolio', label: 'Portfolio', icon: BarChart3 },
   { to: '/allocation', label: 'Allocazione', icon: PieChart },
   { to: '/performance', label: 'Performance', icon: TrendingUp },
-  { to: '/movements', label: 'Movimenti', icon: ArrowLeftRight },
+  { to: '/rischi', label: 'Rischi', icon: ShieldAlert },
   { to: '/orders', label: 'Ordini', icon: ListOrdered },
+  { to: '/movements', label: 'Movimenti', icon: ArrowLeftRight },
   { to: '/import', label: 'Import', icon: Download },
   { to: '/about', label: 'About', icon: Info },
 ];
