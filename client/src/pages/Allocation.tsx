@@ -415,8 +415,20 @@ export default function Allocation() {
                         {type}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-300">{formatPercent(currentPercent)}</td>
-                    <td className="px-4 py-3 text-right text-slate-300">{formatPercent(targetPercent)}</td>
+                    <td className="px-4 py-3 text-right text-slate-300">
+                      {new Intl.NumberFormat('it-IT', {
+                          style: 'percent',
+                          signDisplay: 'auto',
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        }).format(currentPercent / 100)}</td>
+                    <td className="px-4 py-3 text-right text-slate-300">
+                      {new Intl.NumberFormat('it-IT', {
+                          style: 'percent',
+                          signDisplay: 'auto',
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        }).format(targetPercent / 100)}</td>
                     <td className={`px-4 py-3 text-right font-medium ${divergenceColor(divergence)}`}>
                       {formatPercent(divergence)}
                     </td>

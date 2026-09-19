@@ -1,35 +1,941 @@
-# .clinerules
+# Travelog — Cline Rules
 
-do not use cat to create new files: always use vs code editor
+## 1. Source of truth
 
-## Project Overview
-- **Name:** Personal Finance Portfolio Manager
-- **Goal:** Single-user web app to manage investment portfolio.
-- **Core stack:** 
+Before making any implementation decision, read the relevant project documentation.
 
-## Coding Guidelines
-- **Backend:** 
-- **Frontend:** 
-- **Database interactions:** 
-- **CSV import:** 
-- **Error handling:** 
-- **Security:** 
-- **Testing:** 
+Priority order:
 
-## Data Model Rules
+1. `doc/functional-requirements-mvp1.md`
+2. `doc/technical-design-mvp1.md`
+3. `openapi/openapi.yaml`
+4. Existing source code and tests
 
-## Feature Implementation Rules
+Functional requirements are authoritative for application behavior.
 
-## Design Patterns
+The technical design is authoritative for architectural and technology decisions.
 
-## Things to Avoid
+**Never change a functional requirement to make an implementation easier.**
 
-## When the User Changes Mind
-- Always respect the most recent user instruction, even if it contradicts these rules. Update this file accordingly when foundational decisions change.
+If implementation appears to conflict with the functional requirements, stop and ask for clarification.
 
-## Project Structure
+---
+
+## 2. General working rules
+
+Work incrementally.
+
+Before making a non-trivial change:
+
+1. Inspect the relevant existing code.
+2. Read the relevant requirements/design sections.
+3. Identify the affected components.
+4. Make the smallest coherent change.
+5. Run the relevant tests.
+6. Review the resulting diff.
+
+Do not perform unrelated refactoring while implementing a feature.
+
+Do not introduce abstractions merely because they might be useful in the future.
+
+Prefer simple, explicit code over sophisticated abstractions.
+
+---
+
+## 3. Architecture
+
+Travelog MVP1 has separate frontend and backend applications.
+
+```text
+Browser
+   |
+   v
+React / Vite
+   |
+   | REST
+   v
+Express / Node.js
+   |
+   v
+PostgreSQL / PostGIS
+```
+
+The frontend must not access:
+
+* PostgreSQL directly;
+* the NAS filesystem directly;
+* ExifTool directly.
+
+The backend is responsible for business logic.
+
+The frontend is responsible for presentation and UI state.
+
+---
+
+## 4. Backend rules
+
+Backend stack:
+
+* Node.js
+* TypeScript
+* Express
+* REST
+* OpenAPI
+* Drizzle
+* PostgreSQL
+* PostGIS
+
+Use Express as a lightweight HTTP framework.
+
+Do not impose NestJS-style architecture or conventions.
+
+The project explicitly defines its own structure.
+
+Keep these responsibilities separate:
+
+```text
+API / Controllers
+        |
+        v
+Application / Domain Services
+        |
+        v
+Repositories
+        |
+        v
+PostgreSQL / PostGIS
+```
+
+### Controllers
+
+Controllers should:
+
+* receive validated input;
+* invoke application/domain services;
+* map results to HTTP responses;
+* handle HTTP-specific concerns.
+
+Controllers must not contain substantial business logic.
+
+### Services
+
+Services contain application and domain logic.
+
+Business rules must not be duplicated in controllers or React components.
+
+### Repositories
+
+Repositories encapsulate database access.
+
+Do not scatter raw database queries throughout services and controllers.
+
+---
+
+## 5. Frontend rules
+
+Frontend stack:
+
+* React
+* TypeScript
+* Vite
+* Fetch API
+
+Use React state for UI state.
+
+Do not introduce:
+
+* Redux;
+* Zustand;
+* TanStack Query;
+* another global state manager;
+
+unless explicitly requested.
+
+Do not introduce a state-management library merely to solve a problem that can be handled with React state and the API layer.
+
+---
+
+## 6. Frontend API access
+
+All backend communication must go through the frontend API layer.
+
+Use:
+
+```text
+frontend/src/api/client.ts
+```
+
+for common HTTP behavior.
+
+Resource-specific API modules should expose semantic operations, for example:
+
+```text
+startScan()
+getScan(id)
+getTrips()
+getTrip(id)
+updateTrip(id, data)
+```
+
+React components must not contain arbitrary `fetch()` calls.
+
+The API client is not a business-logic layer.
+
+---
+
+## 7. OpenAPI is contract-first
+
+`openapi/openapi.yaml` is the authoritative API contract.
+
+For API changes, follow this order:
+
+```text
+OpenAPI
+   ↓
+Generated TypeScript types
+   ↓
+Backend implementation
+   ↓
+Frontend implementation
+   ↓
+Tests
+```
+
+Do not manually maintain duplicate API DTO/type definitions when they can be generated from OpenAPI.
+
+Do not silently change an API contract because implementation is inconvenient.
+
+If an API change affects functional behavior, ask for confirmation before implementing it.
+
+---
+
+## 8. API validation
+
+Use OpenAPI / JSON Schema as the API validation source.
+
+Do not introduce a second schema-definition system unless explicitly requested.
+
+Validation must happen before business logic is executed.
+
+---
+
+## 9. API errors
+
+All API errors must follow the common error contract defined in OpenAPI.
+
+Conceptually:
+
+```json
+{
+  "code": "TRIP_NOT_FOUND",
+  "message": "Trip not found",
+  "details": {}
+}
+```
+
+Use stable machine-readable error codes.
+
+Do not expose:
+
+* stack traces;
+* SQL queries;
+* filesystem internals;
+* internal implementation details.
+
+Unexpected internal errors must be mapped to an appropriate generic API error.
+
+---
+
+## 10. Database
+
+Database stack:
+
+* PostgreSQL
+* PostGIS
+* Drizzle
+
+PostgreSQL is the persistent source of truth.
+
+Use Drizzle for database access.
+
+Use PostGIS for spatial operations.
+
+Do not replace PostgreSQL/PostGIS with an in-memory or embedded database.
+
+---
+
+## 11. Database migrations
+
+Database schema changes must use versioned Drizzle migrations.
+
+Migration files belong in the repository.
+
+Never make an untracked schema change that is required for the application to work.
+
+When changing the schema:
+
+1. update the Drizzle schema;
+2. generate/create the migration;
+3. verify the migration;
+4. update affected code;
+5. update tests.
+
+Do not use `drizzle-kit push` as the production schema-change mechanism.
+
+---
+
+## 12. Database integrity
+
+Use PostgreSQL constraints when they represent real domain invariants.
+
+Prefer database-enforced integrity for:
+
+* uniqueness;
+* foreign keys;
+* valid references;
+* appropriate check constraints;
+* appropriate temporal/spatial constraints.
+
+Do not rely exclusively on application code when a constraint can safely enforce an invariant.
+
+---
+
+## 13. Transactions
+
+Operations that must be atomic must use PostgreSQL transactions.
+
+### Photo import
+
+Each photograph is processed in its own transaction.
+
+Conceptually:
+
+```text
+BEGIN
+
+save photo
+save geographic information
+save derived information
+
+COMMIT
+```
+
+On failure:
+
+```text
+ROLLBACK
+```
+
+Do not use one global transaction for an entire scan.
+
+---
+
+## 14. Photo filesystem
+
+The photo library is located on a mounted NAS filesystem.
+
+The configured root is supplied by:
+
+```text
+TRAVELOG_PHOTO_ROOT
+```
+
+Travelog treats the photo filesystem as read-only.
+
+Travelog must never:
+
+* modify photographs;
+* rename photographs;
+* move photographs;
+* delete photographs.
+
+All filesystem paths used by the application must remain inside the configured photo root.
+
+---
+
+## 15. Photo formats
+
+MVP1 supports:
+
+```text
+.jpg
+.jpeg
+.heic
+.heif
+```
+
+Extension matching must be case-insensitive.
+
+Unsupported files must be ignored by the scanner.
+
+---
+
+## 16. EXIF processing
+
+Use `exiftool` as an external process.
+
+Do not implement a custom EXIF parser unless explicitly requested.
+
+When invoking ExifTool:
+
+* pass arguments safely;
+* do not construct shell commands by string concatenation;
+* do not interpolate untrusted paths into shell commands;
+* handle process failures explicitly.
+
+The application must extract only the metadata required by the domain.
+
+---
+
+## 17. Photo timestamp
+
+Use:
+
+```text
+EXIF DateTimeOriginal
+```
+
+as the authoritative photo timestamp.
+
+Do not silently fall back to filesystem timestamps.
+
+Treat the timestamp as local time without timezone conversion.
+
+Do not introduce automatic timezone correction unless explicitly required.
+
+---
+
+## 18. GPS
+
+Preserve original GPS values.
+
+Do not overwrite original coordinates with reverse-geocoding results.
+
+MVP1 does not allow manual correction of photo GPS coordinates.
+
+Do not add a UI for manual GPS editing.
+
+---
+
+## 19. Geographic processing
+
+Reverse geocoding is local.
+
+Do not introduce an external geocoding API into the runtime application.
+
+Geographic data is imported offline.
+
+Use PostgreSQL/PostGIS for spatial queries.
+
+Use the persistent geocoding cache where applicable.
+
+Do not download geographic datasets automatically during normal application execution.
+
+---
+
+## 20. Geographic datasets
+
+Geographic datasets are imported using dedicated scripts/tools.
+
+Keep dataset import code separate from normal application runtime code.
+
+Dataset version information should be preserved where required by the technical design.
+
+Changing geographic datasets must not silently mutate existing immutable trips.
+
+---
+
+## 21. Scan architecture
+
+The scanner is a background job running in the Node.js process.
+
+Do not introduce a separate worker service, Redis, message broker, or persistent job queue in MVP1.
+
+The scanner must process files sequentially:
+
+```text
+photo 1
+   ↓
+complete
+   ↓
+photo 2
+   ↓
+complete
+   ↓
+...
+```
+
+Do not introduce parallel file processing unless explicitly requested.
+
+---
+
+## 22. Scan idempotency
+
+Scanning must be incremental and idempotent.
+
+The file identity is based on:
+
+```text
+relative path + size + mtime
+```
+
+Do not introduce content hashing as part of the normal MVP1 scan unless explicitly requested.
+
+Already recognized files should not be imported again.
+
+---
+
+## 23. Scan errors
+
+Errors affecting one photograph must not terminate the entire scan.
+
+Example:
+
+```text
+photo 1 → OK
+photo 2 → OK
+photo 3 → ERROR
+photo 4 → OK
+```
+
+The scan continues with photo 4.
+
+Persist enough information about the failed file to diagnose the problem.
+
+Do not hide individual file failures.
+
+---
+
+## 24. Scan state
+
+Scan state is persisted in PostgreSQL.
+
+Persist:
+
+* scan status;
+* timestamps;
+* counters;
+* errors;
+* relevant diagnostic information.
+
+Do not create a persistent queue containing every file waiting to be processed.
+
+The filesystem is enumerated again on subsequent scans.
+
+---
+
+## 25. Scan locking
+
+Only one scan may run at a time.
+
+Use a PostgreSQL advisory lock.
+
+Do not implement scan locking using:
+
+* an in-memory boolean;
+* a Node.js global variable;
+* a lock file;
+* Redis;
+* another external coordination service.
+
+If a scan is already running, the API must return the appropriate conflict response.
+
+---
+
+## 26. Scan progress
+
+Expose scan progress through REST.
+
+The frontend obtains progress by polling the scan endpoint.
+
+Do not introduce:
+
+* WebSockets;
+* Server-Sent Events;
+* message brokers;
+
+for MVP1 scan progress.
+
+The polling mechanism must stop when the scan reaches a terminal state.
+
+---
+
+## 27. Trips and domain logic
+
+Trip-generation rules belong to the backend domain/application layer.
+
+Do not reproduce trip-generation logic in React.
+
+Do not make trips mutable as a side effect of an ordinary photo scan.
+
+Existing trips must remain consistent with the functional requirements regarding immutability.
+
+Manual operations such as split and merge must be implemented as explicit domain operations.
+
+---
+
+## 28. Split and merge
+
+Implement split and merge as explicit use cases.
+
+Do not implement them as generic database CRUD.
+
+Preserve the history required by the functional requirements.
+
+Validate all relevant domain invariants before committing the operation.
+
+---
+
+## 29. Recalculation
+
+Recalculation is an explicit user operation.
+
+Changing settings must not silently modify existing trips.
+
+Do not trigger recalculation implicitly from unrelated operations.
+
+---
+
+## 30. Authentication
+
+MVP1 has no application-level authentication.
+
+Do not add:
+
+* login;
+* users;
+* passwords;
+* sessions;
+* roles;
+
+unless explicitly requested.
+
+Do not design the application as if it were a public Internet-facing service.
+
+---
+
+## 31. Logging
+
+Use structured logging.
+
+Write logs to:
+
+```text
+stdout
+stderr
+```
+
+systemd/journald is responsible for collection.
+
+Do not introduce:
+
+* ELK;
+* Loki;
+* external log aggregation;
+* another logging infrastructure;
+
+in MVP1.
+
+Useful events should include contextual identifiers such as:
+
+```text
+scan.started
+scan.file.processed
+scan.file.failed
+scan.completed
+geocoding.cache.hit
+geocoding.cache.miss
+trip.created
+trip.split
+trip.merged
+```
+
+Never log secrets or sensitive configuration values.
+
+---
+
+## 32. Testing
+
+MVP1 requires:
+
+* unit tests;
+* integration tests.
+
+Do not add browser E2E infrastructure unless explicitly requested.
+
+### Unit tests
+
+Use unit tests for isolated domain logic.
+
+Examples:
+
+* date calculations;
+* trip rules;
+* exclusion rules;
+* split;
+* merge;
+* validation;
+* normalization.
+
+### Integration tests
+
+Use a real PostgreSQL/PostGIS test database.
+
+Do not mock PostgreSQL/PostGIS in tests whose purpose is to verify SQL or spatial behavior.
+
+---
+
+## 33. Test database
+
+Use a dedicated test database.
+
+Conceptually:
+
+```text
+PostgreSQL
+├── travelog_dev
+└── travelog_test
+```
+
+Tests must never accidentally operate on the development database.
+
+Apply database migrations to the test database before integration tests.
+
+Do not require Docker for the test database.
+
+---
+
+## 34. Test discipline
+
+When adding or changing domain behavior:
+
+* add/update unit tests.
+
+When changing:
+
+* repositories;
+* database schema;
+* SQL;
+* PostGIS queries;
+* API behavior;
+
+add/update appropriate integration tests.
+
+Do not weaken tests to make an implementation pass.
+
+If a test conflicts with the functional requirements, investigate the discrepancy instead of blindly changing the test.
+
+---
+
+## 35. Dependencies
+
+Prefer the existing stack.
+
+Before adding a dependency, ask:
+
+1. Is it actually necessary?
+2. Can the requirement be implemented clearly with the existing stack?
+3. Does it introduce infrastructure or architectural complexity?
+4. Is it consistent with `technical-design-mvp1.md`?
+
+Do not add dependencies merely for convenience.
+
+Avoid libraries that duplicate functionality already provided by:
+
+* Node.js;
+* React;
+* Express;
+* PostgreSQL;
+* PostGIS;
+* Drizzle.
+
+---
+
+## 36. No premature infrastructure
+
+Do not introduce infrastructure for hypothetical future requirements.
+
+MVP1 does not use:
+
+* Docker;
+* Kubernetes;
+* Redis;
+* message brokers;
+* external geocoding services;
+* external logging systems;
+* cloud storage;
+* authentication servers.
+
+Future scalability must not unnecessarily complicate MVP1.
+
+---
+
+## 37. Code style
+
+Prefer:
+
+* explicit names;
+* small functions;
+* cohesive modules;
+* dependency injection where it improves testability;
+* straightforward control flow;
+* strong TypeScript typing.
+
+Avoid:
+
+* unnecessary generic abstractions;
+* deeply nested code;
+* hidden global state;
+* magic values;
+* duplicated business rules.
+
+Do not optimize prematurely.
+
+---
+
+## 38. Error handling
+
+Handle expected errors explicitly.
+
+Distinguish between:
+
+* validation errors;
+* domain errors;
+* not-found errors;
+* conflict errors;
+* external process errors;
+* database errors;
+* unexpected internal errors.
+
+Do not use exceptions as ordinary control flow when a simpler explicit result is appropriate.
+
+Do not swallow errors.
+
+Every error should either:
+
+* be handled appropriately;
+* be propagated to the correct boundary;
+* be logged when operationally relevant.
+
+---
+
+## 39. AI agent behavior
+
+The coding agent must not silently make architectural decisions that contradict this document.
+
+If a task requires a decision not covered by the requirements or technical design:
+
+1. prefer the simplest solution;
+2. check whether the choice affects architecture or functional behavior;
+3. if it does, ask for confirmation before proceeding.
+
+If a requested implementation conflicts with the requirements, report the conflict instead of silently adapting the requirements.
+
+Do not invent missing functional behavior.
+
+---
+
+## 40. Documentation updates
+
+When an implementation introduces a significant architectural decision, update:
+
+```text
+doc/technical-design-mvp1.md
+```
+
+When an API contract changes, update:
+
+```text
+openapi/openapi.yaml
+```
+
+When a database schema changes, add a migration.
+
+Do not leave the repository documentation inconsistent with the implementation.
+
+---
+
+## 41. Definition of done
+
+A coding task is not complete merely because the code compiles.
+
+Before considering a task complete:
+
+1. Verify functional requirements.
+2. Verify technical design constraints.
+3. Run relevant tests.
+4. Run type checking.
+5. Verify migrations when applicable.
+6. Verify generated OpenAPI types when applicable.
+7. Review the diff for unrelated changes.
+8. Update documentation when required.
+
+The final implementation must be consistent with the project architecture.
+
+---
+
+## 42. Golden rule
+
+When in doubt:
+
+> **Do not invent. Read the requirements, follow the technical design, make the smallest change that solves the problem, and ask before changing the contract.**
 
 
-## Communication
-- When generating code, add concise comments explaining "why" for complex logic (especially financial calculations).
-- If the AI is unsure about any concept, ask for clarification rather than assuming.
+# Regole per gestione e modifica dei file
+
+## Creazione e modifica dei file
+
+* **NON usare `cat`, heredoc (`<<EOF`), `echo`, `printf` o comandi equivalenti da terminale per creare o sovrascrivere file.**
+* Per creare nuovi file o modificare file esistenti, **usa sempre gli strumenti nativi di Cline per la gestione dei file/editor**.
+* Evita qualsiasi comando da terminale che possa rimanere in attesa di input interattivo.
+* Non utilizzare mai comandi come:
+
+  ```bash
+  cat > file <<EOF
+  ...
+  EOF
+  ```
+
+  ```bash
+  cat <<EOF > file
+  ...
+  EOF
+  ```
+
+## Terminale
+
+* Usa il terminale esclusivamente per:
+
+  * installare dipendenze;
+  * eseguire build;
+  * eseguire test;
+  * eseguire lint/format;
+  * eseguire script e comandi necessari al progetto;
+  * operazioni che non richiedono la scrittura manuale di grandi quantità di contenuto nei file.
+* Preferisci sempre comandi **non interattivi**.
+* Prima di eseguire un comando da terminale, assicurati che possa terminare autonomamente.
+* Non lasciare processi interattivi o comandi in attesa di input.
+
+## File di grandi dimensioni
+
+* Per file lunghi, non ricrearli interamente tramite terminale.
+* Modifica solo le sezioni necessarie.
+* Suddividi le modifiche in operazioni più piccole quando il file è molto grande.
+* Evita di riscrivere inutilmente file già esistenti.
+
+## Robustezza
+
+* Dopo ogni modifica importante, verifica che il file sia stato scritto correttamente.
+* Dopo modifiche al codice, esegui i test o il controllo appropriato quando disponibile.
+* Se un comando terminale sembra bloccarsi, **non continuare a inviare comandi allo stesso terminale**: interrompilo e utilizza un approccio alternativo.
+
+## Priorità
+
+Quando devi modificare un file, segui questa priorità:
+
+1. Strumenti nativi di editing di Cline.
+2. Modifica incrementale del file.
+3. Script non interattivo solo quando realmente necessario.
+4. **Mai `cat`/heredoc per generare il contenuto dei file.**
+
+L'obiettivo principale è evitare che il terminale rimanga bloccato durante la creazione o modifica dei file.
