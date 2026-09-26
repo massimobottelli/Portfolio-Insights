@@ -26,15 +26,12 @@ export async function getDashboard(req, res) {
     const cashBalance = calculateCashBalance();
     const investedCapital = calculateInvestedCapital();
     const positions = await calculatePositions();
-    const allocation = await calculateAllocation();
 
-    // Calcolo del valore totale del portafoglio.
-    // Per coerenza con Portfolio (totale asset class) e Allocation (totale investito),
-    // usa la stessa base di calcolo: somma delle posizioni con correzione BTP (quantità / 100)
-    // più la liquidità disponibile (available_cash).
-    // I marketValue sono già convertiti in EUR dal model.
-    const positionsValue = allocation.reduce((sum, p) => sum + p.marketValue, 0);
-    const portfolioValue = positionsValue + cashBalance;
+    // Valore totale del portafoglio: usa il valore ufficiale dell'ultimo snapshot
+    // Directa (patrimonio), così box, grafico, P&L e liquidità condividono la stessa fonte.
+    // Il ricalcolo (somma posizioni + liquidità) non coincideva mai esattamente con il
+    // report Directa (orari dei prezzi, conversione valuta, ecc.).
+    const portfolioValue = latestSnapshot ? latestSnapshot.portfolio_value : 0;
 
     // Profit/Loss assoluto = valore portafoglio - capitale investito
     const totalProfitLoss = portfolioValue - investedCapital;
