@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { importFile, listSessions, clearAllData } from '../controllers/importController.js';
+import { importFile, listSessions } from '../controllers/importController.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
 const router = Router();
@@ -12,20 +12,10 @@ const importLimiter = rateLimit({
   message: 'Troppe importazioni. Riprova tra un minuto.',
 });
 
-// Rate limit più severo sull'operazione distruttiva di cancellazione totale.
-const clearLimiter = rateLimit({
-  windowMs: 60_000,
-  max: 3,
-  message: 'Troppe richieste di cancellazione. Riprova tra un minuto.',
-});
-
 // POST /api/import — Importa un file CSV Directa
 router.post('/', importLimiter, importFile);
 
 // GET /api/import/sessions — Storico delle sessioni di import
 router.get('/sessions', listSessions);
-
-// DELETE /api/import/clear — Svuota completamente il database
-router.delete('/clear', clearLimiter, clearAllData);
 
 export default router;

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import type { ImportSession, ImportResponse } from '../types';
+import type { ImportSession, ImportResponse, DatabaseBackup } from '../types';
 import { apiFetch } from '../lib/api';
 
 // Tipi di report supportati
@@ -46,11 +46,31 @@ function detectReportType(csvText: string): ReportType | null {
   return null;
 }
 
+/**
+ * Formatta i nomi delle chiavi del backup in etichette leggibili per l'UI.
+ */
+function formatTableName(key: string): string {
+  const labels: Record<string, string> = {
+    assets: 'Asset',
+    marketOrders: 'Ordini',
+    cashMovements: 'Movimenti',
+    dailyPortfolioSnapshots: 'Snapshot',
+    assetPrices: 'Prezzi',
+    importSessions: 'Sessioni',
+    allocationTargets: 'Target',
+  };
+  return labels[key] || key;
+}
+
 export default function ImportPage() {
   const [sessions, setSessions] = useState<ImportSession[]>([]);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [clearing, setClearing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<DatabaseBackup | null>(null);
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [uploadStates, setUploadStates] = useState<ReportBoxState>({
     movimenti: { file: null, loading: false, error: null, success: false },
     patrimonio: { file: null, loading: false, error: null, success: false },
@@ -59,6 +79,7 @@ export default function ImportPage() {
   const movimentiInputRef = useRef<HTMLInputElement>(null);
   const patrimonioInputRef = useRef<HTMLInputElement>(null);
   const portafoglioInputRef = useRef<HTMLInputElement>(null);
+  const databaseImportInputRef = useRef<HTMLInputElement>(null);
 
   const loadSessions = () => {
     apiFetch('/api/import/sessions')
@@ -66,6 +87,160 @@ export default function ImportPage() {
       .then(data => setSessions(data))
       .catch(console.error);
   };
+
+  /**
+   * Esporta il database completo come file JSON scaricabile.
+   */
+  const handleExportDatabase = useCallback(async () => {
+    setExporting(true);
+    setResult(null);
+    try {
+      const response = await apiFetch('/api/database/export');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Errore durante l\'esportazione');
+      }
+      const backup = await response.json();
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `portfolio-insights-backup-${date}.json`;
+
+      // Crea un Blob e triggera il download
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setResult({
+        success: true,
+        message: `Database esportato: ${(Object.values(backup.counts) as number[]).reduce((sum, v) => sum + v, 0)} record totali in ${filename}`,
+      });
+    } catch (error) {
+      setResult({
+        success: false,
+        message: `Errore: ${error instanceof Error ? error.message : 'Sconosciuto'}`,
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
+  /**
+   * Gestisce la selezione di un file JSON di backup per il ripristino.
+   * Valida la struttura e mostra l'anteprima per la conferma.
+   */
+  const handleDatabaseFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setResult(null);
+    setImportPreview(null);
+    setShowImportConfirm(false);
+
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text) as DatabaseBackup;
+
+      // Validazione struttura minima
+      if (!backup.version || !backup.data || !backup.counts) {
+        throw new Error('Formato del file non valido: struttura del backup non riconosciuta');
+      }
+      if (backup.version !== 1) {
+        throw new Error(`Versione del backup non supportata: ${backup.version}`);
+      }
+
+      setImportPreview(backup);
+      setShowImportConfirm(true);
+    } catch (error) {
+      setResult({
+        success: false,
+        message: `File non valido: ${error instanceof Error ? error.message : 'Sconosciuto'}`,
+      });
+    }
+
+    // Reset dell'input per permettere la stessa selezione
+    if (e.target) {
+      e.target.value = '';
+    }
+  }, []);
+
+  /**
+   * Conferma e esegue il ripristino del database dal backup caricato.
+   */
+  const handleRestoreDatabase = useCallback(async () => {
+    if (!importPreview) return;
+
+    setImporting(true);
+    setResult(null);
+    try {
+      const response = await apiFetch('/api/database/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true, backup: importPreview }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        const { restored } = data;
+        const total = Object.values(restored).reduce((a: number, b) => a + (b as number), 0);
+        setResult({
+          success: true,
+          message: `Database ripristinato: ${total} record totali importati`,
+        });
+        setImportPreview(null);
+        setShowImportConfirm(false);
+        loadSessions();
+      } else {
+        setResult({
+          success: false,
+          message: data.error || 'Errore durante il ripristino',
+        });
+      }
+    } catch (error) {
+      setResult({
+        success: false,
+        message: `Errore: ${error instanceof Error ? error.message : 'Sconosciuto'}`,
+      });
+    } finally {
+      setImporting(false);
+    }
+  }, [importPreview]);
+
+  /**
+   * Svuota completamente il database (confermato dal dialog inline).
+   */
+  const handleClearDatabase = useCallback(async () => {
+    setClearing(true);
+    setResult(null);
+    setShowConfirm(false);
+    try {
+      const response = await apiFetch('/api/database/clear', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        const { deleted } = data;
+        setResult({
+          success: true,
+          message: `Database svuotato: ${deleted.sessions} sessioni, ${deleted.assets} asset, ${deleted.marketOrders} ordini, ${deleted.cashMovements} movimenti, ${deleted.snapshots} snapshot rimossi.`,
+        });
+        loadSessions();
+      } else {
+        setResult({ success: false, message: data.error || 'Errore durante la cancellazione' });
+      }
+    } catch (error) {
+      setResult({ success: false, message: `Errore: ${error instanceof Error ? error.message : 'Sconosciuto'}` });
+    } finally {
+      setClearing(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadSessions();
@@ -336,6 +511,157 @@ export default function ImportPage() {
         />
       </div>
 
+      {/* Database Management Section */}
+      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mt-8">
+        <h3 className="text-lg font-semibold text-white mb-2">Gestione Database</h3>
+        <p className="text-sm text-slate-400 mb-6">
+          Esporta, importa o cancella i dati del database.
+        </p>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Export Database */}
+          <div className="bg-slate-900/50 rounded-lg border border-slate-700 p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="shrink-0 w-10 h-10 rounded-lg bg-blue-900/40 flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white">Esporta Database</h4>
+                <p className="text-xs text-slate-500">Scarica backup JSON</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Esporta tutti i dati in un file JSON per backup o migrazione.
+            </p>
+            <button
+              onClick={handleExportDatabase}
+              disabled={exporting}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 text-white rounded-lg transition-colors text-sm font-medium"
+            >
+              {exporting ? 'Esportazione...' : 'Esporta'}
+            </button>
+          </div>
+
+          {/* Import Database */}
+          <div className="bg-slate-900/50 rounded-lg border border-slate-700 p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="shrink-0 w-10 h-10 rounded-lg bg-emerald-900/40 flex items-center justify-center">
+                <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white">Importa Database</h4>
+                <p className="text-xs text-slate-500">Ripristina da backup</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Carica un file JSON di backup. Sovrascrive tutti i dati esistenti.
+            </p>
+            <input
+              type="file"
+              accept=".json"
+              ref={databaseImportInputRef}
+              onChange={handleDatabaseFileSelect}
+              className="hidden"
+            />
+            <button
+              onClick={() => databaseImportInputRef.current?.click()}
+              disabled={importing}
+              className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 disabled:opacity-50 text-white rounded-lg transition-colors text-sm font-medium"
+            >
+              {importing ? 'Ripristino...' : 'Importa'}
+            </button>
+          </div>
+
+          {/* Clear Database */}
+          <div className="bg-slate-900/50 rounded-lg border border-red-900/30 p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="shrink-0 w-10 h-10 rounded-lg bg-red-900/40 flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white">Cancella Database</h4>
+                <p className="text-xs text-slate-500">Svuota tutti i dati</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Cancella tutti i dati: asset, ordini, movimenti, snapshot e sessioni.
+            </p>
+            {showConfirm ? (
+              <div className="space-y-2">
+                <p className="text-xs text-red-400 font-medium">Sicuro? Irreversibile.</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleClearDatabase}
+                    disabled={clearing}
+                    className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white rounded-lg transition-colors text-xs font-medium"
+                  >
+                    {clearing ? '...' : 'Sì, cancella'}
+                  </button>
+                  <button
+                    onClick={() => setShowConfirm(false)}
+                    disabled={clearing}
+                    className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-xs font-medium"
+                  >
+                    Annulla
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowConfirm(true)}
+                disabled={clearing}
+                className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:opacity-50 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                {clearing ? 'Cancellazione...' : 'Cancella'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Import Preview / Confirmation */}
+        {showImportConfirm && importPreview && (
+          <div className="mt-4 p-4 bg-emerald-900/20 border border-emerald-800/50 rounded-lg">
+            <h4 className="text-sm font-semibold text-emerald-400 mb-3">Anteprima Backup</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              {Object.entries(importPreview.counts).map(([key, count]) => (
+                <div key={key} className="text-center">
+                  <div className="text-lg font-bold text-white">{count}</div>
+                  <div className="text-xs text-slate-400">{formatTableName(key)}</div>
+                </div>
+              ))}
+            </div>
+            <div className="text-xs text-slate-400 mb-4">
+              Data export: {new Date(importPreview.exportDate).toLocaleString('it-IT')}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleRestoreDatabase}
+                disabled={importing}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                {importing ? 'Ripristino in corso...' : 'Conferma e ripristina'}
+              </button>
+              <button
+                onClick={() => { setShowImportConfirm(false); setImportPreview(null); }}
+                disabled={importing}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                Annulla
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-red-400">
+              ⚠️ Questa operazione sovrascriverà tutti i dati esistenti nel database.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Import Sessions History */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-700">
@@ -380,82 +706,6 @@ export default function ImportPage() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* Clear Database Section */}
-      <div className="bg-slate-800 rounded-xl border border-red-900/30 p-6 mt-8">
-        <h3 className="text-lg font-semibold text-white mb-2">Gestione Database</h3>
-        <p className="text-sm text-slate-400 mb-4">
-          Svuota completamente il database cancellando tutti i dati importati, inclusi asset,
-          ordini, movimenti di cassa, snapshot e cronologia import.
-        </p>
-
-        {showConfirm ? (
-          <div className="space-y-3">
-            <p className="text-sm text-red-400 font-medium">
-              Sei sicuro di voler cancellare tutti i dati? Questa operazione è irreversibile.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={async () => {
-                  setClearing(true);
-                  setResult(null);
-                  setShowConfirm(false);
-
-                  try {
-                    const response = await apiFetch('/api/import/clear', {
-                      method: 'DELETE',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ confirm: true }),
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok && data.success) {
-                      const { deleted } = data;
-                      setResult({
-                        success: true,
-                        message: `Database svuotato: ${deleted.sessions} sessioni, ${deleted.assets} asset, ${deleted.marketOrders} ordini, ${deleted.cashMovements} movimenti, ${deleted.snapshots} snapshot rimossi.`,
-                      });
-                      loadSessions();
-                    } else {
-                      setResult({
-                        success: false,
-                        message: data.error || 'Errore durante la cancellazione',
-                      });
-                    }
-                  } catch (error) {
-                    setResult({
-                      success: false,
-                      message: `Errore: ${error instanceof Error ? error.message : 'Sconosciuto'}`,
-                    });
-                  } finally {
-                    setClearing(false);
-                  }
-                }}
-                disabled={clearing}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white rounded-lg transition-colors text-sm font-medium"
-              >
-                {clearing ? 'Cancellazione in corso...' : 'Sì, cancella tutto'}
-              </button>
-              <button
-                onClick={() => setShowConfirm(false)}
-                disabled={clearing}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium"
-              >
-                Annulla
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowConfirm(true)}
-            disabled={clearing}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium"
-          >
-            {clearing ? 'Cancellazione in corso...' : 'Svuota database'}
-          </button>
-        )}
       </div>
     </div>
   );

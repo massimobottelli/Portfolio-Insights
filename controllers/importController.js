@@ -1,5 +1,5 @@
 import { db } from '../database.js';
-import { createImportSession, updateImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, insertAssetPrice, clearDatabase, getLatestOperationDate } from '../models/importModel.js';
+import { createImportSession, updateImportSession, getImportSessions, insertMarketOrder, insertCashMovement, insertDailySnapshot, insertAssetPrice, getLatestOperationDate } from '../models/importModel.js';
 import { upsertAsset } from '../models/assetModel.js';
 import { clearAnalyticsCache } from '../models/analyticsModel.js';
 import { randomUUID } from 'node:crypto';
@@ -162,30 +162,6 @@ export function listSessions(req, res) {
   } catch (error) {
     console.error('List sessions error:', error);
     res.status(500).json({ error: 'Errore nel recupero delle sessioni' });
-  }
-}
-
-/**
- * DELETE /api/import/clear
- * Svuota completamente il database cancellando tutti i dati importati.
- * Richiede conferma esplicita nel corpo della richiesta: { confirm: true }
- */
-export function clearAllData(req, res) {
-  try {
-    if (req.body.confirm !== true) {
-      return res.status(400).json({
-        error: 'Conferma richiesta',
-        details: 'Per cancellare tutti i dati inviare { "confirm": true }'
-      });
-    }
-
-    const result = clearDatabase();
-    // Svuota la cache analytics dopo la cancellazione
-    clearAnalyticsCache();
-    res.json({ success: true, ...result });
-  } catch (error) {
-    console.error('Clear database error:', error);
-    res.status(500).json({ error: 'Errore durante la cancellazione' });
   }
 }
 

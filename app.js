@@ -8,6 +8,7 @@ import assetRoutes from './routes/assetRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import performanceRoutes from './routes/performanceRoutes.js';
 import importRoutes from './routes/importRoutes.js';
+import databaseRoutes from './routes/databaseRoutes.js';
 import movementRoutes from './routes/movementRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import allocationRoutes from './routes/allocationRoutes.js';
@@ -31,11 +32,13 @@ const app = express();
 app.disable('x-powered-by');
 
 // 3. Middleware nativi di Express
-// 3a. Body parser esteso SOLO per /api/import: i file CSV Directa (inviati come
-//     stringa JSON) possono superare abbondantemente il limite default.
+// 3a. Body parser esteso SOLO per /api/import e /api/database: i file CSV Directa
+//     (inviati come stringa JSON) e i backup del database possono superare
+//     abbondantemente il limite default.
 //     Montato PRIMA del parser globale: body-parser segna la richiesta come già
 //     processata (req._body), quindi il parser da 1mb qui sotto la salta.
 app.use('/api/import', express.json({ limit: '50mb' }));
+app.use('/api/database', express.json({ limit: '50mb' }));
 
 // 3b. Limite conservativo di default (1mb) su tutte le altre rotte:
 //     non si espone un vettore DoS su API che non ne hanno bisogno.
@@ -61,6 +64,7 @@ app.use('/api', (req, res, next) => {
 
 // 7. Registrazione delle rotte API (protette dal middleware di autenticazione)
 app.use('/api/import', importRoutes);
+app.use('/api/database', databaseRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/analytics', performanceRoutes);

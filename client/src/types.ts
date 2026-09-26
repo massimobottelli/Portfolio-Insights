@@ -248,3 +248,28 @@ export interface AssetDetailData {
   coupons: AssetDetailDividend[];
   irr: AssetIRRData | null;
 }
+
+/** Struttura del backup del database (export/import completo) */
+export interface DatabaseBackup {
+  version: number;
+  exportDate: string;
+  counts: Record<string, number>;
+  data: {
+    assets: Record<string, unknown>[];
+    marketOrders: Record<string, unknown>[];
+    cashMovements: Record<string, unknown>[];
+    dailyPortfolioSnapshots: Record<string, unknown>[];
+    assetPrices: Record<string, unknown>[];
+    importSessions: Record<string, unknown>[];
+    allocationTargets: Record<string, unknown>[];
+  };
+}
+
+/** Risposta dell'endpoint di esportazione database */
+export interface ExportResponse extends DatabaseBackup {}
+
+/** Risposta dell'endpoint di ripristino database */
+export interface RestoreResponse {
+  success: boolean;
+  restored: Record<string, number>;
+}
