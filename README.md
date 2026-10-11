@@ -95,12 +95,7 @@ Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](http
 
 ---
 
-## 🚀 Guida Rapida
-
-### Prerequisiti
-- **Node.js 22+** (consigliato: via [fnm](https://github.com/Schniz/fnm))
-- **Git**
-
+## 🚀 Guida Rapida all'Installazione
 
 ### 🐳 Docker
 
@@ -143,7 +138,12 @@ docker cp portfolio-insights:/app/db/portfolio.db ./portfolio-backup.db
 
 ---
 
-### Installazione
+### Installazione Diretta
+
+### Prerequisiti
+- **Node.js 22+** (consigliato: via [fnm](https://github.com/Schniz/fnm))
+- **Git**
+
 
 ```bash
 # Clona il repository
