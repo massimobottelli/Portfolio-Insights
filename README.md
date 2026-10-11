@@ -101,6 +101,48 @@ Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](http
 - **Node.js 22+** (consigliato: via [fnm](https://github.com/Schniz/fnm))
 - **Git**
 
+
+### 🐳 Docker
+
+Il modo più semplice per usare l'applicazione è un **docker container** che include backend e frontend, con i dati persistenti in un volume Docker.
+
+```bash
+# Clona il repository
+git clone https://github.com/massimobottelli/portfolio-insights.git
+cd portfolio-insights
+
+# Build dell'immagine
+docker build -t portfolio-insights .
+
+# Imposta il tuo token (password)
+cp .env.example .env   # opzionale: imposta APP_PORT e API_TOKEN
+
+# Avvia il container (i dati persistono nel volume "portfolio-data")
+docker compose up -d
+```
+
+L'applicazione sarà disponibile su **http://localhost:3000**.
+
+**🔐 Token di accesso** — se non hai impostato `API_TOKEN`, al primo avvio l'app genera un token casuale, per visualizzarlo vedi il log:
+
+```bash
+docker logs portfolio-insights
+```
+
+**💾 Dati e backup** — database SQLite (`portfolio.db`) e token API (`​.api-token`) persistono nel volume Docker montato su `/app/db`. Per esportare il database:
+
+```bash
+docker cp portfolio-insights:/app/db/portfolio.db ./portfolio-backup.db
+```
+
+**Note**:
+- L'app richiede **Node 22.13+** (usa il modulo nativo `node:sqlite`): il Dockerfile usa `node:22-slim` e compila il frontend in uno stage separato (immagine finale senza toolchain di build).
+- Serve la connettività in uscita verso `data-api.ecb.europa.eu` per i tassi di cambio ECB (unica chiamata esterna).
+- Il container gira come **utente non-root** ed espone un `HEALTHCHECK`.
+- In produzione è consigliato esporre l'app tramite un **reverse proxy con HTTPS** (es. nginx, Caddy o Traefik).
+
+---
+
 ### Installazione
 
 ```bash
@@ -139,50 +181,6 @@ npm run typecheck
 # Build del frontend
 npm run build:all
 ```
-
-### 🐳 Docker
-
-Il modo più semplice per distribuire l'applicazione: un **singolo container** che include backend e frontend, con i dati persistenti in un volume Docker.
-
-```bash
-# Clona il repository
-git clone https://github.com/massimobottelli/portfolio-insights.git
-cd portfolio-insights
-
-# Build dell'immagine
-docker build -t portfolio-insights .
-
-# Avvia il container (i dati persistono nel volume "portfolio-data")
-docker run -d --name portfolio-insights --init -p 3000:3000 \
-  -v portfolio-data:/app/db portfolio-insights
-```
-
-Oppure con **Docker Compose**:
-
-```bash
-cp .env.example .env   # opzionale: imposta APP_PORT e API_TOKEN
-docker compose up -d
-```
-
-L'applicazione sarà disponibile su **http://localhost:3000**.
-
-**🔐 Token di accesso** — se non hai impostato `API_TOKEN`, al primo avvio l'app genera un token casuale e lo stampa nei log:
-
-```bash
-docker logs portfolio-insights
-```
-
-**💾 Dati e backup** — database SQLite (`portfolio.db`) e token API (`​.api-token`) persistono nel volume Docker montato su `/app/db`. Per esportare il database:
-
-```bash
-docker cp portfolio-insights:/app/db/portfolio.db ./portfolio-backup.db
-```
-
-**Note**:
-- L'app richiede **Node 22.13+** (usa il modulo nativo `node:sqlite`): il Dockerfile usa `node:22-slim` e compila il frontend in uno stage separato (immagine finale senza toolchain di build).
-- Serve la connettività in uscita verso `data-api.ecb.europa.eu` per i tassi di cambio ECB (unica chiamata esterna).
-- Il container gira come **utente non-root** ed espone un `HEALTHCHECK`.
-- In produzione è consigliato esporre l'app tramite un **reverse proxy con HTTPS** (es. nginx, Caddy o Traefik).
 
 ---
 
