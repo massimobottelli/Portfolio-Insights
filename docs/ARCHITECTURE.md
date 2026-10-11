@@ -25,6 +25,10 @@
 | **`.clinerules`** | Regole di sviluppo per l'AI (convenzioni, pattern, cose da evitare). |
 | **`.gitignore`** | File ignorati da git (node_modules, db/, public/assets, ecc.). |
 | **`.node-version`** | Versione Node richiesta (22+). |
+| **`Dockerfile`** | Image Docker multi-stage: stage 1 compila il frontend React, stage 2 (runtime) contiene solo backend + `public/` con le dipendenze di produzione. Base `node:22-slim` (obbligo Node 22.13+ per `node:sqlite`), utente non-root, `HEALTHCHECK`, volume su `/app/db`. |
+| **`docker-compose.yml`** | Definizione del servizio `portfolio-insights`: porta configurabile (`APP_PORT`), env `API_TOKEN`, volume nominato `portfolio-data` su `/app/db`, restart automatico. |
+| **`.dockerignore`** | File esclusi dal build context Docker (node_modules, db/, public/, test, docs, script). |
+| **`.env.example`** | Template della configurazione Compose (`APP_PORT`, `API_TOKEN`) da copiare in `.env`. |
 
 ---
 

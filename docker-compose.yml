@@ -1,0 +1,37 @@
+# =============================================================================
+#  Portfolio Insights — Docker Compose
+# =============================================================================
+#  Avvio:   docker compose up -d
+#  Log:     docker compose logs -f
+#  Stop:    docker compose down
+#
+#  Configurazione opzionale nel file .env accanto a questo file
+#  (vedi .env.example):
+#    APP_PORT=3000    # porta pubblica su cui esporre l'app
+#    API_TOKEN=...    # se omesso/vuoto, il token viene generato al primo avvio
+#                     # e stampato nei log (docker compose logs)
+#
+#  I dati (SQLite + token API) persistono nel volume "portfolio-data".
+# =============================================================================
+services:
+  portfolio-insights:
+    build:
+      context: .
+    image: portfolio-insights:latest
+    container_name: portfolio-insights
+    restart: unless-stopped
+    # tini come PID 1: inoltra SIGTERM a node e gestisce i processi zombie
+    init: true
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      API_TOKEN: "${API_TOKEN:-}"
+    volumes:
+      # /app/db contiene db/portfolio.db e db/.api-token
+      - portfolio-data:/app/db
+    # L'HEALTHCHECK è definito nel Dockerfile e viene ereditato dall'immagine.
+
+volumes:
+  portfolio-data:
