@@ -43,18 +43,22 @@ const AssetTypeBadge = ({ assetType }: { assetType: string }) => {
 /**
  * Card KPI per la sezione "Situazione Corrente".
  */
-function KpiCard({ label, value, sublabel, valueClass = 'text-white', sublabelClass = 'text-slate-300' }: {
+function KpiCard({ label, value, sublabel, sublabel2, valueClass = 'text-white', sublabelClass = 'text-slate-300' }: {
   label: string;
   value: string;
   sublabel?: string | null;
+  sublabel2?: string | null;
   valueClass?: string;
   sublabelClass?: string;
 }) {
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+    <div className="bg-slate-800 rounded-xl border border-slate-700 p-3 sm:p-4">
       <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{label}</p>
-      <p className={`mt-1 text-2xl font-bold ${valueClass}`}>{value}</p>
-      {sublabel && <p className={`mt-1 text-base ${sublabelClass}`}>{sublabel}</p>}
+      {/* Tipografia responsive: con 2 card per riga su mobile il valore a 24px traboccherebbe */}
+      <p className={`mt-1 text-lg sm:text-xl lg:text-2xl font-bold break-words ${valueClass}`}>{value}</p>
+      {sublabel && <p className={`mt-1 text-sm lg:text-base ${sublabelClass}`}>{sublabel}</p>}
+      {/* Secondo sublabel sempre neutro: non eredita verde/rosso del primo */}
+      {sublabel2 && <p className="mt-0.5 text-xs lg:text-sm text-slate-400">{sublabel2}</p>}
     </div>
   );
 }
@@ -148,58 +152,36 @@ export default function AssetDetail() {
         </div>
       </div>
 
-      {/* 2. KPI Card — Situazione Corrente */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* RIGA 1: Prezzo, Quantità, Valore */}
+      {/* 2. KPI Card — Situazione Corrente (2 card per riga su mobile, 3 su desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        {/* 1. Prezzo medio di carico */}
         <KpiCard
-          label="Prezzo Attuale"
-          value={formatPrice(position.currentPrice)}
-          sublabel={position.priceDate ? `Aggiornato al ${formatDate(position.priceDate)}` : null}
+          label="Prezzo Medio di Carico"
+          value={`${formatPrice(position.averagePrice)}${
+            position.averagePrice !== null ? ` ${asset.currency}` : ''
+          }`}
         />
+
+        {/* 2. Quantità */}
         <KpiCard
           label="Quantità"
           value={position.quantity.toLocaleString('it-IT')}
           sublabel={position.allocationPercent !== null ? `${formatPercentNoSign(position.allocationPercent)} del portafoglio` : null}
-        />
-        <KpiCard
-          label="Valore Attuale"
-          value={`${formatAmount(position.currentValue)} ${asset.currency}`}
-          sublabel={
+          sublabel2={
             position.allocationTypePercent !== null
               ? `${formatPercentNoSign(position.allocationTypePercent)} della classe ${asset.assetType}`
               : null
           }
         />
-      </div>
 
-      {/* RIGA 2: P&L, IRR, Carico vs Attuale */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* 3. Prezzo attuale */}
         <KpiCard
-          label="P&L"
-          value={`${formatAmount(position.pnl)} ${asset.currency}`}
-          sublabel={position.pnlPercent !== null ? formatPercent(position.pnlPercent) : null}
-          valueClass={gainColorClass(position.pnl)}
-          sublabelClass={gainColorClass(position.pnlPercent)}
+          label="Prezzo Attuale"
+          value={formatPrice(position.currentPrice)}
+          sublabel={position.priceDate ? `Aggiornato al ${formatDate(position.priceDate)}` : null}
         />
 
-        {data.irr ? (
-          <KpiCard
-            label="IRR (Money-Weighted)"
-            value={`${(data.irr.irr * 100).toFixed(2)}%`}
-            sublabel={`${data.irr.years.toFixed(1)} anni investiti`}
-            valueClass={data.irr.irr >= 0 ? 'text-emerald-400' : 'text-red-400'}
-            sublabelClass="text-slate-300"
-          />
-        ) : (
-          <KpiCard
-            label="IRR (Money-Weighted)"
-            value="N/D"
-            sublabel="Dati insufficienti"
-            valueClass="text-slate-400"
-            sublabelClass="text-slate-400"
-          />
-        )}
-
+        {/* 4. Valore di carico vs attuale */}
         <KpiCard
           label="Carico vs Attuale"
           value={`${formatAmount(position.bookValueEUR)} → ${formatAmount(position.currentValueEUR)}`}
@@ -219,50 +201,37 @@ export default function AssetDetail() {
               : 'text-slate-300'
           }
         />
+
+        {/* 5. P&L */}
+        <KpiCard
+          label="P&L"
+          value={`${formatAmount(position.pnl)} ${asset.currency}`}
+          sublabel={position.pnlPercent !== null ? formatPercent(position.pnlPercent) : null}
+          valueClass={gainColorClass(position.pnl)}
+          sublabelClass={gainColorClass(position.pnlPercent)}
+        />
+
+        {/* 6. IRR money-weighted */}
+        {data.irr ? (
+          <KpiCard
+            label="IRR (Money-Weighted)"
+            value={`${(data.irr.irr * 100).toFixed(2)}%`}
+            sublabel={`${data.irr.years.toFixed(1)} anni investiti`}
+            valueClass={data.irr.irr >= 0 ? 'text-emerald-400' : 'text-red-400'}
+            sublabelClass="text-slate-300"
+          />
+        ) : (
+          <KpiCard
+            label="IRR (Money-Weighted)"
+            value="N/D"
+            sublabel="Dati insufficienti"
+            valueClass="text-slate-400"
+            sublabelClass="text-slate-400"
+          />
+        )}
       </div>
 
-      {/* 3. Dettaglio Posizione — Griglia carico vs attuale */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
-          <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Dettaglio Posizione</h3>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 divide-slate-700">
-          {/* Colonna sinistra: valori di carico */}
-          <div className="divide-y divide-slate-700">
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-slate-400">Prezzo medio di carico</span>
-              <span className="text-sm text-white font-medium">{formatPrice(position.averagePrice)} {asset.currency}</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-slate-400">Valore totale di carico</span>
-              <span className="text-sm text-white font-medium">
-                {formatAmount(position.bookValue)} {asset.currency}
-                {asset.currency !== 'EUR' && position.bookValueEUR !== null && (
-                  <span className="text-slate-500 ml-1">(≈ {formatAmount(position.bookValueEUR)} EUR)</span>
-                )}
-              </span>
-            </div>
-          </div>
-          {/* Colonna destra: valori attuali */}
-          <div className="divide-y divide-slate-700 sm:border-l sm:border-slate-700">
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-slate-400">Prezzo attuale</span>
-              <span className="text-sm text-white font-medium">{formatPrice(position.currentPrice)} {asset.currency}</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-slate-400">Valore totale attuale</span>
-              <span className="text-sm text-white font-medium">
-                {formatAmount(position.currentValue)} {asset.currency}
-                {asset.currency !== 'EUR' && position.currentValueEUR !== null && (
-                  <span className="text-slate-500 ml-1">(≈ {formatAmount(position.currentValueEUR)} EUR)</span>
-                )}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4a. Cronologia Ordini */}
+      {/* 3. Cronologia Ordini */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
           <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Cronologia Ordini</h3>
@@ -313,7 +282,7 @@ export default function AssetDetail() {
         </div>
       </div>
 
-      {/* 4b. Cedole (per BOND) o Dividend History (per gli altri) */}
+      {/* 4. Cedole (per BOND) o Dividend History (per gli altri) */}
       {asset.assetType === 'BOND' ? (
         <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
