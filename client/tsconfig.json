@@ -19,7 +19,7 @@
     "paths": {
       "@config/*": ["../config/*"]
     },
-    "baseUrl": "."
+    # "baseUrl": "."
   },
   "include": ["src", "../config"]
 }
