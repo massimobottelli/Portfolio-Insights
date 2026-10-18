@@ -19,19 +19,33 @@ La tabella è **separata** da `asset_prices`, che resta la tabella dei prezzi
 
 ## Configurazione
 
+La chiave va in `.env` (git-ignored, copia da `.env.example`): `npm start`,
+`npm run dev` e `npm run prices:update` la caricano automaticamente —
+niente chiavi inline nei comandi.
+
+```bash
+cp .env.example .env   # poi edita la riga EODHD_API_KEY
 ```
+
+```ini
 EODHD_API_KEY=<la-tua-chiave>
 ```
+
+Alternativa classica: `export EODHD_API_KEY="<la-tua-chiave>"` prima
+dell'avvio (le variabili della shell hanno la precedenza sul file `.env`).
 
 - Letta **solo** lato server/CLI da `process.env` (mai nel frontend, mai loggata,
   mai inclusa negli URL stampati o nei messaggi di errore).
 - Se manca, l'aggiornamento incrementale termina con un messaggio esplicativo
-  (l'endpoint risponde **503**, lo script CLI esce con codice 2).
+  (l'endpoint risponde **503** e il frontend mostra il banner con le istruzioni,
+  lo script CLI esce con codice 2).
 - Il nome della variabile è documentato in `.env.example` (senza segreti).
 
 ## Mappa simboli EODHD
 
-La corrispondenza strumento ↔ simbolo EODHD (`TICKER.EXCHANGE`, es. `SXRS.DE`)
+La corrispondenza strumento ↔ simbolo EODHD (`TICKER.EXCHANGE`, es. `SXRS.XETRA`).
+Suffissi exchange su EODHD: `.XETRA` (XETRA — **non** `.DE`, che risponde 404),
+`.PA` (Euronext Parigi), `.LSE` (London SE), `.US` (NYSE/Nasdaq).
 vive in `config/eodhdSymbols.js` (chiave: ISIN). All'avvio del server un
 backfill idempotente popola `assets.exchange` con il simbolo confermato —
 senza sovrascrivere valori esistenti. L'aggiornamento interroga EODHD con
@@ -70,9 +84,12 @@ curl -X POST -H "Authorization: Bearer <API_TOKEN>" http://localhost:3000/api/pr
 **CLI equivalente:**
 
 ```bash
-EODHD_API_KEY="<chiave>" node scripts/update-daily-closing-prices.js              # tutti gli asset
-EODHD_API_KEY="<chiave>" node scripts/update-daily-closing-prices.js --dry-run    # senza scritture
-EODHD_API_KEY="<chiave>" node scripts/update-daily-closing-prices.js --symbol SXRS.DE
+npm run prices:update                        # tutti gli asset (chiave da .env)
+npm run prices:update -- --dry-run           # senza scritture
+npm run prices:update -- --symbol SXRS.XETRA    # solo un simbolo
+
+# Alternativa senza .env (chiave inline):
+EODHD_API_KEY="<chiave>" node scripts/update-daily-closing-prices.js
 ```
 
 Comportamento a ogni chiamata:
@@ -102,7 +119,7 @@ Risposta (esempio):
   "failed": 0,
   "rows": { "inserted": 5, "updated": 0, "unchanged": 155 },
   "details": [
-    { "symbol": "SXRS.DE", "asset": { "isin": "IE00BDFL4P12", "...": "..." },
+    { "symbol": "SXRS.XETRA", "asset": { "isin": "IE00BDFL4P12", "...": "..." },
       "status": "updated", "from": "2026-10-11", "to": "2026-10-18",
       "inserted": 1, "updated": 0, "unchanged": 4 }
   ]
@@ -176,6 +193,13 @@ la funzionalità è non critica e non blocca il resto della pagina.
   automatico di anni di dati.
 - Nel weekend/festività la quotazione "attesa" è quella di venerdì: il refresh
   può essere invocato e ricevere `no_new_data` (nessuna scrittura, nessun errore).
+- **Copertura del piano EODHD**: EODHD risponde **HTTP 404** sia per simboli
+  inesistenti sia per exchange **non inclusi nel piano API attivo** (es. il
+  piano gratuito copre solo il mercato US). In quel caso il frontend mostra il
+  banner con il messaggio del provider, che invita a verificare il simbolo o
+  la copertura degli exchange nell'abbonamento. Il file `config/eodhdSymbols.js`
+  riporta i simboli corretti: se la copertura del piano cambia, nessuna
+  modifica al codice è necessaria.
 - Le quotazioni sono quelle del mercato specifico del simbolo mappato: valute
   diverse per lo stesso strumento su borse diverse non vengono convertite.
 - Nessuna rettifica per dividendi/split (`close` non adjustato, per design).

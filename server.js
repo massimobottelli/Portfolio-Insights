@@ -1,3 +1,7 @@
+// DEVE essere il primo import: carica .env (se esiste) prima di qualunque
+// modulo che legga le variabili d'ambiente — funziona qualunque sia il modo
+// di avvio del processo (npm start, node server.js diretto, systemd).
+import './config/loadEnv.js';
 import app from './app.js';
 import { getApiToken } from './config/auth.js';
 

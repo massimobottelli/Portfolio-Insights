@@ -1255,7 +1255,7 @@ Un simbolo in errore non blocca gli altri. La chiave API EODHD non viene mai log
   "rows": { "inserted": 5, "updated": 0, "unchanged": 155 },
   "details": [
     {
-      "symbol": "SXRS.DE",
+      "symbol": "SXRS.XETRA",
       "asset": { "isin": "IE00BDFL4P12", "ticker": "SX.SXRS", "name": "iShares Diversified Commodity Swap" },
       "status": "updated",
       "from": "2026-10-11",
@@ -1337,7 +1337,7 @@ parte automaticamente alla visita di una pagina).
   "assetId": "a1b2c3d4-...",
   "ok": true,
   "status": "updated",
-  "symbol": "SXRS.DE",
+  "symbol": "SXRS.XETRA",
   "lastDate": "2026-10-18",
   "from": "2026-10-11",
   "to": "2026-10-18",

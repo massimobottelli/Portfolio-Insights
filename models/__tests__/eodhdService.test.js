@@ -104,6 +104,14 @@ describe('fetchEodCloseSeries — errori', () => {
     await expect(fetchEodCloseSeries('XEON.DE')).rejects.toThrow(/quota.*429/);
   });
 
+  it('HTTP 404: simbolo non trovato o exchange non coperto dal piano API', async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({}, { ok: false, status: 404 }));
+    const err = await fetchEodCloseSeries('XEON.DE').catch((e) => e);
+    expect(err.message).toMatch(/non coperto.*404/);
+    expect(err.message).not.toContain(TEST_KEY);
+    expect(err.message).not.toContain('eodhd.com');
+  });
+
   it('JSON malformato: errore esplicito', async () => {
     mockFetch.mockResolvedValue({
       ok: true,

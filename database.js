@@ -227,6 +227,26 @@ export function initializeDatabase() {
       console.log(`💰 Backfill simboli EODHD: ${backfilled} asset aggiornati (assets.exchange)`);
     }
 
+    // Migrazione dati (idempotente): i simboli XETRA su EODHD usano il suffisso
+    // .XETRA (NON .DE, che risponde 404) e IEVL è quotato su LSE. Corregge
+    // assets.exchange quando coincide con il valore legacy derivato dalla mappa
+    // attuale (ticker + '.DE'), preservando eventuali personalizzazioni manuali.
+    const legacyFixStmt = db.prepare(
+      'UPDATE assets SET exchange = ? WHERE isin = ? AND exchange = ?'
+    );
+    let legacyFixed = 0;
+    for (const [isin, symbol] of Object.entries(EODHD_SYMBOLS_BY_ISIN)) {
+      const legacySymbol = `${symbol.split('.')[0]}.DE`;
+      if (legacySymbol !== symbol) {
+        legacyFixed += legacyFixStmt.run(symbol, isin, legacySymbol).changes;
+      }
+    }
+    if (legacyFixed > 0) {
+      console.log(
+        `🔄 Migrazione simboli EODHD: ${legacyFixed} asset aggiornati dal suffisso legacy .DE`
+      );
+    }
+
     console.log('✅ Database pronto e tabelle/indici verificati con successo!');
   } catch (error) {
     console.error("❌ Errore durante l'inizializzazione del database:", error);

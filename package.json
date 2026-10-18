@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --env-file-if-exists=.env --watch server.js",
+    "prices:update": "node --env-file-if-exists=.env scripts/update-daily-closing-prices.js",
     "test": "vitest",
     "test:run": "vitest run",
     "typecheck": "cd client && npm run typecheck",

@@ -9,8 +9,8 @@
  *
  * Uso:
  *   node scripts/import-daily-closing-prices.js --help
- *   node scripts/import-daily-closing-prices.js --dry-run --symbol SXRS.DE file.csv
- *   node scripts/import-daily-closing-prices.js --symbol SXRS.DE file.csv
+ *   node scripts/import-daily-closing-prices.js --dry-run --symbol SXRS.XETRA file.csv
+ *   node scripts/import-daily-closing-prices.js --symbol SXRS.XETRA file.csv
  *   node scripts/import-daily-closing-prices.js --isin IE00BDFL4P12 file.csv
  *   node scripts/import-daily-closing-prices.js canonical.csv   # richiede colonna "symbol"
  *

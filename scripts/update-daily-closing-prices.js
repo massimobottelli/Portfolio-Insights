@@ -19,6 +19,10 @@
  * 2 fatale (EODHD_API_KEY mancante o errore interno).
  */
 
+// Carica .env (se esiste) prima di qualunque altra cosa: così la chiave funziona
+// anche con `node scripts/update-daily-closing-prices.js` diretto, oltre che con
+// `npm run prices:update`.
+import '../config/loadEnv.js';
 import { runDailyPricesUpdate } from '../controllers/dailyPriceController.js';
 
 function parseArgs(argv) {

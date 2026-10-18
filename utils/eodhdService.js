@@ -26,7 +26,9 @@ export function getEodhdApiKey() {
     throw new Error(
       "EODHD_API_KEY non configurata. Impostala nell'ambiente prima di usare il servizio prezzi, es.:\n" +
         '  export EODHD_API_KEY="<la-tua-chiave>"\n' +
-        'oppure: EODHD_API_KEY="..." node scripts/update-daily-closing-prices.js'
+        'oppure scrivila nel file .env (git-ignored, caricato automaticamente da\n' +
+        '  npm start / npm run dev / npm run prices:update):\n' +
+        '  EODHD_API_KEY="<la-tua-chiave>"'
     );
   }
   return apiKey;
@@ -75,6 +77,13 @@ export async function fetchEodCloseSeries(symbol, { from, to } = {}) {
     }
     if (response.status === 429) {
       throw new Error(`EODHD: limite di quota raggiunto (HTTP 429) per ${symbol}`);
+    }
+    if (response.status === 404) {
+      // EODHD risponde 404 sia per simboli inesistenti sia per exchange NON
+      // inclusi nel piano API attivo (es. token gratuito limitato al mercato US)
+      throw new Error(
+        `EODHD: simbolo ${symbol} non trovato o exchange non coperto dal piano API attivo (HTTP 404) — verifica il simbolo o la copertura degli exchange nell'abbonamento EODHD`
+      );
     }
     throw new Error(`EODHD: risposta HTTP ${response.status} per ${symbol}`);
   }

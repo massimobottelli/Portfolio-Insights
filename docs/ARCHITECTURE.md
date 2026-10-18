@@ -39,7 +39,8 @@
 | **`auth.js`** | Gestione del token API: legge `API_TOKEN` dall'ambiente, altrimenti genera un token casuale (256 bit) salvato in `db/.api-token` con permessi 0600. Fornisce `getApiToken()` e `isTokenValid()` (confronto timing-safe su hash SHA-256). |
 | **`assetTypes.js`** | **Singola fonte della verità** per i tipi di asset: `BOND`, `STOCK`, `CASH`, `FUND`, `COMMODITY`, `UNKNOWN`. Allineata alla tabella DB `asset_types`: i primi 5 sono target-abili, `UNKNOWN` è tecnico (non target-abile). I tipi ETF, ETC, ETN sono stati decommissionati (migrati a UNKNOWN). Esporta `ASSET_TYPES` (tutti) e `TARGETABLE_ASSET_TYPES` (escluso UNKNOWN). |
 | **`assetTypes.d.ts`** | Dichiarazione TypeScript per il modulo assetTypes (per il frontend che lo importa). |
-| **`eodhdSymbols.js`** | Mappa statica ISIN → simbolo EODHD (`TICKER.EXCHANGE`, es. `SXRS.DE`) per gli strumenti del portafoglio con simbolo certificato. Solo lato server; usata per il backfill di `assets.exchange` all'avvio e per risolvere i simboli durante import/aggiornamento prezzi. |
+| **`eodhdSymbols.js`** | Mappa statica ISIN → simbolo EODHD (`TICKER.EXCHANGE`, es. `SXRS.XETRA`) per gli strumenti del portafoglio con simbolo certificato. Suffissi EODHD: `.XETRA` (XETRA — **non** `.DE`, che risponde 404), `.PA`, `.LSE`, `.US`. Solo lato server; usata per il backfill di `assets.exchange` all'avvio (con migrazione idempotente dei suffissi legacy `.DE`) e per risolvere i simboli durante import/aggiornamento prezzi. |
+| **`loadEnv.js`** | Caricamento di `.env` (git-ignored) **indipendente dal modo di avvio del processo** (npm scripts con `--env-file-if-exists`, `node server.js` diretto, systemd `ExecStart=/usr/bin/node server.js`): risolve il percorso dalla root del progetto e usa `process.loadEnvFile()`, senza sovrascrivere le variabili già presenti nell'ambiente. Importato come primo modulo da `server.js` e dallo script CLI di aggiornamento prezzi. |
 
 ---
 

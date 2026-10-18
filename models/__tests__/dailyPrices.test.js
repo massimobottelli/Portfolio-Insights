@@ -146,7 +146,7 @@ describe('resolveAssetForEodhdSymbol', () => {
 
   it('risolve via ISIN della mappa statica quando exchange è vuoto (priorità 2)', () => {
     insertAsset({ id: 'a2', isin: 'IE00BFMXXD54', ticker: 'VUAA', exchange: null });
-    const { asset, error } = resolveAssetForEodhdSymbol('VUAA.DE');
+    const { asset, error } = resolveAssetForEodhdSymbol('VUAA.XETRA');
     expect(error).toBeNull();
     expect(asset.id).toBe('a2');
   });
