@@ -285,27 +285,27 @@ Copertura minima:
 
 La funzionalità è completata quando:
 
--   [ ] Il coding agent ha letto `/docs` e seguito le convenzioni
+-   [x] Il coding agent ha letto `/docs` e seguito le convenzioni
     documentate.
--   [ ] Lo schema persistente memorizza soltanto asset, data e prezzo
+-   [x] Lo schema persistente memorizza soltanto asset, data e prezzo
     close per la serie storica.
--   [ ] BTP, bond e cash sono esclusi; ETF, ETN, ETC e stock eleggibili
+-   [x] BTP, bond e cash sono esclusi; ETF, ETN, ETC e stock eleggibili
     sono inclusi.
--   [ ] Il simbolo EODHD deriva dal ticker della quotazione memorizzato
+-   [x] Il simbolo EODHD deriva dal ticker della quotazione memorizzato
     nel progetto, senza suffissi inventati.
--   [ ] La API key è solo lato server/CLI e non appare nei log o nel
+-   [x] La API key è solo lato server/CLI e non appare nei log o nel
     repository.
--   [ ] È possibile importare uno storico CSV in blocco in modo
+-   [x] È possibile importare uno storico CSV in blocco in modo
     idempotente e non distruttivo.
--   [ ] L'aggiornamento incrementale opera solo sugli asset con storico
+-   [x] L'aggiornamento incrementale opera solo sugli asset con storico
     locale, usa un intervallo incrementale con overlap e aggiorna
     tramite upsert.
--   [ ] Sono gestiti errori per singolo asset e prodotto un riepilogo
+-   [x] Sono gestiti errori per singolo asset e prodotto un riepilogo
     operativo.
--   [ ] I test automatici coprono i casi sopra e non chiamano la rete
+-   [x] I test automatici coprono i casi sopra e non chiamano la rete
     reale.
--   [ ] Test suite e build/typecheck previsti dal progetto passano.
--   [ ] La documentazione descrive come configurare ed eseguire entrambe
+-   [x] Test suite e build/typecheck previsti dal progetto passano.
+-   [x] La documentazione descrive come configurare ed eseguire entrambe
     le operazioni.
 
 ## 11. Vincoli di implementazione

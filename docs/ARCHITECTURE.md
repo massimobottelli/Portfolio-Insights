@@ -39,6 +39,7 @@
 | **`auth.js`** | Gestione del token API: legge `API_TOKEN` dall'ambiente, altrimenti genera un token casuale (256 bit) salvato in `db/.api-token` con permessi 0600. Fornisce `getApiToken()` e `isTokenValid()` (confronto timing-safe su hash SHA-256). |
 | **`assetTypes.js`** | **Singola fonte della verità** per i tipi di asset: `BOND`, `STOCK`, `CASH`, `FUND`, `COMMODITY`, `UNKNOWN`. Allineata alla tabella DB `asset_types`: i primi 5 sono target-abili, `UNKNOWN` è tecnico (non target-abile). I tipi ETF, ETC, ETN sono stati decommissionati (migrati a UNKNOWN). Esporta `ASSET_TYPES` (tutti) e `TARGETABLE_ASSET_TYPES` (escluso UNKNOWN). |
 | **`assetTypes.d.ts`** | Dichiarazione TypeScript per il modulo assetTypes (per il frontend che lo importa). |
+| **`eodhdSymbols.js`** | Mappa statica ISIN → simbolo EODHD (`TICKER.EXCHANGE`, es. `SXRS.DE`) per gli strumenti del portafoglio con simbolo certificato. Solo lato server; usata per il backfill di `assets.exchange` all'avvio e per risolvere i simboli durante import/aggiornamento prezzi. |
 
 ---
 
@@ -59,6 +60,8 @@
 | **`csvParser.js`** | Parser CSV nativo per i report Directa. Gestisce 3 formati: **Movimenti** (`parseDirectaCSV`), **Patrimonio Totale** (`parseDirectaHistoryCSV`), **Portafoglio Corrente** (`parseDirectaPortfolioCSV`). Normalizza date (formato italiano → ISO), numeri (virgola → punto), e rileva il tipo di report (`detectFileType`). |
 | **`currencyService.js`** | Servizio tassi di cambio basato su **ECB Data Portal API**. Recupera i tassi on-demand, li cachea in memoria per la giornata, e converte importi in EUR (`convertToEUR`, `getRatesForCurrencies`). |
 | **`domainHelpers.js`** | Helper di dominio condivisi tra i modelli: `isBtpAsset()` e `correctedQuantity()` centralizzano la correzione BTP (quantità /100 perché Directa quota i BTP in percentuale). La stessa regola è applicata nel frontend (`Portfolio.tsx`). |
+| **`eodhdService.js`** | Client HTTP per l'endpoint EOD di EODHD: recupera solo `date` e `close` per simbolo e intervallo. Chiave `EODHD_API_KEY` da ambiente (mai loggata), timeout 15s, gestione errori per simbolo (HTTP, JSON malformato, risposta vuota). |
+| **`dailyPricesCsv.js`** | Parser CSV per lo storico dei prezzi di chiusura: formato export EODHD (`Date,Open,High,Low,Close,Volume` → solo Date+Close) e formato canonico (`symbol,date,close`). Validazione date ISO e prezzi positivi; le righe malformate vengono scartate con diagnostica, senza interrompere le altre. |
 
 ---
 
@@ -74,6 +77,10 @@
 | **`allocationModel.js`** | Gestione target di allocazione: catalogo asset types dalla tabella DB, target configurati (lettura/salvataggio transazionale), allocazione attuale per categoria (riusa `calculatePositions` di analyticsModel con la cache condivisa; liquidità attribuita a CASH), divergenze attuale vs target, suggerimenti di ribilanciamento (BUY/SELL oltre soglia tolleranza), conteggio asset UNKNOWN con posizione attiva. |
 | **`performanceModel.js`** | **Motore Performance & Risk**: costruisce la *canonical return series* (`buildReturnSeries`) dagli snapshot + cash flows (una sola lettura dal DB, base unica per tutte le metriche), poi calcola cumulative performance, CAGR, volatilità (√365), Sharpe ratio (risk-free configurabile), rendimenti mensili/annuali (compounding), statistiche periodi positivi/negativi/flat, best/worst mese/anno e drawdown (max DD, peak/trough/recovery, durate). |
 | **`__tests__/performanceAPI.test.js`** | Test Vitest delle formule Performance & Risk: return series, CAGR, volatilità, Sharpe, rendimenti mensili/annuali, best/worst, drawdown (inclusi casi edge: serie vuota, drawdown non recuperato, trough assoluto). Simula la logica del controller su serie deterministiche. |
+| **`dailyPriceModel.js`** | Accesso alla tabella `daily_asset_closing_prices`: `getLatestPriceDate` (ultima quotazione per asset), `upsertDailyClosingPrices` (INSERT ... ON CONFLICT DO UPDATE in transazione, idempotente per `(asset_id, price_date)`), `resolveAssetForEodhdSymbol` (risolve il simbolo su exchange → mappa ISIN → ticker, senza mai creare asset automaticamente), `setAssetExchangeIfEmpty` (backfill idempotente del simbolo), conteggi per riepilogo. |
+| **`__tests__/dailyPrices.test.js`** | Test Vitest per il modello prezzi giornalieri (DB in-memory, mai il DB reale né la rete): validazione date/prezzi, upsert idempotente, risoluzione simboli, backfill exchange. |
+| **`__tests__/eodhdService.test.js`** | Test Vitest del client EODHD con `fetch` mockato: chiave mancante, parsing solo date+close, errori HTTP/timeout/JSON malformato, risposta vuota. |
+| **`__tests__/dailyPricesUpdate.test.js`** | Test Vitest dell'orchestrazione `runDailyPricesUpdate` (DB in-memory + EODHD mockato): elegibilità (esclusione BOND, posizioni chiuse, senza simbolo), incrementalità (skip senza storico, already_current, finestra con overlap), upsert idempotente, isolamento errori per asset, dry-run, handler Express (401/503/200). |
 
 ---
 
@@ -88,6 +95,7 @@
 | **`orderController.js`** | Handler per: lista ordini con filtri/ordinamento (`listOrders`), lista simboli per dropdown (`listOrderSymbols`), eliminazione singolo ordine con invalidazione cache (`deleteOrderHandler`). |
 | **`allocationController.js`** | Handler per: catalogo asset types, allocazione attuale (con conteggio UNKNOWN), target (GET/PUT con validazione somma=100% e categorie target-abili), ribilanciamento. |
 | **`performanceController.js`** | Handler per: volatilità (`GET /volatility`), Sharpe (`GET /sharpe`, con validazione risk-free rate −100 < rate < 100) e endpoint aggregato (`GET /performance`) che calcola tutte le metriche dalla stessa serie canonica e sanifica l'output (mai NaN/Infinity: valori non finiti → null). |
+| **`dailyPriceController.js`** | Handler per `POST /api/prices/update`: verifica `EODHD_API_KEY` (503 se assente), esegue l'orchestrazione `runDailyPricesUpdate()` per ogni asset eleggibile (posizioni attive escluse BOND): ultima data locale → finestra incrementale con overlap → fetch EODHD → upsert idempotente. Un simbolo in errore non blocca gli altri; risposta 200 con riepilogo (`ok: false` se ci sono fallimenti — nessun falso successo). |
 
 ---
 
@@ -103,6 +111,7 @@
 | **`movementRoutes.js`** | `GET /api/movements`, `GET /api/movements/symbols` | Movimenti di cassa. |
 | **`orderRoutes.js`** | `GET /api/orders`, `GET /api/orders/symbols`, `DELETE /api/orders/:id` | Ordini di mercato. Montato su `/api/orders`. |
 | **`allocationRoutes.js`** | `GET /api/asset-types`, `GET/PUT /api/allocation/target`, `GET /api/allocation/current`, `GET /api/allocation/rebalance` | Allocazione e ribilanciamento. Montato direttamente su `/api`. |
+| **`dailyPriceRoutes.js`** | `POST /api/prices/update` | Aggiornamento incrementale dei prezzi di chiusura giornalieri (fonte EODHD). Protetto dal token API, rate limit 6/minuto. Vedi `docs/DAILY_PRICES.md`. |
 
 ---
 
@@ -194,6 +203,9 @@ Componenti della pagina Performance & Risk:
 | **`DOMAIN_MODEL.md`** | Modello di dominio (entità, relazioni, mappature causali). |
 | **`DESIGN.md`** | Decisioni di design. |
 | **`PERFORMANCE AND RISK.md`** | Design document della feature Performance & Risk (implementata), con piano di implementazione a fasi. |
+| **`DAILY_PRICES.md`** | Documentazione della funzionalità prezzi di chiusura giornalieri: configurazione `EODHD_API_KEY`, mappa simboli EODHD, formato CSV storico, comandi CLI di import iniziale e aggiornamento incrementale, endpoint `POST /api/prices/update`, limiti e comportamenti noti. |
+| **`daily-prices-agent-instructions.md`** | Istruzioni operative per il coding agent sulla feature prezzi giornalieri (piano di implementazione e vincoli). |
+| **`storico-quotazioni/`** | CSV storici dei prezzi di chiusura (export EODHD) per l'import iniziale one-time: `exus_de_d.csv`, `ievl_uk_d.csv`, `sls_us_d.csv`, `sxrs_de_d.csv`, `uiq4_de_d.csv`, `vuaa_de_d.csv`, `xeon_de_d.csv`. |
 
 ---
 
@@ -206,6 +218,8 @@ Componenti della pagina Performance & Risk:
 | **`install-debian.sh`** | Installazione su Debian/Ubuntu (Node, dipendenze, build). |
 | **`update-debian.sh`** | Aggiornamento su Debian/Ubuntu (pull, build, restart). |
 | **`diagnose-performance.js`** | Script di diagnostica per il motore Performance & Risk (verifica della canonical return series sui dati reali). |
+| **`import-daily-closing-prices.js`** | Import one-time dello storico dei prezzi di chiusura da CSV (export EODHD o formato canonico `symbol,date,close`). Opzioni: `--symbol`, `--isin`, `--dry-run`; riepilogo con righe lette/inserite/scartate e exit code 0/1/2. Idempotente: re-importare lo stesso file non duplica nulla. |
+| **`update-daily-closing-prices.js`** | Aggiornamento incrementale dei prezzi di chiusura (fonte EODHD) da CLI: equivalente a `POST /api/prices/update`. Opzioni: `--dry-run`, `--symbol`; riepilogo per asset ed exit code non-zero in caso di errori che rendono l'operazione incompleta. |
 
 ---
 

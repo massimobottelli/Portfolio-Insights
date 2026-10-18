@@ -66,6 +66,19 @@ export interface SnapshotItem {
   cumulative_deposits: number;
 }
 
+/** Singolo punto della serie storica dei prezzi di chiusura (fonte EODHD). */
+export interface DailyPricePoint {
+  date: string;
+  close: number;
+}
+
+/** Risposta di GET /api/prices/asset/:assetId */
+export interface AssetDailyPricesResponse {
+  assetId: string;
+  count: number;
+  prices: DailyPricePoint[];
+}
+
 export interface TWRAnnualItem {
   year: number;
   twr: number;

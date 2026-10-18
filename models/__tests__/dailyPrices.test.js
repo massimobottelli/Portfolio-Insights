@@ -16,6 +16,8 @@ import {
   getLatestPriceDate,
   setAssetExchangeIfEmpty,
   countDailyClosingPrices,
+  getAssetById,
+  getDailyClosingPrices,
 } from '../dailyPriceModel.js';
 import {
   parseDailyPricesCsv,
@@ -241,5 +243,50 @@ describe('getLatestPriceDate / setAssetExchangeIfEmpty', () => {
     expect(db.prepare('SELECT exchange FROM assets WHERE id = ?').get('a1').exchange).toBe('TICKER.EX');
     expect(setAssetExchangeIfEmpty('a1', 'OTHER.XX')).toBe(false);
     expect(db.prepare('SELECT exchange FROM assets WHERE id = ?').get('a1').exchange).toBe('TICKER.EX');
+  });
+});
+
+describe('getAssetById / getDailyClosingPrices', () => {
+  it('getAssetById restituisce i metadati essenziali o null se assente', () => {
+    expect(getAssetById('missing')).toBeNull();
+    insertAsset({ id: 'a1', isin: 'XX1', ticker: 'T1', name: 'Test Fund', currency: 'EUR', asset_type: 'FUND' });
+    const asset = getAssetById('a1');
+    expect(asset).toEqual({
+      id: 'a1',
+      isin: 'XX1',
+      ticker: 'T1',
+      name: 'Test Fund',
+      currency: 'EUR',
+      asset_type: 'FUND',
+    });
+  });
+
+  it('getDailyClosingPrices restituisce la serie in ordine cronologico (date+close)', () => {
+    insertAsset({ id: 'a1', isin: 'XX1', ticker: 'T1' });
+    // Inserimento in ordine NON cronologico: la lettura deve ordinare ASC
+    upsertDailyClosingPrices('a1', [
+      { date: '2024-01-10', close: 12 },
+      { date: '2024-01-02', close: 10 },
+      { date: '2024-01-05', close: 11 },
+    ]);
+    expect(getDailyClosingPrices('a1')).toEqual([
+      { date: '2024-01-02', close: 10 },
+      { date: '2024-01-05', close: 11 },
+      { date: '2024-01-10', close: 12 },
+    ]);
+  });
+
+  it('getDailyClosingPrices restituisce array vuoto per asset senza storico', () => {
+    insertAsset({ id: 'a1', isin: 'XX1', ticker: 'T1' });
+    expect(getDailyClosingPrices('a1')).toEqual([]);
+  });
+
+  it('getDailyClosingPrices isola gli asset: nessuna riga di un altro asset', () => {
+    insertAsset({ id: 'a1', isin: 'XX1', ticker: 'T1' });
+    insertAsset({ id: 'a2', isin: 'XX2', ticker: 'T2' });
+    upsertDailyClosingPrices('a1', [{ date: '2024-01-02', close: 10 }]);
+    upsertDailyClosingPrices('a2', [{ date: '2024-01-02', close: 20 }]);
+    expect(getDailyClosingPrices('a1')).toEqual([{ date: '2024-01-02', close: 10 }]);
+    expect(getDailyClosingPrices('a2')).toEqual([{ date: '2024-01-02', close: 20 }]);
   });
 });

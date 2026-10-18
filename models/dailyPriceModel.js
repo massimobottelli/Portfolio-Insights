@@ -28,13 +28,47 @@ export function getLatestPriceDate(assetId) {
   return row?.max_date ?? null;
 }
 
-/** Conteggio righe di storico per un asset (usato dai riepiloghi CLI). */
+/**
+ * Conteggio righe di storico per un asset (usato dai riepiloghi CLI).
+ */
 export function countDailyClosingPrices(assetId) {
   return db
     .prepare(
       'SELECT COUNT(*) AS count FROM daily_asset_closing_prices WHERE asset_id = ?'
     )
     .get(assetId).count;
+}
+
+/**
+ * Metadati essenziali di un asset (per l'endpoint di lettura dello storico).
+ * @param {string} assetId
+ * @returns {object|null}
+ */
+export function getAssetById(assetId) {
+  return (
+    db
+      .prepare(
+        'SELECT id, isin, ticker, name, currency, asset_type FROM assets WHERE id = ?'
+      )
+      .get(assetId) ?? null
+  );
+}
+
+/**
+ * Serie completa dei prezzi di chiusura di un asset, in ordine cronologico.
+ * Solo i due campi funzionali persistiti: data e close.
+ * @param {string} assetId
+ * @returns {Array<{date: string, close: number}>}
+ */
+export function getDailyClosingPrices(assetId) {
+  return db
+    .prepare(
+      `SELECT price_date AS date, close_price AS close
+       FROM daily_asset_closing_prices
+       WHERE asset_id = ?
+       ORDER BY price_date ASC`
+    )
+    .all(assetId);
 }
 
 /**
@@ -152,4 +186,55 @@ export function dailyClosingPricesSummary() {
        FROM daily_asset_closing_prices`
     )
     .get();
+}
+
+/**
+ * Candidati all'aggiornamento dei prezzi di chiusura.
+ *
+ * Regola di elegibilità (decisione D2): posizioni attive (quantità netta > 0)
+ * per TUTTI i tipi tranne BOND; gli ex-ETF/ETC/ETN (oggi UNKNOWN) e i
+ * FUND/COMMODITY sono quindi inclusi. Gli asset senza simbolo utilizzabile
+ * vengono restituiti a parte: il chiamante li salta con warning senza
+ * interrompere l'aggiornamento degli altri.
+ *
+ * Pattern SQL riusato da calculatePositions (analyticsModel), senza cache:
+ * l'eleggibilità deve riflettere lo stato corrente degli ordini.
+ *
+ * @returns {{
+ *   candidates: Array<object>,
+ *   eligible: Array<object>,
+ *   noSymbol: Array<object>
+ * }}
+ */
+export function getDailyPriceCandidates() {
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        a.id,
+        a.isin,
+        a.ticker,
+        a.name,
+        a.currency,
+        a.asset_type,
+        a.exchange,
+        SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) AS quantity
+      FROM market_orders mo
+      JOIN assets a ON a.id = mo.asset_id
+      GROUP BY a.id, a.isin, a.ticker, a.name, a.currency, a.asset_type, a.exchange
+      -- NB: in HAVING l'alias 'quantity' verrebbe risolto da SQLite come la colonna
+      -- sorgente mo.quantity (sempre positiva), vanificando il filtro. Si ripete
+      -- l'espressione aggregata per un confronto sul valore aggregato corretto.
+      HAVING SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) > 0
+      ORDER BY a.name ASC
+    `
+    )
+    .all();
+
+  const candidates = rows.filter((r) => r.asset_type !== 'BOND');
+  const hasSymbol = (r) =>
+    Boolean((r.exchange && r.exchange.trim()) || (r.ticker && r.ticker.trim()));
+  const eligible = candidates.filter(hasSymbol);
+  const noSymbol = candidates.filter((r) => !hasSymbol(r));
+  return { candidates, eligible, noSymbol };
 }

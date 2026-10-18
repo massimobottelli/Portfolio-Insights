@@ -1,8 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import type { AssetDetailData } from '../types';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import type { AssetDetailData, DailyPricePoint } from '../types';
 import { apiFetch } from '../lib/api';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { TIME_RANGE_OPTIONS, getCutoffDate, type TimeRange } from '../lib/timeRange';
 // Helper di formattazione condivisi (erano duplicati verbatim in più pagine)
 import {
   formatPrice,
@@ -82,13 +93,29 @@ function backTarget(state: unknown): { to: string; label: string } {
   return { to: '/portfolio', label: 'Torna al Portfolio' };
 }
 
+// Etichette mensili per l'asse X del grafico Storico Quotazioni (MM/YYYY)
+const formatMonthTick = (dateStr: string) => {
+  const d = new Date(dateStr);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${mm}/${yyyy}`;
+};
+
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const back = backTarget(location.state);
+  const isMobile = useIsMobile();
   const [data, setData] = useState<AssetDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Storico prezzi di chiusura (GET /api/prices/asset/:id).
+  // Feature non critica: un fallimento o un asset senza storico (es. BTP/cash,
+  // esclusi dalla collezione per design) degradano a "nessun grafico" senza
+  // toccare il resto della pagina.
+  const [priceHistory, setPriceHistory] = useState<DailyPricePoint[] | null>(null);
+  const [priceTimeRange, setPriceTimeRange] = useState<TimeRange>('all');
 
   useEffect(() => {
     if (!id) return;
@@ -101,6 +128,51 @@ export default function AssetDetail() {
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    apiFetch(`/api/prices/asset/${id}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { prices?: DailyPricePoint[] } | null) => {
+        if (!cancelled) setPriceHistory(d?.prices ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setPriceHistory([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // Dati del grafico filtrati per time range (memoizzato: ricomputati solo se
+  // cambiano i dati o il filtro, non a ogni render della pagina)
+  const filteredPriceData = useMemo(() => {
+    if (!priceHistory) return [];
+    const cutoff = getCutoffDate(priceTimeRange);
+    if (cutoff === null) return priceHistory;
+    return priceHistory.filter(p => p.date >= cutoff);
+  }, [priceHistory, priceTimeRange]);
+
+  // Tick mensili per l'asse X: un tick per ogni cambio mese, più primo e
+  // ultimo sempre inclusi (stessa strategia del grafico Dashboard non-"All")
+  const priceMonthTicks = useMemo(() => {
+    return filteredPriceData
+      .filter((p, i, arr) => {
+        if (i === 0 || i === arr.length - 1) return true;
+        return p.date.slice(0, 7) !== arr[i - 1].date.slice(0, 7);
+      })
+      .map(p => p.date);
+  }, [filteredPriceData]);
+
+  // Variazione del periodo selezionato: primo → ultimo punto del filtro
+  const pricePeriodChange = useMemo(() => {
+    if (priceTimeRange === 'all' || filteredPriceData.length < 2) return null;
+    const first = filteredPriceData[0];
+    const last = filteredPriceData[filteredPriceData.length - 1];
+    if (!first.close) return null;
+    return ((last.close - first.close) / first.close) * 100;
+  }, [filteredPriceData, priceTimeRange]);
 
   if (loading) {
     return (
@@ -231,6 +303,102 @@ export default function AssetDetail() {
           />
         )}
       </div>
+
+      {/* 2b. Grafico Storico Quotazioni — solo per asset con storico prezzi.
+          Richiesto dopo la sezione KPI (Prezzo attuale ... IRR) e prima di
+          Cronologia Ordini; stile identico al grafico Andamento Portafoglio. */}
+      {priceHistory !== null && priceHistory.length > 0 && (
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider">
+                Storico Quotazioni
+              </h3>
+              {/* Variazione del periodo selezionato (hidden per "All") */}
+              {pricePeriodChange !== null && (
+                <p
+                  className={`text-sm lg:text-base font-bold mt-1 ${
+                    pricePeriodChange >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  }`}
+                >
+                  Variazione {priceTimeRange.toUpperCase()}:{' '}
+                  {pricePeriodChange >= 0 ? '+' : ''}
+                  {pricePeriodChange.toFixed(2)}%
+                </p>
+              )}
+            </div>
+            {/* Bottoni time range — allineati all'asse Y destro */}
+            <div className="flex items-center gap-1">
+              {TIME_RANGE_OPTIONS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setPriceTimeRange(key)}
+                  className={`px-2 py-1 text-xs rounded transition-colors cursor-pointer select-none ${
+                    priceTimeRange === key
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={isMobile ? 220 : 350}>
+            <AreaChart
+              data={filteredPriceData}
+              margin={{ top: 10, right: isMobile ? 4 : 20, left: isMobile ? 0 : 10, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="priceHistoryGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <XAxis
+                dataKey="date"
+                ticks={priceMonthTicks}
+                tick={{ fill: '#94a3b8', fontSize: isMobile ? 10 : 12 }}
+                tickFormatter={formatMonthTick}
+              />
+              <YAxis
+                width={isMobile ? 32 : 60}
+                tick={{ fill: '#94a3b8', fontSize: isMobile ? 8 : 12 }}
+                tickFormatter={(value: number) => formatPrice(value)}
+                domain={['auto', 'auto']}
+              />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload || payload.length === 0) return null;
+                  const item = payload[0].payload as DailyPricePoint;
+                  return (
+                    <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
+                      <p className="text-slate-300 text-sm">
+                        {new Date(item.date).toLocaleDateString('it-IT', {
+                          day: '2-digit',
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                      </p>
+                      <p className="font-semibold text-emerald-400 text-sm mt-1">
+                        Chiusura: {formatPrice(item.close)}
+                      </p>
+                    </div>
+                  );
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="close"
+                stroke="#10b981"
+                strokeWidth={2}
+                fill="url(#priceHistoryGradient)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* 3. Cronologia Ordini */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">

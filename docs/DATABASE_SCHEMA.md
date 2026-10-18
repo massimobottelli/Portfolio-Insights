@@ -138,6 +138,26 @@ Rules:
 
 ---
 
+## DailyAssetClosingPrice
+
+Purpose:
+Storico dei prezzi di chiusura giornalieri degli strumenti quotati, importato da CSV storici (export EODHD) e aggiornato incrementalmente tramite l'endpoint `POST /api/prices/update` (fonte EODHD). Contiene **solo** asset, data e prezzo di chiusura: nessun campo OHLC, volume o prezzo adjustato.
+
+Fields:
+- id: String (UUID)
+- assetId: String (FK to Asset)
+- priceDate: String (ISO `YYYY-MM-DD` — data della quotazione)
+- closePrice: Decimal (Prezzo di chiusura così come restituito dalla fonte; nessuna rettifica per dividendi/split)
+
+Rules:
+- Unique constraint on (assetId, priceDate) — upsert idempotente, mai duplicati
+- FK to Asset con `ON DELETE RESTRICT` (un asset con storico non eliminabile)
+- I giorni di chiusura della borsa non generano righe
+- In backup/restore come chiave `dailyClosingPrices` (opzionale per tolleranza ai backup v1)
+- Nota: è una serie storica separata da `AssetPrice`, che continua a memorizzare il prezzo corrente estratto dai report Directa
+
+---
+
 ## ImportSession
 Purpose:
 Import traceability.

@@ -91,6 +91,8 @@ Le route sono organizzate per dominio e montate in `app.js`:
 | GET | `/api/orders` | Lista ordini di mercato con filtri e ordinamento |
 | GET | `/api/orders/symbols` | Ticker distinti per dropdown filtro |
 | DELETE | `/api/orders/:id` | Elimina un singolo ordine di mercato |
+| POST | `/api/prices/update` | Aggiornamento incrementale prezzi di chiusura (fonte EODHD) |
+| GET | `/api/prices/asset/:assetId` | Storico prezzi di chiusura di un asset |
 
 ---
 
@@ -1220,7 +1222,101 @@ Elimina un singolo ordine di mercato per ID. Invalida automaticamente la cache a
 
 ---
 
-## 9. Codici di Errore
+## 9. Endpoint Prices (`/api/prices`)
+
+Gestione dello storico dei prezzi di chiusura giornalieri (fonte EODHD).
+Vedi `docs/DAILY_PRICES.md` per la configurazione (`EODHD_API_KEY`) e i dettagli operativi.
+
+### 9.1 POST `/api/prices/update`
+
+Aggiornamento incrementale dei prezzi di chiusura. Protetto dal token API, con rate limit (6 richieste/minuto).
+
+**Comportamento:** per ogni asset eleggibile (posizioni attive, esclusi i BTP/obbligazioni):
+1. Recupera l'ultima quotazione presente in DB (`daily_asset_closing_prices`);
+2. Se non esiste storico locale → skip (`no_local_history`: lo storico iniziale va importato da CSV);
+3. Se l'ultima quotazione è già di oggi → skip (`already_current`);
+4. Altrimenti interroga EODHD sulla finestra `[ultima data − 5 giorni, oggi]` (overlap per correggere idempotentemente l'ultima osservazione);
+5. Esegue upsert (mai duplicati; i giorni di chiusura della borsa non generano righe).
+
+Un simbolo in errore non blocca gli altri. La chiave API EODHD non viene mai loggata né restituita.
+
+**Risposta `200`:**
+
+```json
+{
+  "ok": true,
+  "runDate": "2026-10-18",
+  "candidates": 13,
+  "eligible": 8,
+  "updatedAssets": 7,
+  "skipped": 1,
+  "failed": 0,
+  "rows": { "inserted": 5, "updated": 0, "unchanged": 155 },
+  "details": [
+    {
+      "symbol": "SXRS.DE",
+      "asset": { "isin": "IE00BDFL4P12", "ticker": "SX.SXRS", "name": "iShares Diversified Commodity Swap" },
+      "status": "updated",
+      "from": "2026-10-11",
+      "to": "2026-10-18",
+      "inserted": 1,
+      "updated": 0,
+      "unchanged": 4
+    }
+  ]
+}
+```
+
+**Note:**
+- `ok` è `false` se almeno un asset è in errore (es. chiave EODHD invalida → HTTP 401 dal provider): nessun falso successo.
+- `status` per asset: `updated`, `already_current`, `no_local_history`, `no_symbol`, `no_data_from_provider`, `failed`.
+- **`503`** se `EODHD_API_KEY` non è configurata (problema di configurazione, non di autenticazione):
+
+```json
+{
+  "error": "Servizio prezzi EODHD non configurato",
+  "details": "EODHD_API_KEY non configurata. Impostala nell'ambiente prima di usare il servizio prezzi"
+}
+```
+
+### 9.2 GET `/api/prices/asset/:assetId`
+
+Storico dei prezzi di chiusura di un singolo asset. Lettura pura dalla tabella
+`daily_asset_closing_prices`: nessuna chiamata esterna, nessuna quota EODHD
+consumata, nessuna scrittura. Serve al grafico "Storico Quotazioni" nella
+pagina di dettaglio asset.
+
+**Risposta `200`:**
+
+```json
+{
+  "assetId": "a1b2c3d4-...",
+  "asset": {
+    "id": "a1b2c3d4-...",
+    "isin": "IE00BDFL4P12",
+    "ticker": "SX.SXRS",
+    "name": "iShares Diversified Commodity Swap",
+    "currency": "EUR",
+    "assetType": "FUND"
+  },
+  "count": 3,
+  "prices": [
+    { "date": "2026-10-14", "close": 11.2 },
+    { "date": "2026-10-15", "close": 11.25 },
+    { "date": "2026-10-16", "close": 11.18 }
+  ]
+}
+```
+
+**Note:**
+- `prices` è ordinato per data crescente (serie cronologica pronta per il grafico).
+- `count` può essere `0` per asset senza storico (es. BTP, cash, o quotazioni non ancora importate).
+- **`404`** se l'asset non esiste: `{ "error": "Asset non trovato" }`.
+- I prezzi sono nel mercato del simbolo mappato: nessuna conversione valutaria.
+
+---
+
+## 10. Codici di Errore
 
 | Codice | Significato | Formato Risposta |
 |---|---|---|
@@ -1286,7 +1382,7 @@ Elimina un singolo ordine di mercato per ID. Invalida automaticamente la cache a
 
 ---
 
-## 10. Esempi di Utilizzo (cURL)
+## 11. Esempi di Utilizzo (cURL)
 
 > **Nota:** Tutti gli endpoint richiedono l'header `Authorization: Bearer <token>`.
 > Sostituisci `<token>` con il token API generato all'avvio del server.
@@ -1451,6 +1547,13 @@ curl -H "Authorization: Bearer <token>" http://localhost:3000/api/orders/symbols
 
 ```bash
 curl -X DELETE http://localhost:3000/api/orders/<order_id> \
+  -H "Authorization: Bearer <token>"
+```
+
+### Aggiornamento Prezzi (EODHD)
+
+```bash
+curl -X POST http://localhost:3000/api/prices/update \
   -H "Authorization: Bearer <token>"
 ```
 

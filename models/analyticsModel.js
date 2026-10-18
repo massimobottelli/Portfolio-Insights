@@ -112,7 +112,11 @@ export async function calculatePositions() {
           )
         ) ap ON ap.asset_id = a.id
         GROUP BY a.id, a.isin, a.ticker, a.name, a.currency, a.asset_type, ap.current_price, ap.average_price, ap.extraction_date
-        HAVING quantity > 0
+        -- NB: in HAVING l'alias 'quantity' verrebbe risolto da SQLite come la colonna
+        -- sorgente mo.quantity (sempre positiva), vanificando il filtro sulle posizioni
+        -- chiuse (quantità netta 0). Si ripete l'espressione aggregata per filtrare
+        -- sul valore aggregato corretto.
+        HAVING SUM(CASE WHEN mo.type = 'BUY' THEN mo.quantity ELSE -mo.quantity END) > 0
         ORDER BY a.name ASC
       `)
       .all();
