@@ -1,3 +1,4 @@
+
 {
   "compilerOptions": {
     "target": "ES2020",
@@ -18,8 +19,7 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@config/*": ["../config/*"]
-    },
-    "baseUrl": "."
+    }
   },
   "include": ["src", "../config"]
 }
