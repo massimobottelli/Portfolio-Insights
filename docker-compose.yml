@@ -12,6 +12,9 @@
 #                     # e stampato nei log (docker compose logs)
 #    EODHD_API_KEY=... # opzionale: abilita lo storico quotazioni (EODHD);
 #                     # se assente le API prezzi rispondono 503
+#    RISK_FREE_RATE=2.5 # default iniziale del tasso risk-free (Sharpe, %);
+#                       # le modifiche dall'UI vengono salvate in modo
+#                       # persistente in db/.risk-free-rate (volume)
 #
 #  I dati (SQLite + token API) persistono nel volume "portfolio-data".
 # =============================================================================
@@ -33,6 +36,9 @@ services:
       # Chiave EODHD per lo storico quotazioni: passata dal .env al container.
       # Se assente le API prezzi rispondono 503 (comportamento documentato).
       EODHD_API_KEY: "${EODHD_API_KEY:-}"
+      # Default del tasso risk-free (Sharpe): dal .env al container. La scelta
+      # dell'utente (UI) viene persistita in db/.risk-free-rate (volume).
+      RISK_FREE_RATE: "${RISK_FREE_RATE:-}"
     volumes:
       # /app/db contiene db/portfolio.db e db/.api-token
       - portfolio-data:/app/db

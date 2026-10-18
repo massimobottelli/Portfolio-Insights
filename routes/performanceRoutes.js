@@ -6,7 +6,13 @@
  */
 
 import { Router } from 'express';
-import { getVolatility, getSharpe, getPerformanceAnalytics } from '../controllers/performanceController.js';
+import {
+  getVolatility,
+  getSharpe,
+  getPerformanceAnalytics,
+  getRiskFreeRate,
+  updateRiskFreeRate,
+} from '../controllers/performanceController.js';
 
 const router = Router();
 
@@ -16,5 +22,10 @@ router.get('/sharpe', getSharpe);
 
 // Consolidated aggregated endpoint (Phase 8)
 router.get('/performance', getPerformanceAnalytics);
+
+// Configurazione del tasso risk-free: default da RISK_FREE_RATE (.env),
+// scelta utente persistita in db/.risk-free-rate (volume Docker).
+router.get('/risk-free-rate', getRiskFreeRate);
+router.put('/risk-free-rate', updateRiskFreeRate);
 
 export default router;

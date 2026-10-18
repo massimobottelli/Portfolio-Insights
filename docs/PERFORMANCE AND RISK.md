@@ -20,7 +20,7 @@
 >
 > **Differenze rispetto al design originale:**
 > - La pagina Performance calcola le metriche sempre sull'**intero periodo di investimento** (i filtri temporali 1M/3M/6M/1Y/YTD sono rimasti solo sulla Dashboard); l'API supporta comunque i parametri `from`/`to`.
-> - Il default del risk-free rate nella UI è **2,20%** (non 0%).
+> - Il default del risk-free rate è **configurabile** via `RISK_FREE_RATE` in `.env` (default di fabbrica 2,5%); se l'utente lo modifica dalla pagina Rischi, la scelta viene persistita (`db/.risk-free-rate` + riga `RISK_FREE_RATE=` nel `.env`) e ha la precedenza sul default. Espongono il valore gli endpoint `GET/PUT /api/analytics/risk-free-rate`.
 > - La risposta dell'endpoint aggregato espone `bestWorst` con chiavi `month`/`worst`/`year`/`worstYear`.
 >
 > Il resto del documento resta valido come riferimento progettuale e per il piano di implementazione a fasi.

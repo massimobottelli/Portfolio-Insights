@@ -112,7 +112,7 @@ Il modo più semplice per usare l'applicazione è un **docker container** che in
 git clone https://github.com/massimobottelli/portfolio-insights.git
 cd portfolio-insights
 
-# Configurazione opzionale (imposta APP_PORT, API_TOKEN ed EODHD_API_KEY)
+# Configurazione opzionale (imposta APP_PORT, API_TOKEN, EODHD_API_KEY, RISK_FREE_RATE)
 cp .env.example .env
 
 # Build dell'immagine e avvio del container
@@ -137,6 +137,7 @@ docker cp portfolio-insights:/app/db/portfolio.db ./portfolio-backup.db
 **Note**:
 - L'app richiede **Node 22.13+** (usa il modulo nativo `node:sqlite`): il Dockerfile usa `node:22-slim` e compila il frontend in uno stage separato (immagine finale senza toolchain di build).
 - Serve la connettività in uscita verso `data-api.ecb.europa.eu` per i tassi di cambio ECB; in più, solo se si configura `EODHD_API_KEY`, verso `eodhd.com` per lo storico quotazioni (vedi `docs/DAILY_PRICES.md`).
+- Il **tasso risk-free di default** per lo Sharpe ratio si configura con `RISK_FREE_RATE` in `.env` (default 2,5%); se l'utente lo modifica dalla pagina Rischi, la scelta viene salvata in modo persistente (`db/.risk-free-rate`, nel volume Docker) e da quel momento ha la precedenza sul valore del `.env`.
 - Il container gira come **utente non-root** ed espone un `HEALTHCHECK`.
 - In produzione è consigliato esporre l'app tramite un **reverse proxy con HTTPS** (es. nginx, Caddy o Traefik).
 

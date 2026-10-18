@@ -8,7 +8,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Calendar } from 'lucide-react';
 import type { PerformanceAnalytics } from '../lib/performanceApi';
-import { fetchPerformanceAnalytics } from '../lib/performanceApi';
+import {
+  fetchPerformanceAnalytics,
+  fetchRiskFreeRateDefault,
+  saveRiskFreeRate,
+} from '../lib/performanceApi';
 import RiskMetrics from '../components/performance/RiskMetrics';
 import DrawdownAnalysis from '../components/performance/DrawdownAnalysis';
 import DrawdownChart from '../components/performance/DrawdownChart';
@@ -19,11 +23,38 @@ export default function Rischi() {
   const [error, setError] = useState<string | null>(null);
   // Il tasso risk-free è aggiornato SOLO dall'input utente in RiskMetrics
   // (mai risincronizzato dal server: evita loop di refetch per floating point).
-  const [riskFreeRate, setRiskFreeRate] = useState(0.022); // Default 2,20%
+  // Default = null finché il backend non fornisce il valore configurato
+  // (RISK_FREE_RATE in .env / ultima scelta utente persistita).
+  const [riskFreeRate, setRiskFreeRate] = useState<number | null>(null);
+  const [persistError, setPersistError] = useState<string | null>(null);
 
-  // Callback stabile passata a RiskMetrics
+  // Carica il tasso risk-free configurato dal backend UNA sola volta al mount.
+  // In caso di errore usa il fallback di fabbrica (2,5%) per non bloccare la pagina.
+  useEffect(() => {
+    let cancelled = false;
+    fetchRiskFreeRateDefault()
+      .then((rate) => {
+        if (!cancelled) setRiskFreeRate(rate);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch risk-free rate default:', err);
+        if (!cancelled) setRiskFreeRate(0.025);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Callback stabile passata a RiskMetrics: aggiorna lo stato e persiste la
+  // scelta utente (fire-and-forget: il ricalcolo dello Sharpe parte subito).
   const handleRiskFreeRateChange = useCallback((rate: number) => {
     setRiskFreeRate(rate);
+    saveRiskFreeRate(rate)
+      .then(() => setPersistError(null))
+      .catch((err) => {
+        console.error('Failed to persist risk-free rate:', err);
+        setPersistError('Impossibile salvare il tasso risk-free in modo persistente');
+      });
   }, []);
 
   // Fetch analytics sull'INTERO periodo di investimento ('all' = nessun cutoff)
@@ -32,6 +63,9 @@ export default function Rischi() {
   // lo stato locale è l'unica fonte di verità e scriverlo dal server
   // poteva innescare un loop di refetch in caso di differenze di floating point.
   const fetchData = useCallback(async () => {
+    // Il default arriva dal backend (fetchRiskFreeRateDefault): finché non è
+    // noto non si effettua alcuna chiamata analytics.
+    if (riskFreeRate === null) return;
     setLoading(true);
     setError(null);
 
@@ -104,6 +138,14 @@ export default function Rischi() {
         </div>
       )}
 
+      {/* Fallimento della persistenza del tasso risk-free: banner inline non bloccante
+          (il ricalcolo dello Sharpe usa comunque il valore corrente). */}
+      {persistError && (
+        <div className="bg-amber-900/40 border border-amber-700 rounded-lg px-4 py-2">
+          <p className="text-amber-400 text-sm">{persistError}</p>
+        </div>
+      )}
+
       {!hasData ? (
         <div className="flex items-center justify-center h-32">
           <p className="text-slate-400">Nessun dato disponibile per il calcolo delle metriche di rischio</p>
@@ -115,12 +157,14 @@ export default function Rischi() {
             <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
               Rischio
             </h3>
-            <RiskMetrics
-              annualizedVolatility={analytics.risk.annualizedVolatility}
-              sharpeRatio={analytics.risk.sharpeRatio}
-              riskFreeRate={riskFreeRate}
-              onRiskFreeRateChange={handleRiskFreeRateChange}
-            />
+            {riskFreeRate !== null && (
+              <RiskMetrics
+                annualizedVolatility={analytics.risk.annualizedVolatility}
+                sharpeRatio={analytics.risk.sharpeRatio}
+                riskFreeRate={riskFreeRate}
+                onRiskFreeRateChange={handleRiskFreeRateChange}
+              />
+            )}
           </div>
 
           {/* Drawdown Analysis */}

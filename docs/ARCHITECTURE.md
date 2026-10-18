@@ -26,9 +26,9 @@
 | **`.gitignore`** | File ignorati da git (node_modules, db/, public/assets, ecc.). |
 | **`.node-version`** | Versione Node richiesta (22+). |
 | **`Dockerfile`** | Image Docker multi-stage: stage 1 compila il frontend React, stage 2 (runtime) contiene solo backend + `public/` con le dipendenze di produzione. Base `node:22-slim` (obbligo Node 22.13+ per `node:sqlite`), utente non-root, `HEALTHCHECK`, volume su `/app/db`. |
-| **`docker-compose.yml`** | Definizione del servizio `portfolio-insights`: porta configurabile (`APP_PORT`), env `API_TOKEN`, volume nominato `portfolio-data` su `/app/db`, restart automatico. |
+| **`docker-compose.yml`** | Definizione del servizio `portfolio-insights`: porta configurabile (`APP_PORT`), env `API_TOKEN`, `EODHD_API_KEY`, `RISK_FREE_RATE`, volume nominato `portfolio-data` su `/app/db`, restart automatico. |
 | **`.dockerignore`** | File esclusi dal build context Docker (node_modules, db/, public/, test, docs, script). |
-| **`.env.example`** | Template della configurazione (`APP_PORT`, `API_TOKEN`, `EODHD_API_KEY`) da copiare in `.env`. |
+| **`.env.example`** | Template della configurazione (`APP_PORT`, `API_TOKEN`, `EODHD_API_KEY`, `RISK_FREE_RATE`) da copiare in `.env`. |
 
 ---
 
@@ -37,6 +37,7 @@
 | File | Scopo |
 |---|---|
 | **`auth.js`** | Gestione del token API: legge `API_TOKEN` dall'ambiente (incluso il valore caricato da `.env`), altrimenti usa `db/.api-token` (persistenza storica, permessi 0600) o genera un token casuale (256 bit). Il token effettivo viene riflesso in `.env` (riga `API_TOKEN=`, mai sovrascritta se già impostata) e mantenuto anche in `db/.api-token` per retrocompatibilità. Fornisce `getApiToken()` e `isTokenValid()` (confronto timing-safe su hash SHA-256). |
+| **`riskFreeRate.js`** | Default del tasso risk-free per lo Sharpe ratio: risoluzione `db/.risk-free-rate` (ultima scelta utente, persistente nel volume Docker) → `RISK_FREE_RATE` da ambiente/.env (letta una sola volta all'avvio) → fallback di fabbrica 2,5%. `setRiskFreeRatePercent()` persiste la scelta utente sia su `db/.risk-free-rate` sia sovrascrivendo la riga `RISK_FREE_RATE=` in `.env` (non fatale in Docker, dove `/app/.env` non è scrivibile). Fornisce `getRiskFreeRatePercent()`, `setRiskFreeRatePercent()`, `parseRiskFreeRatePercent()` e l'helper puro `upsertEnvRiskFreeRateLine()` (testato). |
 | **`assetTypes.js`** | **Singola fonte della verità** per i tipi di asset: `BOND`, `STOCK`, `CASH`, `FUND`, `COMMODITY`, `UNKNOWN`. Allineata alla tabella DB `asset_types`: i primi 5 sono target-abili, `UNKNOWN` è tecnico (non target-abile). I tipi ETF, ETC, ETN sono stati decommissionati (migrati a UNKNOWN). Esporta `ASSET_TYPES` (tutti) e `TARGETABLE_ASSET_TYPES` (escluso UNKNOWN). |
 | **`assetTypes.d.ts`** | Dichiarazione TypeScript per il modulo assetTypes (per il frontend che lo importa). |
 | **`eodhdSymbols.js`** | Mappa statica ISIN → simbolo EODHD (`TICKER.EXCHANGE`, es. `SXRS.XETRA`) per gli strumenti del portafoglio con simbolo certificato. Suffissi EODHD: `.XETRA` (XETRA — **non** `.DE`, che risponde 404), `.PA`, `.LSE`, `.US`. Solo lato server; usata per il backfill di `assets.exchange` all'avvio (con migrazione idempotente dei suffissi legacy `.DE`) e per risolvere i simboli durante import/aggiornamento prezzi. |

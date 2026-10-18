@@ -51,7 +51,7 @@ Le route sono organizzate per dominio e montate in `app.js`:
 | Prefisso | Router | Dominio |
 |---|---|---|
 | `/api/analytics` | `analyticsRoutes.js` | KPI, posizioni, allocazione, storico, TWR |
-| `/api/analytics` | `performanceRoutes.js` | Volatilità, Sharpe, metriche aggregate Performance & Risk |
+| `/api/analytics` | `performanceRoutes.js` | Volatilità, Sharpe, metriche aggregate Performance & Risk, configurazione risk-free rate |
 | `/api/assets` | `assetRoutes.js` | Gestione strumenti finanziari |
 | `/api/import` | `importRoutes.js` | Importazione CSV e sessioni |
 | `/api/movements` | `movementRoutes.js` | Movimenti di cassa |
@@ -88,6 +88,8 @@ Le route sono organizzate per dominio e montate in `app.js`:
 | GET | `/api/analytics/volatility` | Volatilità giornaliera e annualizzata |
 | GET | `/api/analytics/sharpe` | Sharpe ratio con risk-free rate configurabile |
 | GET | `/api/analytics/performance` | Metriche aggregate Performance & Risk |
+| GET | `/api/analytics/risk-free-rate` | Tasso risk-free effettivo (configurazione o ultima scelta utente) |
+| PUT | `/api/analytics/risk-free-rate` | Aggiorna e persiste il tasso risk-free scelto dall'utente |
 | GET | `/api/orders` | Lista ordini di mercato con filtri e ordinamento |
 | GET | `/api/orders/symbols` | Ticker distinti per dropdown filtro |
 | DELETE | `/api/orders/:id` | Elimina un singolo ordine di mercato |
@@ -437,7 +439,7 @@ Restituisce lo Sharpe ratio per un dato risk-free rate annuale.
 |---|---|---|---|
 | `from` | string | — | Data inizio periodo (`YYYY-MM-DD`) |
 | `to` | string | — | Data fine periodo (`YYYY-MM-DD`) |
-| `riskFreeRate` | number | `0` | Risk-free rate annuale **in percentuale** (es. `2.5` = 2,5%) |
+| `riskFreeRate` | number | da configurazione | Risk-free rate annuale **in percentuale** (es. `2.5` = 2,5%). Se omesso usa `RISK_FREE_RATE` (`.env`/volume Docker, fallback di fabbrica 2,5) |
 
 **Risposta 200 OK**
 
@@ -467,9 +469,9 @@ Endpoint aggregato che restituisce **tutte** le metriche di performance e rischi
 |---|---|---|---|
 | `from` | string | — | Data inizio periodo (`YYYY-MM-DD`) |
 | `to` | string | — | Data fine periodo (`YYYY-MM-DD`) |
-| `riskFreeRate` | number | `0` | Risk-free rate annuale **in percentuale** |
+| `riskFreeRate` | number | da configurazione | Risk-free rate annuale **in percentuale**. Se omesso usa `RISK_FREE_RATE` (vedi 3.11) |
 
-> La pagina Performance dell'app chiama questo endpoint sempre sull'intero periodo di investimento (`from` assente), con il risk-free rate scelto dall'utente (default UI: 2,20%).
+> La pagina Rischi dell'app chiama questo endpoint sempre sull'intero periodo di investimento (`from` assente), con il risk-free rate corrente (default iniziale da configurazione, poi l'ultima scelta persistita dell'utente).
 
 **Risposta 200 OK**
 
@@ -552,6 +554,61 @@ Endpoint aggregato che restituisce **tutte** le metriche di performance e rischi
 - Nessun valore `NaN` o `Infinity`: i valori non finiti sono sostituiti con `null`.
 - Con database vuoto restituisce strutture a zero/null con `dataPoints: 0`.
 - I rendimenti mensili/annuali sono aggregati per compounding geometrico, non per somma.
+
+---
+
+### 3.11 GET/PUT `/api/analytics/risk-free-rate`
+
+Configurazione del tasso risk-free di default usato da `/sharpe` e `/performance` quando il parametro `riskFreeRate` non è fornito, e come default iniziale dell'input nella pagina Rischi.
+
+**Ordine di risoluzione del valore effettivo:**
+1. `db/.risk-free-rate` — ultima scelta dell'utente via UI (persistente; in Docker vive nel volume `portfolio-data`) — **ha la precedenza**
+2. variabile d'ambiente `RISK_FREE_RATE` (da `.env` in locale, da docker compose nel container)
+3. fallback di fabbrica: `2.5`
+
+#### GET `/api/analytics/risk-free-rate`
+
+**Risposta 200 OK**
+
+```json
+{
+  "riskFreeRate": 0.025
+}
+```
+
+> `riskFreeRate` è in **decimale** (coerente con la risposta di `/performance`).
+
+#### PUT `/api/analytics/risk-free-rate`
+
+**Request body**
+
+```json
+{
+  "riskFreeRate": 2.5
+}
+```
+
+> Il body è in **percentuale** (coerente con il query param `riskFreeRate` degli altri endpoint).
+
+**Risposta 200 OK**
+
+```json
+{
+  "riskFreeRate": 0.025,
+  "fileSaved": true,
+  "envSaved": true
+}
+```
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `riskFreeRate` | number | Tasso salvato, in decimale |
+| `fileSaved` | boolean | `true` se scritto su `db/.risk-free-rate` (persistenza garantita anche in Docker) |
+| `envSaved` | boolean | `true` se aggiornata la riga `RISK_FREE_RATE=` in `.env` (in Docker è `false`: `/app/.env` non è scrivibile; non fatale) |
+
+**Errori:**
+- `400` — Valore non valido (`{ "error": "Invalid risk-free rate" }`): deve essere numerico con `-100 < rate < 100`
+- `500` — Errore nel salvataggio
 
 ---
 
@@ -1577,6 +1634,16 @@ curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/analytics/sha
 
 ```bash
 curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/analytics/performance?riskFreeRate=2.2"
+```
+
+### Tasso Risk-Free (lettura e aggiornamento persistente)
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/analytics/risk-free-rate
+
+curl -X PUT http://localhost:3000/api/analytics/risk-free-rate \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"riskFreeRate": 2.5}'
 ```
 
 ### Lista Ordini con Filtri

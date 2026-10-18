@@ -80,11 +80,13 @@ interface BestWorstMonthItem {
  * The backend filters the canonical return series by `from`/`to` query params.
  *
  * @param timeRange - Periodo da analizzare
- * @param riskFreeRate - Tasso risk-free annuo in decimale (es. 0.025 = 2,5%)
+ * @param riskFreeRate - Tasso risk-free annuo in decimale (es. 0.025 = 2,5%).
+ *   Se omesso, il parametro NON viene inviato e il backend applica il default
+ *   configurato (RISK_FREE_RATE in .env / ultima scelta utente persistita).
  */
 export async function fetchPerformanceAnalytics(
   timeRange: TimeRange,
-  riskFreeRate = 0
+  riskFreeRate?: number
 ): Promise<PerformanceAnalytics> {
   const cutoff = getCutoffDate(timeRange);
   const params = new URLSearchParams();
@@ -96,8 +98,11 @@ export async function fetchPerformanceAnalytics(
   // Default "to" to today
   const today = new Date().toISOString().split('T')[0];
   params.set('to', today);
-  // Il backend si aspetta la percentuale (2.5), lo stato React tiene il decimale (0.025)
-  params.set('riskFreeRate', String(riskFreeRate * 100));
+  // Il backend si aspetta la percentuale (2.5), lo stato React tiene il decimale (0.025).
+  // Param omesso → il backend usa il suo default configurato.
+  if (riskFreeRate !== undefined) {
+    params.set('riskFreeRate', String(riskFreeRate * 100));
+  }
 
   const response = await apiFetch(`/api/analytics/performance?${params.toString()}`);
 
@@ -106,6 +111,39 @@ export async function fetchPerformanceAnalytics(
   }
 
   return response.json() as Promise<PerformanceAnalytics>;
+}
+
+// ──────────────────────────────────────────────
+// Fetch & save per il tasso risk-free configurato
+// ──────────────────────────────────────────────
+
+/**
+ * Recupera il tasso risk-free effettivo (GET /api/analytics/risk-free-rate).
+ * Ritorna il valore in decimale (es. 0.025 = 2,5%): ultima scelta utente
+ * persistita, altrimenti il default da RISK_FREE_RATE (.env).
+ */
+export async function fetchRiskFreeRateDefault(): Promise<number> {
+  const response = await apiFetch('/api/analytics/risk-free-rate');
+  if (!response.ok) {
+    throw new Error('Failed to fetch risk-free rate default');
+  }
+  const data = (await response.json()) as { riskFreeRate: number };
+  return data.riskFreeRate;
+}
+
+/**
+ * Persiste la scelta utente del tasso risk-free (PUT /api/analytics/risk-free-rate).
+ * Il backend si aspetta la percentuale (2.5), lo stato React tiene il decimale (0.025).
+ */
+export async function saveRiskFreeRate(riskFreeRate: number): Promise<void> {
+  const response = await apiFetch('/api/analytics/risk-free-rate', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ riskFreeRate: riskFreeRate * 100 }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to save risk-free rate');
+  }
 }
 
 // ──────────────────────────────────────────────

@@ -17,6 +17,11 @@ import {
   calculatePeriodStatsFromSeries,
   calculateDrawdown,
 } from '../models/performanceModel.js';
+import {
+  parseRiskFreeRatePercent,
+  getRiskFreeRatePercent,
+  setRiskFreeRatePercent,
+} from '../config/riskFreeRate.js';
 
 /**
  * GET /api/analytics/volatility
@@ -46,7 +51,7 @@ export function getVolatility(req, res) {
 
 /**
  * GET /api/analytics/sharpe
- * Query params: from (optional), to (optional), riskFreeRate (default: 0)
+ * Query params: from (optional), to (optional), riskFreeRate (default: da RISK_FREE_RATE)
  *
  * Returns the Sharpe ratio for a given annual risk-free rate.
  * The risk-free rate is validated and must be numeric within -100% to +100%.
@@ -55,8 +60,9 @@ export function getSharpe(req, res) {
   try {
     const { from, to, riskFreeRate } = req.query;
 
-    // Validate riskFreeRate: must be numeric, range -100 < rate < 100
-    const rf = riskFreeRate !== undefined ? parseFloat(riskFreeRate) : 0;
+    // Validate riskFreeRate: must be numeric, range -100 < rate < 100.
+    // Se omesso: default da configurazione (RISK_FREE_RATE in .env, fallback 2,5).
+    const rf = riskFreeRate !== undefined ? parseFloat(riskFreeRate) : getRiskFreeRatePercent();
     if (isNaN(rf) || rf <= -100 || rf >= 100) {
       return res.status(400).json({ error: 'Invalid risk-free rate' });
     }
@@ -84,7 +90,7 @@ export function getSharpe(req, res) {
  * Query params:
  *   - from (optional): start date (YYYY-MM-DD)
  *   - to (optional): end date (YYYY-MM-DD)
- *   - riskFreeRate (optional): annual risk-free rate in % (default: 0)
+ *   - riskFreeRate (optional): annual risk-free rate in % (default: da RISK_FREE_RATE)
  *
  * Returns ALL performance & risk metrics in a single response.
  * This is the consolidated endpoint for Phase 8.
@@ -93,8 +99,8 @@ export function getPerformanceAnalytics(req, res) {
   try {
     const { from, to, riskFreeRate } = req.query;
 
-    // Validate riskFreeRate
-    const rf = riskFreeRate !== undefined ? parseFloat(riskFreeRate) : 0;
+    // Validate riskFreeRate (se omesso: default da configurazione, vedi sopra)
+    const rf = riskFreeRate !== undefined ? parseFloat(riskFreeRate) : getRiskFreeRatePercent();
     if (isNaN(rf) || rf <= -100 || rf >= 100) {
       return res.status(400).json({ error: 'Invalid risk-free rate' });
     }
@@ -241,5 +247,46 @@ export function getPerformanceAnalytics(req, res) {
   } catch (error) {
     console.error('Performance analytics error:', error);
     res.status(500).json({ error: 'Errore nel calcolo delle metriche di performance' });
+  }
+}
+
+/**
+ * GET /api/analytics/risk-free-rate
+ *
+ * Restituisce il tasso risk-free effettivo (in decimale, coerente con il resto
+ * dell'API: 0.025 = 2,5%). Usato dal frontend come default iniziale dell'input
+ * nella pagina Rischi.
+ */
+export function getRiskFreeRate(req, res) {
+  try {
+    const percent = getRiskFreeRatePercent();
+    res.json({ riskFreeRate: percent / 100 });
+  } catch (error) {
+    console.error('Risk-free rate error:', error);
+    res.status(500).json({ error: 'Errore nel recupero del tasso risk-free' });
+  }
+}
+
+/**
+ * PUT /api/analytics/risk-free-rate
+ * Body: { "riskFreeRate": <percentuale annua, es. 2.5> }
+ *
+ * Persiste la scelta dell'utente (db/.risk-free-rate + riga RISK_FREE_RATE=
+ * nel .env quando scrivibile) e la rende immediatamente effettiva.
+ * Risposta: { riskFreeRate: <decimale>, fileSaved, envSaved }.
+ */
+export function updateRiskFreeRate(req, res) {
+  try {
+    const { riskFreeRate } = req.body ?? {};
+    if (parseRiskFreeRatePercent(riskFreeRate) === null) {
+      return res.status(400).json({ error: 'Invalid risk-free rate' });
+    }
+
+    const { fileSaved, envSaved } = setRiskFreeRatePercent(riskFreeRate);
+    const percent = parseRiskFreeRatePercent(riskFreeRate);
+    res.json({ riskFreeRate: percent / 100, fileSaved, envSaved });
+  } catch (error) {
+    console.error('Risk-free rate update error:', error);
+    res.status(500).json({ error: 'Errore nel salvataggio del tasso risk-free' });
   }
 }
