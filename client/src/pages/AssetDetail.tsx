@@ -154,12 +154,12 @@ export default function AssetDetail() {
 
       {/* 2. KPI Card — Situazione Corrente (2 card per riga su mobile, 3 su desktop) */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        {/* 1. Prezzo medio di carico */}
+
+        {/* 1. Prezzo attuale */}
         <KpiCard
-          label="Prezzo Medio di Carico"
-          value={`${formatPrice(position.averagePrice)}${
-            position.averagePrice !== null ? ` ${asset.currency}` : ''
-          }`}
+          label="Prezzo Attuale"
+          value={formatPrice(position.currentPrice)}
+          sublabel={position.priceDate ? `Aggiornato al ${formatDate(position.priceDate)}` : null}
         />
 
         {/* 2. Quantità */}
@@ -174,11 +174,12 @@ export default function AssetDetail() {
           }
         />
 
-        {/* 3. Prezzo attuale */}
+        {/* 3. Prezzo medio di carico */}
         <KpiCard
-          label="Prezzo Attuale"
-          value={formatPrice(position.currentPrice)}
-          sublabel={position.priceDate ? `Aggiornato al ${formatDate(position.priceDate)}` : null}
+          label="Prezzo Medio di Carico"
+          value={`${formatPrice(position.averagePrice)}${
+            position.averagePrice !== null ? ` ${asset.currency}` : ''
+          }`}
         />
 
         {/* 4. Valore di carico vs attuale */}
