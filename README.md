@@ -112,14 +112,12 @@ Il modo più semplice per usare l'applicazione è un **docker container** che in
 git clone https://github.com/massimobottelli/portfolio-insights.git
 cd portfolio-insights
 
-# Build dell'immagine
-docker build -t portfolio-insights .
+# Configurazione opzionale (imposta APP_PORT, API_TOKEN ed EODHD_API_KEY)
+cp .env.example .env
 
-# Imposta il tuo token (password)
-cp .env.example .env   # opzionale: imposta APP_PORT, API_TOKEN ed EODHD_API_KEY
-
-# Avvia il container (i dati persistono nel volume "portfolio-data")
-docker compose up -d
+# Build dell'immagine e avvio del container
+# (i dati persistono nel volume "portfolio-data")
+docker compose up -d --build
 ```
 
 L'applicazione sarà disponibile su **http://localhost:3000**.

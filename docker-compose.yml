@@ -10,6 +10,8 @@
 #    APP_PORT=3000    # porta pubblica su cui esporre l'app
 #    API_TOKEN=...    # se omesso/vuoto, il token viene generato al primo avvio
 #                     # e stampato nei log (docker compose logs)
+#    EODHD_API_KEY=... # opzionale: abilita lo storico quotazioni (EODHD);
+#                     # se assente le API prezzi rispondono 503
 #
 #  I dati (SQLite + token API) persistono nel volume "portfolio-data".
 # =============================================================================
@@ -28,6 +30,9 @@ services:
       NODE_ENV: production
       PORT: "3000"
       API_TOKEN: "${API_TOKEN:-}"
+      # Chiave EODHD per lo storico quotazioni: passata dal .env al container.
+      # Se assente le API prezzi rispondono 503 (comportamento documentato).
+      EODHD_API_KEY: "${EODHD_API_KEY:-}"
     volumes:
       # /app/db contiene db/portfolio.db e db/.api-token
       - portfolio-data:/app/db
