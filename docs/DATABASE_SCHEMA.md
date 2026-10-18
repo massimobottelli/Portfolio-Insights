@@ -1,7 +1,7 @@
 # Database Schema
 
 ## Philosophy
-The database stores immutable financial facts imported from Directa.
+The database stores immutable financial facts imported from Directa, plus the daily closing price history sourced from EODHD (optional, on-demand updates).
 Calculated information is never stored.
 
 ---

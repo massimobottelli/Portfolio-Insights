@@ -60,6 +60,12 @@ Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](http
 - **Analisi drawdown**: maximum drawdown, peak/trough/recovery, durata e tempo di recupero, grafico della curva di drawdown
 - Le metriche sono calcolate sull'intero periodo di investimento dalla **canonical return series** (serie unica di rendimenti giornalieri condivisa da tutte le metriche)
 
+### 📈 Storico Quotazioni
+- **Scheda asset**: grafico dei prezzi di chiusura giornalieri nella pagina di dettaglio di ogni strumento, con filtri temporali (1M, 3M, 6M, 1Y, YTD, All)
+- **Periodo di detenzione**: il grafico parte dalla data del primo ordine dell'asset
+- **Storico importabile**: backfill da CSV storici (export EODHD) tramite script dedicato
+- **Aggiornamento on-demand**: all'apertura della scheda, se l'ultima quotazione non è aggiornata, recupero automatico delle sole quotazioni mancanti da EODHD (opzionale, richiede `EODHD_API_KEY`)
+
 
 > **⚠️ Nota importante:** le metriche e i risultati mostrati da Portfolio Insights sono calcolati automaticamente a partire dai dati importati e hanno esclusivamente finalità informative. Non devono essere interpretati come consulenza finanziaria o come base unica per prendere decisioni di investimento.
 
@@ -90,7 +96,7 @@ Prova subito l'applicazione senza installare nulla: [**Apri la demo live**](http
 - **Backend**: Node.js + Express + SQLite nativo (Node 22+)
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS + Recharts
 - **Testing**: Vitest (test unit e integration sulle formule finanziarie)
-- **Zero dipendenze cloud**: funziona offline dopo l'import (tranne i tassi di cambio ECB)
+- **Zero dipendenze cloud**: funziona offline dopo l'import (tranne i tassi di cambio ECB e, se configurata `EODHD_API_KEY`, l'aggiornamento dello storico quotazioni)
 - **Design responsivo**: sidebar collassabile, menu mobile
 
 ---
@@ -110,7 +116,7 @@ cd portfolio-insights
 docker build -t portfolio-insights .
 
 # Imposta il tuo token (password)
-cp .env.example .env   # opzionale: imposta APP_PORT e API_TOKEN
+cp .env.example .env   # opzionale: imposta APP_PORT, API_TOKEN ed EODHD_API_KEY
 
 # Avvia il container (i dati persistono nel volume "portfolio-data")
 docker compose up -d
@@ -132,7 +138,7 @@ docker cp portfolio-insights:/app/db/portfolio.db ./portfolio-backup.db
 
 **Note**:
 - L'app richiede **Node 22.13+** (usa il modulo nativo `node:sqlite`): il Dockerfile usa `node:22-slim` e compila il frontend in uno stage separato (immagine finale senza toolchain di build).
-- Serve la connettività in uscita verso `data-api.ecb.europa.eu` per i tassi di cambio ECB (unica chiamata esterna).
+- Serve la connettività in uscita verso `data-api.ecb.europa.eu` per i tassi di cambio ECB; in più, solo se si configura `EODHD_API_KEY`, verso `eodhd.com` per lo storico quotazioni (vedi `docs/DAILY_PRICES.md`).
 - Il container gira come **utente non-root** ed espone un `HEALTHCHECK`.
 - In produzione è consigliato esporre l'app tramite un **reverse proxy con HTTPS** (es. nginx, Caddy o Traefik).
 
@@ -206,6 +212,7 @@ Accedi all'area personale Directa e scarica i seguenti report in formato CSV:
 
 - **Dashboard**: panoramica con KPI e grafico storico
 - **Portfolio**: dettaglio delle posizioni, classifica gli asset manualmente
+- **Scheda asset** (cliccando una posizione): KPI di posizione, grafico Storico Quotazioni (prezzi di chiusura EODHD, dal primo ordine in poi, con aggiornamento automatico), cronologia ordini, dividendi/cedole
 - **Allocazione**: definisci i target per categoria e verifica le divergenze
 - **Performance**: analizza rendimento, posizioni chiuse e statistiche periodi
 - **Rischi**: volatilità, Sharpe ratio con risk-free rate configurabile e analisi drawdown
@@ -254,7 +261,7 @@ portfolio-insights/
 
 ## 📊 Database
 
-Il database SQLite memorizza solo **fatti finanziari immutabili** importati da Directa (più due tabelle di configurazione):
+Il database SQLite memorizza i **fatti finanziari immutabili** importati da Directa, lo storico dei prezzi di chiusura (fonte EODHD) e le tabelle di configurazione:
 
 | Tabella | Contenuto |
 |---|---|
@@ -263,6 +270,7 @@ Il database SQLite memorizza solo **fatti finanziari immutabili** importati da D
 | `cash_movements` | Movimenti di cassa (commissioni, dividendi, tasse, ecc.) |
 | `daily_portfolio_snapshots` | Snapshot giornalieri del valore del portafoglio |
 | `asset_prices` | Prezzi correnti e medi di carico |
+| `daily_asset_closing_prices` | Prezzi di chiusura giornalieri (import CSV storico EODHD + aggiornamento incrementale) |
 | `import_sessions` | Tracciamento delle importazioni |
 | `asset_types` | Catalogo dei tipi di asset (con flag target-abile) |
 | `allocation_targets` | Target di allocazione configurati dall'utente |
@@ -296,6 +304,7 @@ Tutti i calcoli analitici (posizioni, allocazione, performance, rischio, TWR) so
 - [x] MVP2 — Asset Detail, Allocazione & Ribilanciamento, Performance & Risk
 - [x] IRR — Rendimento money-weighted per asset singolo e per tipo asset
 - [x] Pagina Ordini — Elenco ordini di mercato con filtri + Posizioni chiuse con Gain/Loss
+- [x] Storico Quotazioni — Prezzi di chiusura EODHD: import CSV storico, aggiornamento on-demand e grafico nella scheda asset (limitato al periodo di detenzione)
 
 ---
 

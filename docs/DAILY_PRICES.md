@@ -55,13 +55,13 @@ senza sovrascrivere valori esistenti. L'aggiornamento interroga EODHD con
 
 ```bash
 # Anteprima senza scritture
-node scripts/import-daily-closing-prices.js --dry-run --symbol SXRS.DE docs/storico-quotazioni/sxrs_de_d.csv
+node scripts/import-daily-closing-prices.js --dry-run --symbol SXRS.XETRA docs/storico-quotazioni/sxrs_de_d.csv
 
 # Import reale
-node scripts/import-daily-closing-prices.js --symbol SXRS.DE docs/storico-quotazioni/sxrs_de_d.csv
+node scripts/import-daily-closing-prices.js --symbol SXRS.XETRA docs/storico-quotazioni/sxrs_de_d.csv
 
 # Più file in un colpo (stesso simbolo) o risoluzione via ISIN
-node scripts/import-daily-closing-prices.js --symbol VUAA.DE docs/storico-quotazioni/vuaa_de_d.csv
+node scripts/import-daily-closing-prices.js --symbol VUAA.XETRA docs/storico-quotazioni/vuaa_de_d.csv
 node scripts/import-daily-closing-prices.js --isin IE00BDFL4P12 docs/storico-quotazioni/sxrs_de_d.csv
 ```
 

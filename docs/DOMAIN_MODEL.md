@@ -130,6 +130,18 @@ It is used by the Analytics Engine to calculate:
 
 ---
 
+## Daily Asset Closing Price
+
+The daily closing price of an asset for a specific date, sourced from the external price provider (EODHD).
+
+It is imported in bulk from historical CSV exports and updated incrementally with only the closing prices missing since the last stored date.
+
+It stores only the asset, the date and the closing price: no OHLC, volume or adjusted price.
+
+It feeds the "Storico Quotazioni" chart in the asset detail page.
+
+---
+
 ## Position
 
 The current holding of an Asset.
@@ -280,7 +292,7 @@ Broker-specific identifiers are not used as domain identifiers.
 | name           | Yes      | Directa reports    | Instrument description |
 | currency       | Yes      | Directa reports    | Trading currency       |
 | assetType      | Yes      | Manual classification | BOND, STOCK, CASH, FUND, COMMODITY, UNKNOWN |
-| exchange       | No       | Future enrichment  | Trading venue          |
+| exchange       | No       | Startup backfill (EODHD symbol map) | Certified EODHD symbol `TICKER.EXCHANGE` for daily price updates |
 | directaCode    | No       | Future integration | Broker identifier      |
 
 ---
@@ -394,6 +406,7 @@ Asset
 
 * Importer only (metadata)
 * User (asset type via PATCH endpoint)
+* Startup backfill (exchange = certified EODHD symbol, from config/eodhdSymbols.js)
 
 ### Used by
 

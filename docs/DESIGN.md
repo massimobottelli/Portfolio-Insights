@@ -74,6 +74,7 @@ The first release focuses on providing a complete overview of the current portfo
 #### Features
 - API dedicata `/api/orders` con GET (lista filtrata), GET /symbols (ticker distinti), DELETE (elimina singolo ordine con invalidazione cache analytics)
 - **Posizioni chiuse**: raggruppamento automatico degli ordini per ticker con quantità netta zero, calcolo P&L aggregato (somma importi BUY/SELL), ordinamento per Gain/Loss EUR
+- **Storico Quotazioni** (scheda asset): prezzi di chiusura giornalieri EODHD (`daily_asset_closing_prices`) con import storico via CSV, aggiornamento on-demand all'apertura della pagina e grafico limitato al periodo di detenzione (dal primo ordine in poi)
 
 ---
 
@@ -116,6 +117,8 @@ The project should be optimized for AI-assisted development. Characteristics inc
 ## 📊 5. Data Source Strategy
 
 Directa reports are the **single source of truth**. No external APIs are required for the MVP.
+
+Post-MVP (implementato): optional integration with EODHD for daily closing prices (`EODHD_API_KEY`), used only for the on-demand update of the price history; Directa reports remain the single source for orders, movements and snapshots.
 
 The application parses three distinct export files to reconstruct the portfolio:
 

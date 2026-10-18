@@ -17,7 +17,7 @@
 | Database reale | ✅ **DATI PRESENTI** | 27 asset, 194 market_orders, 379 cash_movements, datati 2024-06-11 → 2026-07-22 |
 | Server backend | ✅ **FUNZIONANTE** | Avviato su porta 3000, auth token funzionante |
 | Server frontend | ✅ **FUNZIONANTE** | HTTP 200 su /, SPA routing attivo |
-| Dati di test | ℹ️ **NESSUNO** | DB contiene solo dati reali importati da Directa (csv PatrimonioTotale, P_TOTALE, Movimenti) |
+| Dati di test | ℹ️ **NESSUNO** | DB contiene solo dati reali importati da Directa (csv PatrimonioTotale, P_TOTALE, Movimenti) più lo storico prezzi di chiusura EODHD |
 
 ### Definizione of Done — Fase 0
 

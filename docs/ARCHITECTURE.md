@@ -245,7 +245,7 @@ Componenti della pagina Performance & Risk:
 ## 🗝️ Punti chiave dell'architettura
 
 - **Pattern MVC pulito**: routes (mapping) → controllers (logica) → models (SQL) → SQLite
-- **Zero dipendenze cloud**: funziona offline dopo l'import (tranne i tassi di cambio ECB)
+- **Zero dipendenze cloud**: funziona offline dopo l'import (tranne i tassi di cambio ECB e, se configurata `EODHD_API_KEY`, l'aggiornamento dello storico quotazioni)
 - **Calcoli a runtime**: posizioni, allocazione, TWR, performance e rischio non sono persistiti ma generati al volo
 - **Canonical Return Series**: tutte le metriche di performance/rischio derivano da un'unica serie di rendimenti giornalieri costruita con una sola lettura dal DB — garanzia di coerenza tra formule
 - **Idempotenza import**: re-import sicuro senza duplicati (vincoli UNIQUE + filtro incrementale per data)
