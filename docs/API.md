@@ -19,9 +19,9 @@ http://localhost:3000/api
 Tutti gli endpoint `/api/*` (tranne `/api/auth/check`) richiedono un **API Token**:
 
 - Header: `Authorization: Bearer <token>`
-- Il token viene generato automaticamente all'avvio del server e stampato nella console (o configurato via variabile d'ambiente `API_TOKEN`)
+- Il token viene generato automaticamente all'avvio del server e stampato nella console (o configurato via variabile d'ambiente `API_TOKEN`, incluso il valore caricato da `.env`)
 - Se il token non è valido o manca → `401 { "error": "Autenticazione richiesta" }`
-- Il token viene salvato in `db/.api-token` (permessi 600) se generato automaticamente
+- Il token è persistito in `.env` (riga `API_TOKEN=`, valorizzata automaticamente se vuota o assente, mai sovrascritta se già impostata) e in `db/.api-token` (permessi 600, retrocompatibilità)
 
 **Esempio:**
 ```bash

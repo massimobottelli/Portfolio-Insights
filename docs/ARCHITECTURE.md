@@ -28,7 +28,7 @@
 | **`Dockerfile`** | Image Docker multi-stage: stage 1 compila il frontend React, stage 2 (runtime) contiene solo backend + `public/` con le dipendenze di produzione. Base `node:22-slim` (obbligo Node 22.13+ per `node:sqlite`), utente non-root, `HEALTHCHECK`, volume su `/app/db`. |
 | **`docker-compose.yml`** | Definizione del servizio `portfolio-insights`: porta configurabile (`APP_PORT`), env `API_TOKEN`, volume nominato `portfolio-data` su `/app/db`, restart automatico. |
 | **`.dockerignore`** | File esclusi dal build context Docker (node_modules, db/, public/, test, docs, script). |
-| **`.env.example`** | Template della configurazione Compose (`APP_PORT`, `API_TOKEN`) da copiare in `.env`. |
+| **`.env.example`** | Template della configurazione (`APP_PORT`, `API_TOKEN`, `EODHD_API_KEY`) da copiare in `.env`. |
 
 ---
 
@@ -36,11 +36,11 @@
 
 | File | Scopo |
 |---|---|
-| **`auth.js`** | Gestione del token API: legge `API_TOKEN` dall'ambiente, altrimenti genera un token casuale (256 bit) salvato in `db/.api-token` con permessi 0600. Fornisce `getApiToken()` e `isTokenValid()` (confronto timing-safe su hash SHA-256). |
+| **`auth.js`** | Gestione del token API: legge `API_TOKEN` dall'ambiente (incluso il valore caricato da `.env`), altrimenti usa `db/.api-token` (persistenza storica, permessi 0600) o genera un token casuale (256 bit). Il token effettivo viene riflesso in `.env` (riga `API_TOKEN=`, mai sovrascritta se già impostata) e mantenuto anche in `db/.api-token` per retrocompatibilità. Fornisce `getApiToken()` e `isTokenValid()` (confronto timing-safe su hash SHA-256). |
 | **`assetTypes.js`** | **Singola fonte della verità** per i tipi di asset: `BOND`, `STOCK`, `CASH`, `FUND`, `COMMODITY`, `UNKNOWN`. Allineata alla tabella DB `asset_types`: i primi 5 sono target-abili, `UNKNOWN` è tecnico (non target-abile). I tipi ETF, ETC, ETN sono stati decommissionati (migrati a UNKNOWN). Esporta `ASSET_TYPES` (tutti) e `TARGETABLE_ASSET_TYPES` (escluso UNKNOWN). |
 | **`assetTypes.d.ts`** | Dichiarazione TypeScript per il modulo assetTypes (per il frontend che lo importa). |
 | **`eodhdSymbols.js`** | Mappa statica ISIN → simbolo EODHD (`TICKER.EXCHANGE`, es. `SXRS.XETRA`) per gli strumenti del portafoglio con simbolo certificato. Suffissi EODHD: `.XETRA` (XETRA — **non** `.DE`, che risponde 404), `.PA`, `.LSE`, `.US`. Solo lato server; usata per il backfill di `assets.exchange` all'avvio (con migrazione idempotente dei suffissi legacy `.DE`) e per risolvere i simboli durante import/aggiornamento prezzi. |
-| **`loadEnv.js`** | Caricamento di `.env` (git-ignored) **indipendente dal modo di avvio del processo** (npm scripts con `--env-file-if-exists`, `node server.js` diretto, systemd `ExecStart=/usr/bin/node server.js`): risolve il percorso dalla root del progetto e usa `process.loadEnvFile()`, senza sovrascrivere le variabili già presenti nell'ambiente. Importato come primo modulo da `server.js` e dallo script CLI di aggiornamento prezzi. |
+| **`loadEnv.js`** | Caricamento di `.env` (git-ignored) **indipendente dal modo di avvio del processo** (npm scripts con `--env-file-if-exists`, `node server.js` diretto, systemd `ExecStart=/usr/bin/node server.js`): risolve il percorso dalla root del progetto e usa `process.loadEnvFile()`, senza sovrascrivere le variabili già presenti nell'ambiente. Importato come primo modulo da `server.js` e dallo script CLI di aggiornamento prezzi; esporta `ENV_FILE_PATH`, usato da `auth.js` per riflettere il token API in `.env`. |
 
 ---
 

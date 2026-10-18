@@ -124,7 +124,7 @@ docker compose up -d
 
 L'applicazione sarà disponibile su **http://localhost:3000**.
 
-**🔐 Token di accesso** — se non hai impostato `API_TOKEN`, al primo avvio l'app genera un token casuale, per visualizzarlo vedi il log:
+**🔐 Token di accesso** — se non hai impostato `API_TOKEN`, al primo avvio l'app genera un token casuale e lo salva in `.env` (riga `API_TOKEN=`) e in `db/.api-token`; per visualizzarlo vedi il log:
 
 ```bash
 docker logs portfolio-insights

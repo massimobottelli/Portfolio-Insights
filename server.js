@@ -20,8 +20,8 @@ app.listen(PORT, () => {
     console.log('  🔐 API Token (per accedere all\'applicazione):');
     console.log(`  ${getApiToken()}`);
     console.log('  Salva questo token in un luogo sicuro.');
-    console.log('  Puoi configurarlo in modo permanente con la');
-    console.log('  variabile d\'ambiente API_TOKEN.');
+    console.log('  È già persistito in .env (riga API_TOKEN=) e in');
+    console.log('  db/.api-token (permessi 600).');
     console.log('==============================================\n');
   } else {
     console.log(`[auth] API Token configurato tramite ${tokenSource}\n`);

@@ -355,11 +355,7 @@ export default function AssetDetail() {
         <KpiCard
           label="Carico vs Attuale"
           value={`${formatAmount(position.bookValueEUR)} → ${formatAmount(position.currentValueEUR)}`}
-          sublabel={
-            position.bookValueEUR && position.currentValueEUR
-              ? `Diff: ${formatAmount(position.currentValueEUR - position.bookValueEUR)} EUR`
-              : null
-          }
+
           valueClass={
             position.bookValueEUR && position.currentValueEUR && position.currentValueEUR >= position.bookValueEUR
               ? 'text-emerald-400'

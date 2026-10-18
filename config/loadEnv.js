@@ -26,3 +26,6 @@ if (existsSync(envPath)) {
     // File malformato o illeggibile: non è fatale, si prosegue senza .env
   }
 }
+
+/** Percorso assoluto del file .env del progetto (usato da config/auth.js). */
+export const ENV_FILE_PATH = envPath;
