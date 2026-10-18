@@ -93,6 +93,7 @@ Le route sono organizzate per dominio e montate in `app.js`:
 | DELETE | `/api/orders/:id` | Elimina un singolo ordine di mercato |
 | POST | `/api/prices/update` | Aggiornamento incrementale prezzi di chiusura (fonte EODHD) |
 | GET | `/api/prices/asset/:assetId` | Storico prezzi di chiusura di un asset |
+| POST | `/api/prices/asset/:assetId/refresh` | Aggiornamento on-demand prezzi di un asset (fonte EODHD) |
 
 ---
 
@@ -1300,6 +1301,8 @@ pagina di dettaglio asset.
     "assetType": "FUND"
   },
   "count": 3,
+  "lastDate": "2026-10-16",
+  "isCurrent": false,
   "prices": [
     { "date": "2026-10-14", "close": 11.2 },
     { "date": "2026-10-15", "close": 11.25 },
@@ -1310,9 +1313,54 @@ pagina di dettaglio asset.
 
 **Note:**
 - `prices` è ordinato per data crescente (serie cronologica pronta per il grafico).
-- `count` può essere `0` per asset senza storico (es. BTP, cash, o quotazioni non ancora importate).
+- `lastDate` è l'ultima quotazione in DB (ISO) o `null` se nessuno storico.
+- `isCurrent` è `true` se `lastDate` è già quella attesa a oggi: il frontend lo
+  usa per decidere se attivare l'auto-refresh (vedi 9.3).
+- `count` può essere `0` per asset senza storico (es. BTP, cash, o quotazioni
+  non ancora importate): in quel caso `lastDate` è `null` e `isCurrent` è `false`.
 - **`404`** se l'asset non esiste: `{ "error": "Asset non trovato" }`.
 - I prezzi sono nel mercato del simbolo mappato: nessuna conversione valutaria.
+
+### 9.3 POST `/api/prices/asset/:assetId/refresh`
+
+Aggiornamento incrementale **on-demand** dei prezzi di chiusura di un singolo
+asset (fonte EODHD). Usato dal frontend quando il grafico "Storico Quotazioni"
+si apre con `isCurrent === false`: scarica dall'ultima data in DB (con overlap
+di 5 giorni) fino a oggi e applica l'upsert idempotente. Rate limit dedicato
+(20 richieste/minuto, più alto dell'aggiornamento globale perché la chiamata
+parte automaticamente alla visita di una pagina).
+
+**Risposta `200` (esito):**
+
+```json
+{
+  "assetId": "a1b2c3d4-...",
+  "ok": true,
+  "status": "updated",
+  "symbol": "SXRS.DE",
+  "lastDate": "2026-10-18",
+  "from": "2026-10-11",
+  "to": "2026-10-18",
+  "rows": { "inserted": 2, "updated": 0, "unchanged": 4 }
+}
+```
+
+**Valori di `status`:**
+- `updated` — scaricate e salvate nuove quotazioni (o solo correzione dell'ultima);
+- `already_current` — l'ultima quotazione era già aggiornata a oggi: nessuna chiamata EODHD;
+- `no_new_data` — il provider non ha dati nel range (giorno non di borsa/festività): **non è un errore**;
+- `skipped` — asset non aggiornabile (`reason`: `ineligible_asset_type` per i BOND, `no_symbol`, `no_local_history`, `not_found`): nessun download automatico di anni di dati;
+- `failed` — errore del provider (rete/auth/quota/payload): `ok: false` + `error` con il messaggio (nessun falso successo).
+
+**Altri codici:**
+- **`404`** se l'asset non esiste: `{ "error": "Asset non trovato" }`;
+- **`503`** se `EODHD_API_KEY` non è configurata (come 9.1).
+
+**Note:**
+- A differenza dell'aggiornamento globale (9.1), il refresh per-asset **non
+  richiede una posizione attiva**: la chiamata è innescata dalla visita
+  dell'utente e ha senso anche per posizioni chiuse. I BOND restano sempre esclusi.
+- Consuma una quota EODHD solo quando effettivamente scarica (`updated`).
 
 ---
 

@@ -258,6 +258,7 @@ describe('getAssetById / getDailyClosingPrices', () => {
       name: 'Test Fund',
       currency: 'EUR',
       asset_type: 'FUND',
+      exchange: null,
     });
   });
 

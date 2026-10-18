@@ -76,7 +76,25 @@ export interface DailyPricePoint {
 export interface AssetDailyPricesResponse {
   assetId: string;
   count: number;
+  /** Ultima quotazione in DB (ISO) o null se nessuno storico */
+  lastDate: string | null;
+  /** true se l'ultima quotazione è già quella attesa a oggi */
+  isCurrent: boolean;
   prices: DailyPricePoint[];
+}
+
+/** Risposta di POST /api/prices/asset/:assetId/refresh */
+export interface AssetPriceRefreshResponse {
+  assetId: string;
+  ok: boolean;
+  status: 'updated' | 'already_current' | 'no_new_data' | 'skipped' | 'failed';
+  reason?: string;
+  symbol?: string | null;
+  lastDate?: string | null;
+  from?: string;
+  to?: string;
+  rows?: { inserted: number; updated: number; unchanged: number };
+  error?: string;
 }
 
 export interface TWRAnnualItem {

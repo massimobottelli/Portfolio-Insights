@@ -131,16 +131,56 @@ Comportamento:
   percentuale tra primo e ultimo punto del periodo selezionato.
 - **Formattazione prezzi**: `formatPrice` (2 decimali sopra 10, 4 sotto),
   coerente con il resto della pagina.
-- **Asset senza storico**: per asset esclusi dalla collezione (BTP, cash) o
-  senza CSV importato, il box non viene renderizzato — degradazione silenziosa,
-  nessun errore visibile.
+
+## Aggiornamento automatico on-demand (alla visita della pagina)
+
+All'apertura della pagina di dettaglio, il frontend verifica con il campo
+`isCurrent` del GET (sezione precedente) se l'ultima quotazione in DB è
+aggiornata a oggi:
+
+1. **Quotazione aggiornata** (`isCurrent: true`) → il grafico viene mostrato
+   subito, senza chiamate esterne.
+2. **Quotazione stantia** (`isCurrent: false` **con** storico locale) →
+   chiamata automatica a `POST /api/prices/asset/:assetId/refresh`, che
+   scarica da EODHD dall'ultima data in DB (overlap 5 giorni) fino a oggi e
+   applica l'upsert; a refresh concluso la serie viene ricaricata e il
+   grafico mostrato.
+3. **Nessuno storico locale** (`count: 0`, es. BTP/cash o asset senza CSV
+   importato) → il grafico non viene renderizzato e NESSUNA chiamata EODHD
+   viene fatta: il backfill storico resta un'operazione manuale via CSV.
+
+Messaggi a video durante l'aggiornamento:
+
+- Indicatore **"Aggiornamento quotazioni da EODHD…"** nell'header del box
+  mentre il refresh è in corso.
+- **Esiti silenziosi** (nessun messaggio di errore, serie ricaricata dal DB):
+  `updated`, `already_current`, `no_new_data` (es. festività o borsa chiusa),
+  `skipped` (asset non aggiornabile, es. BOND).
+- **Banner di errore ambra con bottone "Riprova"** sopra il grafico in caso di
+  fallimento del provider o di configurazione:
+  - `503` (chiave mancante) → *"Servizio prezzi EODHD non configurato:
+    impostare `EODHD_API_KEY` sul server."*
+  - errore del provider (`failed`) → messaggio specifico restituito dal
+    backend (es. *"EODHD: autenticazione fallita (HTTP 401)… verifica la chiave"*).
+  - `429` (rate limit) → *"Troppe richieste di aggiornamento. Riprova tra un
+    minuto."*
+  - errore di rete → *"Errore di rete durante l'aggiornamento dei prezzi."*
+
+In caso di errore **il grafico resta visibile con gli ultimi dati disponibili**:
+la funzionalità è non critica e non blocca il resto della pagina.
 
 ## Limiti e comportamenti noti
 
 - Asset senza storico locale (es. `DBMFE.PA`, finché non viene importato un CSV)
-  restano `no_local_history` fino al primo import manuale.
+  restano `no_local_history` fino al primo import manuale: nessun download
+  automatico di anni di dati.
+- Nel weekend/festività la quotazione "attesa" è quella di venerdì: il refresh
+  può essere invocato e ricevere `no_new_data` (nessuna scrittura, nessun errore).
 - Le quotazioni sono quelle del mercato specifico del simbolo mappato: valute
   diverse per lo stesso strumento su borse diverse non vengono convertite.
 - Nessuna rettifica per dividendi/split (`close` non adjustato, per design).
-- Nessun scheduler né job automatico: l'aggiornamento è manuale (API o CLI).
+- L'aggiornamento dei prezzi avviene (a) **automaticamente per il singolo
+  asset** alla visita della pagina di dettaglio con dati stantii, e (b)
+  **manualmente in batch** per tutti gli asset (API `POST /api/prices/update`
+  o script CLI). Non esiste alcuno scheduler/job automatico.
 - I test automatici non chiamano mai la rete (fetch mockato).

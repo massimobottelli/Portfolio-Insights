@@ -48,7 +48,7 @@ export function getAssetById(assetId) {
   return (
     db
       .prepare(
-        'SELECT id, isin, ticker, name, currency, asset_type FROM assets WHERE id = ?'
+        'SELECT id, isin, ticker, name, currency, asset_type, exchange FROM assets WHERE id = ?'
       )
       .get(assetId) ?? null
   );

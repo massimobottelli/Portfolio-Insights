@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import {
@@ -10,7 +10,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { AssetDetailData, DailyPricePoint } from '../types';
+import type {
+  AssetDetailData,
+  AssetDailyPricesResponse,
+  AssetPriceRefreshResponse,
+  DailyPricePoint,
+} from '../types';
 import { apiFetch } from '../lib/api';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { TIME_RANGE_OPTIONS, getCutoffDate, type TimeRange } from '../lib/timeRange';
@@ -110,12 +115,16 @@ export default function AssetDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Storico prezzi di chiusura (GET /api/prices/asset/:id).
-  // Feature non critica: un fallimento o un asset senza storico (es. BTP/cash,
-  // esclusi dalla collezione per design) degradano a "nessun grafico" senza
-  // toccare il resto della pagina.
+  // Storico prezzi di chiusura (GET /api/prices/asset/:id) + aggiornamento
+  // on-demand (POST /api/prices/asset/:id/refresh, fonte EODHD): alla visita
+  // della pagina, se l'ultima quotazione in DB non è aggiornata a oggi il
+  // refresh parte automaticamente. Feature non critica: un fallimento o un
+  // asset senza storico (es. BTP/cash) degradano a banner/nessun grafico,
+  // senza toccare il resto della pagina.
   const [priceHistory, setPriceHistory] = useState<DailyPricePoint[] | null>(null);
   const [priceTimeRange, setPriceTimeRange] = useState<TimeRange>('all');
+  const [priceRefreshing, setPriceRefreshing] = useState(false);
+  const [priceError, setPriceError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -129,21 +138,87 @@ export default function AssetDetail() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Caricamento della serie storica. Restituisce i metadati (isCurrent/count)
+  // così l'auto-refresh può decidere se serve un aggiornamento.
+  const loadPriceHistory = useCallback(
+    async (assetId: string): Promise<AssetDailyPricesResponse | null> => {
+      try {
+        const r = await apiFetch(`/api/prices/asset/${assetId}`);
+        if (!r.ok) {
+          setPriceHistory([]);
+          return null;
+        }
+        const d: AssetDailyPricesResponse = await r.json();
+        setPriceHistory(d.prices ?? []);
+        return d;
+      } catch {
+        setPriceHistory([]);
+        return null;
+      }
+    },
+    []
+  );
+
+  // Aggiornamento incrementale per-asset (EODHD). Esiti senza errore
+  // (updated/already_current/no_new_data/skipped) → ricarica la serie; il
+  // fallimento del provider (ok:false) mostra il banner e il grafico resta
+  // con gli ultimi dati disponibili.
+  const refreshPriceHistory = useCallback(
+    async (assetId: string) => {
+      setPriceRefreshing(true);
+      setPriceError(null);
+      try {
+        const response = await apiFetch(`/api/prices/asset/${assetId}/refresh`, {
+          method: 'POST',
+        });
+        if (response.status === 503) {
+          // Problema di configurazione: EODHD_API_KEY non impostata sul server
+          const body = await response.json().catch(() => null);
+          setPriceError(
+            body?.details ??
+              'Servizio prezzi EODHD non configurato: impostare EODHD_API_KEY sul server.'
+          );
+          return;
+        }
+        if (response.status === 429) {
+          setPriceError('Troppe richieste di aggiornamento. Riprova tra un minuto.');
+          return;
+        }
+        if (!response.ok) {
+          setPriceError("Errore durante l'aggiornamento dei prezzi di chiusura.");
+          return;
+        }
+        const body: AssetPriceRefreshResponse = await response.json().catch(() => null);
+        if (body && body.status === 'failed') {
+          setPriceError(body.error ?? "Errore durante l'aggiornamento dei prezzi di chiusura.");
+          return;
+        }
+        // updated / already_current / no_new_data / skipped → ricarica dal DB
+        await loadPriceHistory(assetId);
+      } catch {
+        setPriceError("Errore di rete durante l'aggiornamento dei prezzi di chiusura.");
+      } finally {
+        setPriceRefreshing(false);
+      }
+    },
+    [loadPriceHistory]
+  );
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    apiFetch(`/api/prices/asset/${id}`)
-      .then(r => (r.ok ? r.json() : null))
-      .then((d: { prices?: DailyPricePoint[] } | null) => {
-        if (!cancelled) setPriceHistory(d?.prices ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setPriceHistory([]);
-      });
+    loadPriceHistory(id).then(d => {
+      // Auto-refresh solo se c'è storico locale ma non è aggiornato a oggi:
+      // asset senza storico (es. BTP/cash) restano senza grafico, come per
+      // design (il backfill storico avviene solo via import CSV).
+      if (!cancelled && d && d.isCurrent === false && d.count > 0) {
+        refreshPriceHistory(id);
+      }
+    });
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, loadPriceHistory, refreshPriceHistory]);
 
   // Dati del grafico filtrati per time range (memoizzato: ricomputati solo se
   // cambiano i dati o il filtro, non a ogni render della pagina)
@@ -314,6 +389,9 @@ export default function AssetDetail() {
               <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider">
                 Storico Quotazioni
               </h3>
+              {priceRefreshing && !priceError && (
+                <p className="text-sm text-slate-400 mt-1">Aggiornamento quotazioni da EODHD…</p>
+              )}
               {/* Variazione del periodo selezionato (hidden per "All") */}
               {pricePeriodChange !== null && (
                 <p
@@ -344,6 +422,19 @@ export default function AssetDetail() {
               ))}
             </div>
           </div>
+          {/* Banner errore refresh (non critico): il grafico resta con gli ultimi dati disponibili */}
+          {priceError && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-700/50 bg-amber-900/30 px-3 py-2">
+              <p className="text-sm text-amber-300">{priceError}</p>
+              <button
+                onClick={() => id && refreshPriceHistory(id)}
+                disabled={priceRefreshing}
+                className="px-3 py-1 text-xs font-medium rounded bg-amber-700/40 text-amber-100 hover:bg-amber-700/60 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                {priceRefreshing ? 'Aggiornamento…' : 'Riprova'}
+              </button>
+            </div>
+          )}
           <ResponsiveContainer width="100%" height={isMobile ? 220 : 350}>
             <AreaChart
               data={filteredPriceData}

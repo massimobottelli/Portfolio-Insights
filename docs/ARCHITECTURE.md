@@ -80,7 +80,7 @@
 | **`dailyPriceModel.js`** | Accesso alla tabella `daily_asset_closing_prices`: `getLatestPriceDate` (ultima quotazione per asset), `upsertDailyClosingPrices` (INSERT ... ON CONFLICT DO UPDATE in transazione, idempotente per `(asset_id, price_date)`), `resolveAssetForEodhdSymbol` (risolve il simbolo su exchange → mappa ISIN → ticker, senza mai creare asset automaticamente), `setAssetExchangeIfEmpty` (backfill idempotente del simbolo), conteggi per riepilogo. |
 | **`__tests__/dailyPrices.test.js`** | Test Vitest per il modello prezzi giornalieri (DB in-memory, mai il DB reale né la rete): validazione date/prezzi, upsert idempotente, risoluzione simboli, backfill exchange. |
 | **`__tests__/eodhdService.test.js`** | Test Vitest del client EODHD con `fetch` mockato: chiave mancante, parsing solo date+close, errori HTTP/timeout/JSON malformato, risposta vuota. |
-| **`__tests__/dailyPricesUpdate.test.js`** | Test Vitest dell'orchestrazione `runDailyPricesUpdate` (DB in-memory + EODHD mockato): elegibilità (esclusione BOND, posizioni chiuse, senza simbolo), incrementalità (skip senza storico, already_current, finestra con overlap), upsert idempotente, isolamento errori per asset, dry-run, handler Express (401/503/200). |
+| **`__tests__/dailyPricesUpdate.test.js`** | Test Vitest dell'orchestrazione `runDailyPricesUpdate` (DB in-memory + EODHD mockato): elegibilità (esclusione BOND, posizioni chiuse, senza simbolo), incrementalità (skip senza storico, already_current, finestra con overlap), upsert idempotente, isolamento errori per asset, dry-run, handler Express (401/503/200). Include il per-asset: `refreshAssetClosingPrices` (already_current/no_new_data/BOND/senza storico) e handler refresh + GET con `lastDate`/`isCurrent`. |
 
 ---
 
@@ -95,7 +95,7 @@
 | **`orderController.js`** | Handler per: lista ordini con filtri/ordinamento (`listOrders`), lista simboli per dropdown (`listOrderSymbols`), eliminazione singolo ordine con invalidazione cache (`deleteOrderHandler`). |
 | **`allocationController.js`** | Handler per: catalogo asset types, allocazione attuale (con conteggio UNKNOWN), target (GET/PUT con validazione somma=100% e categorie target-abili), ribilanciamento. |
 | **`performanceController.js`** | Handler per: volatilità (`GET /volatility`), Sharpe (`GET /sharpe`, con validazione risk-free rate −100 < rate < 100) e endpoint aggregato (`GET /performance`) che calcola tutte le metriche dalla stessa serie canonica e sanifica l'output (mai NaN/Infinity: valori non finiti → null). |
-| **`dailyPriceController.js`** | Handler per `POST /api/prices/update`: verifica `EODHD_API_KEY` (503 se assente), esegue l'orchestrazione `runDailyPricesUpdate()` per ogni asset eleggibile (posizioni attive escluse BOND): ultima data locale → finestra incrementale con overlap → fetch EODHD → upsert idempotente. Un simbolo in errore non blocca gli altri; risposta 200 con riepilogo (`ok: false` se ci sono fallimenti — nessun falso successo). |
+| **`dailyPriceController.js`** | Handler per `POST /api/prices/update` (batch: verifica `EODHD_API_KEY` con 503 se assente, orchestrazione `runDailyPricesUpdate()` per ogni asset eleggibile — posizioni attive escluse BOND — con ultima data locale → finestra incrementale con overlap → fetch EODHD → upsert idempotente; isolamento errori per simbolo, 200 con `ok: false` se ci sono fallimenti) e per il per-asset: `GET /api/prices/asset/:assetId` (sola lettura storico + `lastDate`/`isCurrent` per l'auto-refresh) e `POST /api/prices/asset/:assetId/refresh` (aggiornamento on-demand del singolo asset via `refreshAssetClosingPrices()`, riusata anche dal batch; BOND/senza simbolo/senza storico → `skipped`, provider in errore → `ok: false` status `failed`). |
 
 ---
 
@@ -111,7 +111,7 @@
 | **`movementRoutes.js`** | `GET /api/movements`, `GET /api/movements/symbols` | Movimenti di cassa. |
 | **`orderRoutes.js`** | `GET /api/orders`, `GET /api/orders/symbols`, `DELETE /api/orders/:id` | Ordini di mercato. Montato su `/api/orders`. |
 | **`allocationRoutes.js`** | `GET /api/asset-types`, `GET/PUT /api/allocation/target`, `GET /api/allocation/current`, `GET /api/allocation/rebalance` | Allocazione e ribilanciamento. Montato direttamente su `/api`. |
-| **`dailyPriceRoutes.js`** | `POST /api/prices/update` | Aggiornamento incrementale dei prezzi di chiusura giornalieri (fonte EODHD). Protetto dal token API, rate limit 6/minuto. Vedi `docs/DAILY_PRICES.md`. |
+| **`dailyPriceRoutes.js`** | `POST /api/prices/update` (batch), `GET /api/prices/asset/:assetId` (lettura storico, senza rate limit) e `POST /api/prices/asset/:assetId/refresh` (aggiornamento on-demand del singolo asset, rate limit 20/minuto). Protetti dal token API. Vedi `docs/DAILY_PRICES.md`. |
 
 ---
 
@@ -176,7 +176,7 @@ Componenti della pagina Performance & Risk:
 | **`Portfolio.tsx`** | Tabella posizioni con ordinamento su ogni colonna, link alla scheda di dettaglio, dropdown per classificare manualmente il tipo asset, calcolo Gain/Loss per posizione, tabella riepilogativa per Asset Class con totali. |
 | **`Allocation.tsx`** | Editor target di allocazione (percentuali per categoria + soglia tolleranza), grafico a torta in tempo reale, tabella attuale vs target con deviazioni, suggerimenti di ribilanciamento (COMPRA/VENDI). |
 | **`Performance.tsx`** | Pagina Performance & Risk: KPI (rendimento cumulativo, CAGR, best/worst mese/anno), grafico rendimenti mensili, heatmap mensile, statistiche periodi, metriche di rischio con risk-free rate configurabile (default 2,20%), analisi e grafico drawdown, tabella IRR per tipo asset. Le metriche sono calcolate sull'intero periodo di investimento (nessun filtro temporale). |
-| **`AssetDetail.tsx`** | Scheda dettaglio di un singolo asset: KPI (prezzo medio di carico, quantità con % portafoglio e % classe, prezzo attuale, carico vs attuale, P&L, IRR money-weighted), cronologia ordini, cedole (per BOND) o dividendi. |
+| **`AssetDetail.tsx`** | Scheda dettaglio di un singolo asset: KPI (prezzo medio di carico, quantità con % portafoglio e % classe, prezzo attuale, carico vs attuale, P&L, IRR money-weighted), grafico "Storico Quotazioni" (recharts, stile Dashboard, con aggiornamento on-demand EODHD all'apertura quando i dati non sono aggiornati a oggi e banner d'errore con "Riprova"), cronologia ordini, cedole (per BOND) o dividendi. |
 | **`Movements.tsx`** | Elenco movimenti di cassa con filtri avanzati (intervallo date, tipo, simbolo, ricerca), ordinamento, legenda tipologie, totale importi filtrati. |
 | **`Orders.tsx`** | Elenco ordini di mercato (BUY/SELL) con filtri avanzati (intervallo date, tipo, simbolo, ricerca), ordinamento cliccabile su ogni colonna, prezzo unitario implicito, sezione **Posizioni chiuse** con Gain/Loss aggregato per ticker a quantità netta zero, legenda tipologie. |
 | **`ImportPage.tsx`** | Importazione CSV: istruzioni per i 3 report Directa, area upload drag&drop, storico sessioni import, reset database con conferma. |
