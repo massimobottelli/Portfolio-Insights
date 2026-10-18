@@ -17,6 +17,7 @@ const INSERT_ORDER = [
   'cashMovements',
   'dailyPortfolioSnapshots',
   'assetPrices',
+  'dailyClosingPrices',
   'allocationTargets',
 ];
 
@@ -35,6 +36,7 @@ const TABLE_MAP = {
   cashMovements: 'cash_movements',
   dailyPortfolioSnapshots: 'daily_portfolio_snapshots',
   assetPrices: 'asset_prices',
+  dailyClosingPrices: 'daily_asset_closing_prices',
   allocationTargets: 'allocation_targets',
 };
 
@@ -49,6 +51,7 @@ const COLUMN_MAP = {
   cashMovements: ['id', 'asset_id', 'operation_date', 'value_date', 'movement_type', 'euro_amount', 'currency_amount', 'currency', 'protocol', 'order_reference', 'import_session_id'],
   dailyPortfolioSnapshots: ['id', 'snapshot_date', 'portfolio_value', 'available_cash', 'invested_capital', 'import_session_id'],
   assetPrices: ['id', 'asset_id', 'current_price', 'average_price', 'extraction_date', 'import_session_id'],
+  dailyClosingPrices: ['id', 'asset_id', 'price_date', 'close_price'],
   allocationTargets: ['id', 'asset_type_id', 'target_percent', 'tolerance'],
 };
 
@@ -96,9 +99,13 @@ export function restoreDatabase(backup) {
     throw new Error('Backup privo di dati');
   }
 
-  // Verifica che tutte le chiavi richieste siano presenti
+  // Verifica che tutte le chiavi richieste siano presenti.
+  // dailyClosingPrices è opzionale per tolleranza ai backup v1 (tabella
+  // aggiunta in un secondo momento): se assente, la tabella viene comunque
+  // svuotata dal restore ma non riempita.
   for (const key of INSERT_ORDER) {
     if (!Array.isArray(backup.data[key])) {
+      if (key === 'dailyClosingPrices') continue;
       throw new Error(`Dati mancanti per: ${key}`);
     }
   }
@@ -121,7 +128,7 @@ export function restoreDatabase(backup) {
     for (const key of INSERT_ORDER) {
       const table = TABLE_MAP[key];
       const columns = COLUMN_MAP[key];
-      const rows = backup.data[key];
+      const rows = backup.data[key] || [];
 
       if (rows.length === 0) {
         restored[key] = 0;

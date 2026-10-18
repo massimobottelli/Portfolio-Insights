@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { join, dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { EODHD_SYMBOLS_BY_ISIN } from './config/eodhdSymbols.js';
 
 // La cartella 'db' è risolta rispetto alla ROOT DEL PROGETTO (directory di
 // questo file), NON da process.cwd(): avviando il server da una cwd diversa
@@ -121,6 +122,18 @@ export function initializeDatabase() {
         FOREIGN KEY (asset_type_id) REFERENCES asset_types(id) ON DELETE CASCADE,
         UNIQUE(asset_type_id)
       );
+
+      -- Storico dei prezzi di chiusura giornalieri (fonte EODHD).
+      -- Contiene SOLO asset, data e close: nessun OHLC/volume/dividendi/split.
+      -- Separata da asset_prices (prezzi istantanei dal report P_TOTALE Directa).
+      CREATE TABLE IF NOT EXISTS daily_asset_closing_prices (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL,
+        price_date TEXT NOT NULL,
+        close_price REAL NOT NULL,
+        FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE RESTRICT,
+        UNIQUE (asset_id, price_date)
+      );
     `);
 
     // Creazione Indici per ottimizzare le performance delle query di Analytics
@@ -134,6 +147,7 @@ export function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_snapshots_date ON daily_portfolio_snapshots(snapshot_date);
       CREATE INDEX IF NOT EXISTS idx_asset_prices_asset ON asset_prices(asset_id);
       CREATE INDEX IF NOT EXISTS idx_asset_prices_date ON asset_prices(extraction_date);
+      CREATE INDEX IF NOT EXISTS idx_daily_closing_prices_asset ON daily_asset_closing_prices(asset_id);
     `);
 
     // Popolamento del catalogo asset_types (idempotente: INSERT OR IGNORE)
@@ -196,6 +210,21 @@ export function initializeDatabase() {
       // Ricrea l'indice su isin (eliminato dal DROP TABLE)
       db.exec('CREATE INDEX IF NOT EXISTS idx_assets_isin ON assets(isin);');
       console.log('✅ Migrazione tabella assets completata');
+    }
+
+    // Backfill idempotente: assegna il simbolo EODHD (TICKER.EXCHANGE) agli asset
+    // presenti nella mappa statica (chiave ISIN), senza sovrascrivere valori già
+    // definiti. `assets.exchange` diventa la chiave di quotazione specifica usata
+    // dal servizio prezzi EODHD e dallo script di import storico.
+    const backfillStmt = db.prepare(
+      "UPDATE assets SET exchange = ? WHERE isin = ? AND (exchange IS NULL OR exchange = '')"
+    );
+    let backfilled = 0;
+    for (const [isin, symbol] of Object.entries(EODHD_SYMBOLS_BY_ISIN)) {
+      backfilled += backfillStmt.run(symbol, isin).changes;
+    }
+    if (backfilled > 0) {
+      console.log(`💰 Backfill simboli EODHD: ${backfilled} asset aggiornati (assets.exchange)`);
     }
 
     console.log('✅ Database pronto e tabelle/indici verificati con successo!');
