@@ -144,6 +144,14 @@ Comportamento:
   fondo scuro, tipografia e colori slate/emerald).
 - **Filtro temporale**: bottoni `1M/3M/6M/1Y/YTD/All` che usano lo stesso
   helper condiviso `getCutoffDate` di Dashboard e Performance.
+- **Partenza dal primo ordine**: la serie è limitata al periodo di detenzione —
+  il grafico mostra solo le quotazioni successive (incluse) alla data del primo
+  ordine dell'asset, presa dal campo `orders[]` del dettaglio già caricato
+  (min esplicito sulle date, robusto all'ordinamento). Le quotazioni precedenti
+  all'investimento non sono mostrate nemmeno con range `All`. Se l'asset non
+  ha ordini (es. posizione senza movimenti importati) viene mostrata l'intera
+  serie disponibile; se il filtro esclude tutti i punti, il grafico non viene
+  renderizzato.
 - **Variazione di periodo**: per range ≠ `All` è mostrata la variazione
   percentuale tra primo e ultimo punto del periodo selezionato.
 - **Formattazione prezzi**: `formatPrice` (2 decimali sopra 10, 4 sotto),

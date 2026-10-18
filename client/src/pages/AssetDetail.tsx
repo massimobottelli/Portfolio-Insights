@@ -220,14 +220,36 @@ export default function AssetDetail() {
     };
   }, [id, loadPriceHistory, refreshPriceHistory]);
 
-  // Dati del grafico filtrati per time range (memoizzato: ricomputati solo se
-  // cambiano i dati o il filtro, non a ogni render della pagina)
+  // Data del primo ordine dell'asset (dal dettaglio già caricato): il grafico
+  // Storico Quotazioni parte da questa data, non dall'inizio dello storico
+  // EODHD (le quotazioni precedenti all'investimento non sono rilevanti).
+  // Min esplicito sulle date, robusto all'ordinamento della lista ordini.
+  // Se l'asset non ha ordini (es. posizione senza movimenti importati) si
+  // mostra l'intera serie disponibile.
+  const firstOrderDate = useMemo(() => {
+    const orders = data?.orders ?? [];
+    if (orders.length === 0) return null;
+    return orders.reduce(
+      (min, o) => (o.date.slice(0, 10) < min ? o.date.slice(0, 10) : min),
+      orders[0].date.slice(0, 10)
+    );
+  }, [data?.orders]);
+
+  // Dati del grafico filtrati per time range e limitati al periodo di
+  // detenzione (dal primo ordine in poi; memoizzato: ricomputati solo se
+  // cambiano i dati o i filtri, non a ogni render della pagina)
   const filteredPriceData = useMemo(() => {
     if (!priceHistory) return [];
+    let list = priceHistory;
+    if (firstOrderDate !== null) {
+      list = list.filter(p => p.date >= firstOrderDate);
+    }
     const cutoff = getCutoffDate(priceTimeRange);
-    if (cutoff === null) return priceHistory;
-    return priceHistory.filter(p => p.date >= cutoff);
-  }, [priceHistory, priceTimeRange]);
+    if (cutoff !== null) {
+      list = list.filter(p => p.date >= cutoff);
+    }
+    return list;
+  }, [priceHistory, priceTimeRange, firstOrderDate]);
 
   // Tick mensili per l'asse X: un tick per ogni cambio mese, più primo e
   // ultimo sempre inclusi (stessa strategia del grafico Dashboard non-"All")
@@ -379,10 +401,12 @@ export default function AssetDetail() {
         )}
       </div>
 
-      {/* 2b. Grafico Storico Quotazioni — solo per asset con storico prezzi.
-          Richiesto dopo la sezione KPI (Prezzo attuale ... IRR) e prima di
-          Cronologia Ordini; stile identico al grafico Andamento Portafoglio. */}
-      {priceHistory !== null && priceHistory.length > 0 && (
+      {/* 2b. Grafico Storico Quotazioni — solo per asset con almeno un punto
+          nel range visualizzato (serie limitata al periodo di detenzione: dal
+          primo ordine in poi). Richiesto dopo la sezione KPI (Prezzo attuale
+          ... IRR) e prima di Cronologia Ordini; stile identico al grafico
+          Andamento Portafoglio. */}
+      {priceHistory !== null && filteredPriceData.length > 0 && (
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
