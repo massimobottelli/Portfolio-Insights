@@ -157,6 +157,26 @@ Comportamento:
 - **Formattazione prezzi**: `formatPrice` (2 decimali sopra 10, 4 sotto),
   coerente con il resto della pagina.
 
+## Visualizzazione frontend — grafico "Confronto Rendimenti Asset"
+
+La pagina Performance (`client/src/pages/Performance.tsx`) ospita il componente
+`AssetComparisonChart.tsx` per confrontare visivamente l'andamento percentuale
+di tutti gli asset con serie storica.
+
+Comportamento:
+- **Dati**: `GET /api/prices/compare` (sola lettura dal DB locale).
+- **Normalizzazione base 0%**: per ogni asset, la serie parte dalla data del primo acquisto (o dall'inizio del periodo selezionato se successivo); il rendimento in ogni data $t$ è calcolato come $((P_t - P_0) / P_0) \times 100$, dove $P_0$ è il primo prezzo del periodo filtrato.
+- **Filtro temporale**: `1M / 3M / 6M / 1Y / YTD / All` con ricalcolo dinamico del rebase.
+- **Selettore asset interattivo**: chip per ciascun asset con colore associato,
+  ticker e rendimento percentuale calcolato nel periodo; toggle on/off singolo,
+  "Tutti" e "Nessuno".
+- **Benchmark Portafoglio opzionale**: toggle per sovrapporre la curva TWR del portafoglio
+  complessivo (tratteggiata verde smeraldo).
+- **Allineamento festività**: forward-fill dei rendimenti noti per garantire continuità
+  tra mercati con calendari di borsa differenti.
+- **Esclusioni trasparenti**: titoli BOND ed elementi senza storico vengono esclusi
+  dal confronto con apposita nota esplicativa.
+
 ## Aggiornamento automatico on-demand (alla visita della pagina)
 
 All'apertura della pagina di dettaglio, il frontend verifica con il campo

@@ -16,6 +16,7 @@ import MonthlyReturnsChart from '../components/performance/MonthlyReturnsChart';
 import MonthlyReturnsHeatmap from '../components/performance/MonthlyReturnsHeatmap';
 import PeriodStatistics from '../components/performance/PeriodStatistics';
 import AssetTypeIRRTable from '../components/performance/AssetTypeIRRTable';
+import AssetComparisonChart from '../components/performance/AssetComparisonChart';
 import ClosedPositions from '../components/performance/ClosedPositions';
 
 // ──────────────────────────────────────────────
@@ -178,6 +179,9 @@ export default function Performance() {
           {Object.keys(irrs).length > 0 && positions.length > 0 && (
             <AssetTypeIRRTable irrs={irrs} positions={positions} assetIrrs={assetIrrs} />
           )}
+
+          {/* Confronto Rendimenti Asset — grafico comparativo multi-linea normalizzato a base 0% */}
+          <AssetComparisonChart portfolioSeries={analytics.cumulativeSeries} />
 
           {/* Monthly Returns Bar Chart */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">

@@ -21,6 +21,7 @@ import {
   refreshAssetClosingPrices,
   refreshAssetPricesHandler,
   getAssetDailyPricesHandler,
+  getPriceComparisonHandler,
 } from '../../controllers/dailyPriceController.js';
 import { countDailyClosingPrices } from '../dailyPriceModel.js';
 
@@ -482,5 +483,58 @@ describe('getAssetDailyPricesHandler — lastDate/isCurrent', () => {
     expect(r.body.count).toBe(0);
     expect(r.body.lastDate).toBeNull();
     expect(r.body.isCurrent).toBe(false);
+  });
+});
+
+describe('getPriceComparisonHandler (Express)', () => {
+  const res = () => {
+    const r = { statusCode: null, body: null };
+    r.status = (code) => {
+      r.statusCode = code;
+      return r;
+    };
+    r.json = (body) => {
+      r.body = body;
+      return r;
+    };
+    return r;
+  };
+
+  it('restituisce 200 con la lista degli asset comparabili', () => {
+    insertAsset({ id: 'a1', isin: 'IS1', ticker: 'T1', name: 'Asset One' });
+    seedHistory('a1', [
+      { date: '2024-01-02', close: 10 },
+      { date: '2024-01-03', close: 11 },
+    ]);
+
+    const r = res();
+    getPriceComparisonHandler({ query: {} }, r);
+    expect(r.statusCode).toBe(200);
+    expect(r.body.assets).toHaveLength(1);
+    expect(r.body.assets[0].name).toBe('Asset One');
+    expect(r.body.assets[0].prices).toHaveLength(2);
+  });
+
+  it('supporta filtri query from, to e assets', () => {
+    insertAsset({ id: 'a1', isin: 'IS1', ticker: 'T1', name: 'Asset One' });
+    insertAsset({ id: 'a2', isin: 'IS2', ticker: 'T2', name: 'Asset Two' });
+    seedHistory('a1', [
+      { date: '2024-01-01', close: 10 },
+      { date: '2024-01-02', close: 11 },
+      { date: '2024-01-03', close: 12 },
+    ]);
+    seedHistory('a2', [
+      { date: '2024-01-01', close: 20 },
+      { date: '2024-01-02', close: 22 },
+      { date: '2024-01-03', close: 24 },
+    ]);
+
+    const r = res();
+    getPriceComparisonHandler({ query: { assets: 'a2', from: '2024-01-02' } }, r);
+    expect(r.statusCode).toBe(200);
+    expect(r.body.assets).toHaveLength(1);
+    expect(r.body.assets[0].id).toBe('a2');
+    expect(r.body.assets[0].prices).toHaveLength(2);
+    expect(r.body.assets[0].prices[0].date).toBe('2024-01-02');
   });
 });

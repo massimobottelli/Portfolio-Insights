@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getAssetDailyPricesHandler,
+  getPriceComparisonHandler,
   refreshAssetPricesHandler,
   updateDailyPricesHandler,
 } from '../controllers/dailyPriceController.js';
@@ -28,6 +29,10 @@ const refreshLimiter = rateLimit({
 
 // POST /api/prices/update — aggiornamento incrementale prezzi di chiusura
 router.post('/update', updateLimiter, updateDailyPricesHandler);
+
+// GET /api/prices/compare — lettura storico prezzi per confronto multi-asset.
+// Sola lettura dal DB locale, nessuna chiamata esterna: senza rate limit.
+router.get('/compare', getPriceComparisonHandler);
 
 // GET /api/prices/asset/:assetId — lettura storico prezzi di chiusura di un asset.
 // Sola lettura dal DB locale, nessuna chiamata esterna: senza rate limit.

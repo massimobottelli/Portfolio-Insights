@@ -94,6 +94,7 @@ Le route sono organizzate per dominio e montate in `app.js`:
 | GET | `/api/orders/symbols` | Ticker distinti per dropdown filtro |
 | DELETE | `/api/orders/:id` | Elimina un singolo ordine di mercato |
 | POST | `/api/prices/update` | Aggiornamento incrementale prezzi di chiusura (fonte EODHD) |
+| GET | `/api/prices/compare` | Storico prezzi di chiusura per il confronto multi-asset |
 | GET | `/api/prices/asset/:assetId` | Storico prezzi di chiusura di un asset |
 | POST | `/api/prices/asset/:assetId/refresh` | Aggiornamento on-demand prezzi di un asset (fonte EODHD) |
 
@@ -1418,6 +1419,43 @@ parte automaticamente alla visita di una pagina).
   richiede una posizione attiva**: la chiamata è innescata dalla visita
   dell'utente e ha senso anche per posizioni chiuse. I BOND restano sempre esclusi.
 - Consuma una quota EODHD solo quando effettivamente scarica (`updated`).
+
+### 9.4 GET `/api/prices/compare`
+
+Recupero delle serie di prezzi di chiusura per il confronto multi-asset.
+Lettura pura dalla tabella `daily_asset_closing_prices`: nessuna chiamata esterna,
+nessuna quota consumata. Restituisce tutti gli asset che dispongono di almeno 2
+quotazioni storiche.
+
+**Parametri Query (tutti opzionali):**
+- `from` (`string` ISO YYYY-MM-DD): data di inizio serie
+- `to` (`string` ISO YYYY-MM-DD): data di fine serie
+- `assets` (`string`): lista di ID asset separati da virgola (es. `id1,id2`)
+
+**Risposta `200`:**
+
+```json
+{
+  "assets": [
+    {
+      "id": "deb40af6-054d-476b-a935-22c8583c385a",
+      "isin": "IE00BDFL4P12",
+      "ticker": "IEVL",
+      "name": "ISHARES EDG MSCI E VAL FAC UCITS ETF ACC",
+      "assetType": "STOCK",
+      "currency": "EUR",
+      "exchange": "IEVL.XETRA",
+      "firstOrderDate": "2025-12-04",
+      "currentQuantity": 1110,
+      "priceCount": 716,
+      "prices": [
+        { "date": "2024-01-02", "close": 28.5 },
+        { "date": "2024-01-03", "close": 28.6 }
+      ]
+    }
+  ]
+}
+```
 
 ---
 

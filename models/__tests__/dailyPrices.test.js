@@ -18,6 +18,7 @@ import {
   countDailyClosingPrices,
   getAssetById,
   getDailyClosingPrices,
+  getDailyPricesForComparison,
 } from '../dailyPriceModel.js';
 import {
   parseDailyPricesCsv,
@@ -44,9 +45,23 @@ const SCHEMA = `
     close_price REAL NOT NULL,
     UNIQUE (asset_id, price_date)
   );
+  CREATE TABLE IF NOT EXISTS market_orders (
+    id TEXT PRIMARY KEY,
+    asset_id TEXT NOT NULL,
+    operation_date TEXT NOT NULL,
+    value_date TEXT NOT NULL,
+    type TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    euro_amount REAL NOT NULL,
+    currency_amount REAL,
+    currency TEXT NOT NULL,
+    order_reference TEXT NOT NULL,
+    import_session_id TEXT NOT NULL
+  );
 `;
 
 function resetDb() {
+  db.exec('DROP TABLE IF EXISTS market_orders');
   db.exec('DROP TABLE IF EXISTS daily_asset_closing_prices');
   db.exec('DROP TABLE IF EXISTS assets');
   db.exec(SCHEMA);
@@ -289,5 +304,84 @@ describe('getAssetById / getDailyClosingPrices', () => {
     upsertDailyClosingPrices('a2', [{ date: '2024-01-02', close: 20 }]);
     expect(getDailyClosingPrices('a1')).toEqual([{ date: '2024-01-02', close: 10 }]);
     expect(getDailyClosingPrices('a2')).toEqual([{ date: '2024-01-02', close: 20 }]);
+  });
+
+  describe('getDailyPricesForComparison', () => {
+    it('restituisce solo asset con almeno 2 prezzi storici, ordinati per nome ASC', () => {
+      insertAsset({ id: 'a1', isin: 'XX1', ticker: 'B_TICK', name: 'Zeta Asset' });
+      insertAsset({ id: 'a2', isin: 'XX2', ticker: 'A_TICK', name: 'Alpha Asset' });
+      insertAsset({ id: 'a3', isin: 'XX3', ticker: 'C_TICK', name: 'Only One Price' });
+
+      upsertDailyClosingPrices('a1', [
+        { date: '2024-01-02', close: 100 },
+        { date: '2024-01-03', close: 105 },
+      ]);
+      upsertDailyClosingPrices('a2', [
+        { date: '2024-01-02', close: 50 },
+        { date: '2024-01-03', close: 52 },
+        { date: '2024-01-04', close: 55 },
+      ]);
+      upsertDailyClosingPrices('a3', [
+        { date: '2024-01-02', close: 20 },
+      ]);
+
+      const result = getDailyPricesForComparison();
+      expect(result.assets).toHaveLength(2);
+      expect(result.assets[0].name).toBe('Alpha Asset');
+      expect(result.assets[0].prices).toHaveLength(3);
+      expect(result.assets[1].name).toBe('Zeta Asset');
+      expect(result.assets[1].prices).toHaveLength(2);
+    });
+
+    it('include firstOrderDate e currentQuantity dagli ordini se presenti', () => {
+      insertAsset({ id: 'a1', isin: 'XX1', ticker: 'T1', name: 'Asset 1' });
+      upsertDailyClosingPrices('a1', [
+        { date: '2024-01-02', close: 10 },
+        { date: '2024-01-03', close: 11 },
+      ]);
+      db.prepare(`
+        INSERT INTO market_orders (id, asset_id, operation_date, value_date, type, quantity, euro_amount, currency, order_reference, import_session_id)
+        VALUES ('o1', 'a1', '2024-01-05', '2024-01-07', 'BUY', 100, 1000, 'EUR', 'ref1', 's1')
+      `).run();
+
+      const result = getDailyPricesForComparison();
+      expect(result.assets).toHaveLength(1);
+      expect(result.assets[0].firstOrderDate).toBe('2024-01-05');
+      expect(result.assets[0].currentQuantity).toBe(100);
+    });
+
+    it('filtra per intervallo date from e to', () => {
+      insertAsset({ id: 'a1', isin: 'XX1', ticker: 'T1', name: 'Asset 1' });
+      upsertDailyClosingPrices('a1', [
+        { date: '2024-01-01', close: 10 },
+        { date: '2024-01-02', close: 11 },
+        { date: '2024-01-03', close: 12 },
+        { date: '2024-01-04', close: 13 },
+      ]);
+
+      const result = getDailyPricesForComparison({ from: '2024-01-02', to: '2024-01-03' });
+      expect(result.assets).toHaveLength(1);
+      expect(result.assets[0].prices).toEqual([
+        { date: '2024-01-02', close: 11 },
+        { date: '2024-01-03', close: 12 },
+      ]);
+    });
+
+    it('filtra per assetIds specifici', () => {
+      insertAsset({ id: 'a1', isin: 'XX1', ticker: 'T1', name: 'Asset 1' });
+      insertAsset({ id: 'a2', isin: 'XX2', ticker: 'T2', name: 'Asset 2' });
+      upsertDailyClosingPrices('a1', [
+        { date: '2024-01-01', close: 10 },
+        { date: '2024-01-02', close: 11 },
+      ]);
+      upsertDailyClosingPrices('a2', [
+        { date: '2024-01-01', close: 20 },
+        { date: '2024-01-02', close: 22 },
+      ]);
+
+      const result = getDailyPricesForComparison({ assetIds: ['a2'] });
+      expect(result.assets).toHaveLength(1);
+      expect(result.assets[0].id).toBe('a2');
+    });
   });
 });

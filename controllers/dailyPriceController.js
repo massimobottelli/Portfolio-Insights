@@ -32,6 +32,7 @@ import {
   getAssetById,
   getDailyClosingPrices,
   getDailyPriceCandidates,
+  getDailyPricesForComparison,
   getLatestPriceDate,
   upsertDailyClosingPrices,
 } from '../models/dailyPriceModel.js';
@@ -419,5 +420,28 @@ export async function refreshAssetPricesHandler(req, res) {
       status: 'failed',
       error: error.message,
     });
+  }
+}
+
+/**
+ * GET /api/prices/compare — lettura storico prezzi di chiusura per il confronto
+ * multi-asset. Restituisce tutti gli asset che dispongono di almeno 2 quotazioni
+ * storiche, con le relative serie giornaliere ordinate per data.
+ * Parametri query facoltativi: from, to, assets (comma-separated ID).
+ */
+export function getPriceComparisonHandler(req, res) {
+  try {
+    const { from, to, assets: assetsParam } = req.query;
+    const assetIds = assetsParam
+      ? assetsParam
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : null;
+    const data = getDailyPricesForComparison({ from, to, assetIds });
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Price comparison fetch error:', error);
+    res.status(500).json({ error: 'Errore nel recupero dei dati di confronto prezzi' });
   }
 }

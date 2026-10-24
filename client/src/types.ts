@@ -97,6 +97,26 @@ export interface AssetPriceRefreshResponse {
   error?: string;
 }
 
+/** Asset per il confronto delle serie storiche dei prezzi di chiusura. */
+export interface ComparisonAssetItem {
+  id: string;
+  isin: string;
+  ticker: string;
+  name: string;
+  assetType: string;
+  currency: string;
+  exchange: string | null;
+  firstOrderDate: string | null;
+  currentQuantity: number;
+  priceCount: number;
+  prices: DailyPricePoint[];
+}
+
+/** Risposta di GET /api/prices/compare */
+export interface PriceComparisonResponse {
+  assets: ComparisonAssetItem[];
+}
+
 export interface TWRAnnualItem {
   year: number;
   twr: number;

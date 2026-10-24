@@ -238,3 +238,99 @@ export function getDailyPriceCandidates() {
   const noSymbol = candidates.filter((r) => !hasSymbol(r));
   return { candidates, eligible, noSymbol };
 }
+
+/**
+ * Recupera le serie di prezzi di chiusura per il confronto multi-asset.
+ * Include gli asset che hanno almeno due quotazioni storiche.
+ *
+ * @param {Object} [options]
+ * @param {string|null} [options.from] - Data iniziale ISO (YYYY-MM-DD)
+ * @param {string|null} [options.to] - Data finale ISO (YYYY-MM-DD)
+ * @param {string[]|null} [options.assetIds] - Filtro facoltativo su ID specifici
+ * @returns {{ assets: Array<object> }}
+ */
+export function getDailyPricesForComparison(options = {}) {
+  const { from = null, to = null, assetIds = null } = options;
+
+  let assetSql = `
+    SELECT
+      a.id,
+      a.isin,
+      a.ticker,
+      a.name,
+      a.asset_type AS assetType,
+      a.currency,
+      a.exchange,
+      ord.first_order_date AS firstOrderDate,
+      COALESCE(ord.quantity, 0) AS currentQuantity
+    FROM assets a
+    JOIN daily_asset_closing_prices p ON p.asset_id = a.id
+    LEFT JOIN (
+      SELECT
+        asset_id,
+        MIN(operation_date) AS first_order_date,
+        SUM(CASE WHEN type = 'BUY' THEN quantity ELSE -quantity END) AS quantity
+      FROM market_orders
+      GROUP BY asset_id
+    ) ord ON ord.asset_id = a.id
+  `;
+
+  const assetParams = [];
+  if (Array.isArray(assetIds) && assetIds.length > 0) {
+    const placeholders = assetIds.map(() => '?').join(',');
+    assetSql += ` WHERE a.id IN (${placeholders})`;
+    assetParams.push(...assetIds);
+  }
+
+  assetSql += `
+    GROUP BY a.id, a.isin, a.ticker, a.name, a.asset_type, a.currency, a.exchange, ord.first_order_date, ord.quantity
+    HAVING COUNT(p.id) >= 2
+    ORDER BY a.name ASC
+  `;
+
+  const assets = db.prepare(assetSql).all(...assetParams);
+  if (assets.length === 0) {
+    return { assets: [] };
+  }
+
+  const selectedIds = assets.map((a) => a.id);
+  const placeholders = selectedIds.map(() => '?').join(',');
+
+  let priceSql = `
+    SELECT asset_id, price_date AS date, close_price AS close
+    FROM daily_asset_closing_prices
+    WHERE asset_id IN (${placeholders})
+  `;
+  const priceParams = [...selectedIds];
+
+  if (from) {
+    priceSql += ' AND price_date >= ?';
+    priceParams.push(from);
+  }
+  if (to) {
+    priceSql += ' AND price_date <= ?';
+    priceParams.push(to);
+  }
+  priceSql += ' ORDER BY price_date ASC';
+
+  const prices = db.prepare(priceSql).all(...priceParams);
+  const priceMap = new Map();
+  for (const p of prices) {
+    if (!priceMap.has(p.asset_id)) priceMap.set(p.asset_id, []);
+    priceMap.get(p.asset_id).push({ date: p.date, close: p.close });
+  }
+
+  const resultAssets = [];
+  for (const a of assets) {
+    const assetPrices = priceMap.get(a.id) || [];
+    if (assetPrices.length >= 2) {
+      resultAssets.push({
+        ...a,
+        priceCount: assetPrices.length,
+        prices: assetPrices,
+      });
+    }
+  }
+
+  return { assets: resultAssets };
+}
