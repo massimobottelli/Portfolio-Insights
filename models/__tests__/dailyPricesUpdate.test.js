@@ -169,13 +169,33 @@ describe('runDailyPricesUpdate — finestra e upsert', () => {
     expect(summary.ok).toBe(true);
   });
 
-  it('fallback al ticker quando exchange è vuoto', async () => {
+  it('exchange vuoto + ISIN in mappa statica: usa il simbolo mappato, mai il ticker nudo', async () => {
+    insertAsset({ id: 'a1', isin: 'IE0006WW1TQ4', ticker: 'EXUS', name: 'A Asset', exchange: null });
+    insertOrder('o1', 'a1', 'BUY', 1);
+    seedHistory('a1', [{ date: '2026-10-10', close: 10 }]);
+    fetchEodCloseSeries.mockResolvedValue([{ date: '2026-10-16', close: 11 }]);
+    const summary = await runDailyPricesUpdate({ today: TODAY });
+    expect(fetchEodCloseSeries).toHaveBeenCalledWith('EXUS.XETRA', { from: '2026-10-05', to: '2026-10-18' });
+    expect(fetchEodCloseSeries).not.toHaveBeenCalledWith('EXUS', expect.anything());
+    expect(summary.ok).toBe(true);
+  });
+
+  it('exchange vuoto e ISIN fuori mappa: skip no_symbol, nessuna chiamata col ticker nudo', async () => {
     insertAsset({ id: 'a1', isin: 'IS1', ticker: 'TKR', name: 'A Asset', exchange: null });
+    insertOrder('o1', 'a1', 'BUY', 1);
+    seedHistory('a1', [{ date: '2026-10-10', close: 10 }]);
+    const summary = await runDailyPricesUpdate({ today: TODAY });
+    expect(fetchEodCloseSeries).not.toHaveBeenCalled();
+    expect(summary.details[0].reason).toBe('no_symbol');
+  });
+
+  it('exchange esplicito ha la priorità sulla mappa ISIN', async () => {
+    insertAsset({ id: 'a1', isin: 'IE0006WW1TQ4', ticker: 'EXUS', name: 'A Asset', exchange: 'EXUS.CUSTOM' });
     insertOrder('o1', 'a1', 'BUY', 1);
     seedHistory('a1', [{ date: '2026-10-10', close: 10 }]);
     fetchEodCloseSeries.mockResolvedValue([{ date: '2026-10-16', close: 11 }]);
     await runDailyPricesUpdate({ today: TODAY });
-    expect(fetchEodCloseSeries).toHaveBeenCalledWith('TKR', { from: '2026-10-05', to: '2026-10-18' });
+    expect(fetchEodCloseSeries).toHaveBeenCalledWith('EXUS.CUSTOM', expect.anything());
   });
 
   it('re-run idempotente: seconda esecuzione con stessi dati = solo unchanged, zero duplicati', async () => {

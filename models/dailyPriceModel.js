@@ -1,6 +1,6 @@
 import { db } from '../database.js';
 import { randomUUID } from 'node:crypto';
-import { EODHD_ISIN_BY_SYMBOL } from '../config/eodhdSymbols.js';
+import { EODHD_ISIN_BY_SYMBOL, EODHD_SYMBOLS_BY_ISIN } from '../config/eodhdSymbols.js';
 
 /**
  * Modello per lo storico dei prezzi di chiusura giornalieri (fonte EODHD).
@@ -106,6 +106,23 @@ export function resolveAssetForEodhdSymbol(symbol) {
   if (byTicker.length > 1) return { asset: null, error: 'ambiguous' };
 
   return { asset: null, error: 'not_found' };
+}
+
+/**
+ * Risolve il simbolo EODHD da usare per l'aggiornamento dei prezzi di un asset:
+ * `assets.exchange` (simbolo certificato da backfill/import) oppure la mappa
+ * statica ISIN → simbolo. MAI il fallback al ticker nudo: EODHD risolve i
+ * ticker senza suffisso sull'exchange US o su listing omonimi di altri mercati
+ * (es. "EXUS" → EXUS.US, Nomura Focused International Core ETF, USD),
+ * restituendo quotazioni di strumenti diversi da quello detenuto.
+ *
+ * @param {{ isin?: string, exchange?: string|null }} asset
+ * @returns {string|null} Simbolo EODHD (TICKER.EXCHANGE), o null se non risolvibile
+ */
+export function getEodhdSymbolForAsset(asset) {
+  const exchange = typeof asset?.exchange === 'string' ? asset.exchange.trim() : '';
+  if (exchange) return exchange;
+  return EODHD_SYMBOLS_BY_ISIN[asset?.isin] ?? null;
 }
 
 /**
@@ -232,8 +249,7 @@ export function getDailyPriceCandidates() {
     .all();
 
   const candidates = rows.filter((r) => r.asset_type !== 'BOND');
-  const hasSymbol = (r) =>
-    Boolean((r.exchange && r.exchange.trim()) || (r.ticker && r.ticker.trim()));
+  const hasSymbol = (r) => getEodhdSymbolForAsset(r) !== null;
   const eligible = candidates.filter(hasSymbol);
   const noSymbol = candidates.filter((r) => !hasSymbol(r));
   return { candidates, eligible, noSymbol };

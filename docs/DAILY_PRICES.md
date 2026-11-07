@@ -49,7 +49,9 @@ Suffissi exchange su EODHD: `.XETRA` (XETRA — **non** `.DE`, che risponde 404)
 vive in `config/eodhdSymbols.js` (chiave: ISIN). All'avvio del server un
 backfill idempotente popola `assets.exchange` con il simbolo confermato —
 senza sovrascrivere valori esistenti. L'aggiornamento interroga EODHD con
-`assets.exchange`, con fallback al `ticker` Directa se vuoto.
+`assets.exchange`, con fallback alla mappa statica per ISIN; in assenza di
+entrambi l'asset viene saltato con `no_symbol`. **Mai il ticker nudo**
+(vedi "Limiti e comportamenti noti").
 
 ## Import iniziale one-time da CSV (front-loading)
 
@@ -216,6 +218,16 @@ la funzionalità è non critica e non blocca il resto della pagina.
 
 ## Limiti e comportamenti noti
 
+- **Simboli sempre qualificati (TICKER.EXCHANGE)**: EODHD risolve i ticker
+  senza suffisso sull'exchange US o su listing omonimi di altri mercati (es.
+  `EXUS` → `EXUS.US`, Nomura Focused International Core ETF in USD, anziché
+  `EXUS.XETRA`). Per questo la risoluzione usa solo `assets.exchange` e la
+  mappa per ISIN: un asset non risolvibile viene saltato con `no_symbol`
+  invece di interrogare il provider con un simbolo ambiguo.
+- **L'import dei report Directa non azzera `assets.exchange`**: `upsertAsset`
+  preserva il valore esistente quando il report non fornisce il mercato di
+  quotazione (regressione corretta: l'azzeramento faceva ricadere gli
+  aggiornamenti sui ticker nudi, con i rischi sopra).
 - Asset senza storico locale (es. `DBMFE.PA`, finché non viene importato un CSV)
   restano `no_local_history` fino al primo import manuale: nessun download
   automatico di anni di dati.

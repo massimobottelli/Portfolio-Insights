@@ -42,7 +42,8 @@ export function getAssetById(id) {
  * @param {string} assetData.name - Nome dello strumento
  * @param {string} assetData.currency - Valuta di trading
  * @param {string} [assetData.assetType='UNKNOWN'] - Tipo di asset
- * @param {string|null} [assetData.exchange=null] - Mercato di quotazione
+ * @param {string|null} [assetData.exchange=null] - Simbolo EODHD di quotazione;
+ *   se omesso/null preserva il valore già presente in DB (mai azzerato)
  * @param {string|null} [assetData.directaCode=null] - Codice interno Directa
  * @returns {Object} Asset inserito o aggiornato
  */
@@ -78,9 +79,13 @@ export function upsertAsset(assetData) {
       ? existing.asset_type
       : assetType;
 
+    // COALESCE su exchange: i report Directa non portano il mercato di
+    // quotazione e un update non deve mai azzerare il simbolo EODHD già
+    // certificato (backfill/import storico), chiave di risoluzione per gli
+    // aggiornamenti prezzi (vedi getEodhdSymbolForAsset).
     db.prepare(`
       UPDATE assets
-      SET ticker = ?, name = ?, currency = ?, asset_type = ?, exchange = ?, directa_code = ?
+      SET ticker = ?, name = ?, currency = ?, asset_type = ?, exchange = COALESCE(?, exchange), directa_code = ?
       WHERE id = ?
     `).run(ticker, name, currency, finalAssetType, exchange, directaCode, existing.id);
     return getAssetById(existing.id);

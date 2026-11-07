@@ -18,7 +18,8 @@
  * 3. se non c'è storico locale → skip "no_local_history" (il backfill avviene
  *    solo via import CSV una tantum, mai download automatico di anni di dati);
  * 4. se l'ultima quotazione è già di oggi → skip "already_current";
- * 5. altrimenti interroga EODHD con assets.exchange (fallback: ticker) su una
+ * 5. altrimenti interroga EODHD con il simbolo risolto da getEodhdSymbolForAsset
+ *    (assets.exchange, altrimenti mappa statica ISIN — mai il ticker nudo) su una
  *    finestra [ultima data − overlap, oggi], per correggere in modo
  *    idempotente l'ultima osservazione e aggiungere le quotazioni successive;
  * 6. upsert idempotente su (asset, data): mai duplicati; i giorni di chiusura
@@ -33,6 +34,7 @@ import {
   getDailyClosingPrices,
   getDailyPriceCandidates,
   getDailyPricesForComparison,
+  getEodhdSymbolForAsset,
   getLatestPriceDate,
   upsertDailyClosingPrices,
 } from '../models/dailyPriceModel.js';
@@ -107,7 +109,7 @@ export async function refreshAssetClosingPrices(assetId, options = {}) {
     return { ok: false, status: 'skipped', reason: 'not_found' };
   }
 
-  const symbol = asset.exchange || asset.ticker;
+  const symbol = getEodhdSymbolForAsset(asset);
   if (!symbol) {
     return {
       ok: false,
@@ -198,7 +200,7 @@ export async function runDailyPricesUpdate(options = {}) {
   const { candidates, eligible, noSymbol } = getDailyPriceCandidates();
 
   const filtered = symbols
-    ? eligible.filter((a) => symbols.includes(a.exchange || a.ticker))
+    ? eligible.filter((a) => symbols.includes(getEodhdSymbolForAsset(a)))
     : eligible;
 
   const details = [];
@@ -215,7 +217,7 @@ export async function runDailyPricesUpdate(options = {}) {
   // Simboli richiesti ma non eleggibili (filtro esplicito)
   if (symbols) {
     for (const symbol of symbols) {
-      const found = filtered.some((a) => (a.exchange || a.ticker) === symbol);
+      const found = filtered.some((a) => getEodhdSymbolForAsset(a) === symbol);
       if (!found) {
         details.push(detail(symbol, null, 'skipped', { reason: 'not_eligible_or_unknown_symbol' }));
         skipped++;
@@ -224,7 +226,7 @@ export async function runDailyPricesUpdate(options = {}) {
   }
 
   for (const asset of filtered) {
-    const symbol = asset.exchange || asset.ticker;
+    const symbol = getEodhdSymbolForAsset(asset);
     try {
       const result = await refreshAssetClosingPrices(asset.id, {
         today,
