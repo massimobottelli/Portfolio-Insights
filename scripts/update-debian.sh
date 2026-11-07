@@ -6,7 +6,7 @@
 # Aggiorna Portfolio Insights su Debian/Ubuntu.
 #
 # Uso:
-#   sudo bash update-new.sh
+#   sudo bash update-debian.sh
 #
 # Il deploy:
 #   1. verifica root e ambiente
@@ -129,7 +129,7 @@ check_environment() {
 
     if [[ "${EUID}" -ne 0 ]]; then
         die "This script must be run as root.
-Use: sudo bash update-new.sh"
+Use: sudo bash update-debian.sh"
     fi
 
     if [[ ! -d "${INSTALL_DIR}" ]]; then
@@ -623,6 +623,7 @@ show_versions() {
             @vitejs/plugin-react \
             react-router \
             react-router-dom \
+            recharts \
             esbuild \
             nanoid \
         --depth=0 \

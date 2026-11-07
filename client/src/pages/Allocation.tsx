@@ -316,7 +316,7 @@ export default function Allocation() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => `${value.toFixed(1)}%`}
+                    formatter={(value) => `${Number(value).toFixed(1)}%`}
                     contentStyle={{
                       backgroundColor: '#ffffff',
                       border: '1px solid #e2e8f0',

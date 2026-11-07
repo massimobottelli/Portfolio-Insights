@@ -458,7 +458,7 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
                     (a, b) => Number(b.value ?? -Infinity) - Number(a.value ?? -Infinity)
                   );
 
-                  const dateFormatted = new Date(label).toLocaleDateString('it-IT', {
+                  const dateFormatted = new Date(String(label)).toLocaleDateString('it-IT', {
                     weekday: 'short',
                     day: '2-digit',
                     month: 'short',
