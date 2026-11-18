@@ -1,0 +1,1 @@
+import{r as a}from"./index-BWWBPOGe.js";import{ap as e}from"./CategoricalChart-BBC8c-rh.js";import{a as t}from"./timeRange-DatnqzaA.js";var p=["axis"],m=a.forwardRef((r,o)=>a.createElement(t,{chartName:"ComposedChart",defaultTooltipEventType:"axis",validateTooltipEventTypes:p,tooltipPayloadSearcher:e,categoricalChartProps:r,ref:o}));export{m as C};
