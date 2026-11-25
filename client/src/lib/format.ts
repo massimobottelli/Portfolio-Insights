@@ -85,10 +85,10 @@ export const formatDate = (dateStr: string | null | undefined) => {
  * Restituisce la classe CSS per il colore in base al segno del valore.
  */
 export const gainColorClass = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return 'text-slate-300';
-  if (value > 0) return 'text-emerald-400';
-  if (value < 0) return 'text-red-400';
-  return 'text-slate-300';
+  if (value === null || value === undefined) return 'text-muted';
+  if (value > 0) return 'text-bull';
+  if (value < 0) return 'text-bear';
+  return 'text-muted';
 };
 
 // Colori per gli asset type, coerenti con la pie chart in Allocation.tsx
@@ -111,14 +111,13 @@ export const getAssetTypeStyle = (type: string) => {
   const [, h, s, l] = match;
   const sat = parseInt(s);
   const lum = parseInt(l);
-  // Background: stessa hue/saturation, lightness più alta con trasparenza
-  const bgLum = Math.min(lum + 100, 30);
-  const bg = `hsl(${h}, ${sat}%, ${bgLum}%, 0.15)`;
-  // Border: leggermente più scuro
-  const borderLum = Math.max(lum - 10, 15);
+  // Background: subtle tint at 25% lightness, 15% opacity
+  const bgLum = Math.min(lum - 5, 28);
+  const bg = `hsl(${h}, ${sat}%, ${bgLum}%, 0.18)`;
+  // Border: slightly muted via saturation
+  const borderLum = Math.max(lum - 5, 25);
   const borderColor = `hsl(${h}, ${sat}%, ${borderLum}%)`;
-  // Text: più chiaro
-  const textLum = Math.min(lum + 30, 85);
-  const textColor = `hsl(${h}, ${sat}%, ${textLum}%)`;
+  // Text: stessa tonalità del bordo (come richiesto)
+  const textColor = `hsl(${h}, ${sat}%, ${borderLum}%)`;
   return { bg, border: borderColor, text: textColor };
 };

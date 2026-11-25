@@ -68,10 +68,10 @@ const formatDate = (dateStr: string | null) => {
  * I movimenti in entrata sono verdi, in uscita rossi, neutri se zero.
  */
 const amountColorClass = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return 'text-slate-400';
-  if (value > 0) return 'text-emerald-400';
-  if (value < 0) return 'text-red-400';
-  return 'text-slate-300';
+  if (value === null || value === undefined) return 'text-muted';
+  if (value > 0) return 'text-bull';
+  if (value < 0) return 'text-bear';
+  return 'text-muted';
 };
 
 export default function Movements() {
@@ -166,11 +166,11 @@ export default function Movements() {
   const thClass = (key: SortKey, align: 'left' | 'right' = 'left') =>
     `cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors ${
       align === 'right' ? 'text-right' : 'text-left'
-    } ${sortKey === key ? 'text-white' : 'text-slate-400'} hover:text-white`;
+    } ${sortKey === key ? 'text-paper' : 'text-muted'} hover:text-paper`;
 
   // Classe input condivisa per tutti i filtri
   const inputClass =
-    'bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors';
+    'bg-ink-700/60 border border-ink-600 rounded-lg px-3 py-2 text-sm text-paper placeholder-muted focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-transparent transition-colors [color-scheme:dark]';
 
   // Calcola il totale importo dei movimenti filtrati
   const totalAmount = movements.reduce((sum, mv) => sum + (mv.euro_amount ?? 0), 0);
@@ -218,20 +218,20 @@ export default function Movements() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
-        <h2 className="text-2xl font-bold text-white">Movimenti</h2>
+        <h2 className="text-2xl font-bold text-paper" style={{ fontFamily: 'var(--font-display)' }}>Movimenti</h2>
         {!loading && (
-          <p className="text-slate-400 text-sm">
+          <p className="text-muted text-sm">
             {movements.length} movimenti
           </p>
         )}
       </div>
 
       {/* Filtri */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 space-y-3">
+      <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
           {/* Intervallo date */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Dal</label>
+            <label className="block text-xs font-medium text-muted mb-1">Dal</label>
             <input
               type="date"
               value={startDate}
@@ -240,7 +240,7 @@ export default function Movements() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Al</label>
+            <label className="block text-xs font-medium text-muted mb-1">Al</label>
             <input
               type="date"
               value={endDate}
@@ -251,7 +251,7 @@ export default function Movements() {
 
           {/* Tipo movimento — wrapper con freccia personalizzata */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Tipo</label>
+            <label className="block text-xs font-medium text-muted mb-1">Tipo</label>
             <div className="relative">
               <select
                 value={typeFilter}
@@ -265,13 +265,13 @@ export default function Movements() {
                   </option>
                 ))}
               </select>
-              <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" />
             </div>
           </div>
 
           {/* Simbolo — wrapper con freccia personalizzata */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Simbolo</label>
+            <label className="block text-xs font-medium text-muted mb-1">Simbolo</label>
             <div className="relative">
               <select
                 value={symbolFilter}
@@ -283,15 +283,15 @@ export default function Movements() {
                   <option key={sym} value={sym}>{sym}</option>
                 ))}
               </select>
-              <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" />
             </div>
           </div>
 
           {/* Ricerca testuale */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Ricerca</label>
+            <label className="block text-xs font-medium text-muted mb-1">Ricerca</label>
             <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
               <input
                 type="text"
                 value={search}
@@ -308,7 +308,7 @@ export default function Movements() {
           <div className="flex justify-end">
             <button
               onClick={resetFilters}
-              className="flex items-center gap-1 text-sm text-slate-400 hover:text-white transition-colors"
+              className="flex items-center gap-1 text-sm text-muted hover:text-paper transition-colors"
             >
               <X size={14} />
               Azzera filtri
@@ -318,11 +318,11 @@ export default function Movements() {
       </div>
 
       {/* Tabella */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+      <div className="bg-ink-800 rounded-xl border border-ink-600 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700 bg-slate-800/50">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-ink-600 bg-ink-800/50">
                 <th className={thClass('operation_date')} onClick={() => handleSort('operation_date')}>
                   Data{sortArrow('operation_date')}
                 </th>
@@ -341,44 +341,44 @@ export default function Movements() {
                 <th className={thClass('currency')} onClick={() => handleSort('currency')}>
                   Valuta{sortArrow('currency')}
                 </th>
-                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-right">
                   Azioni
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700">
+            <tbody className="divide-y divide-ink-600">
               {movements.map((mv) => (
-                <tr key={mv.id} className="hover:bg-slate-700/30 transition-colors">
-                  <td className="px-4 py-3 text-sm text-white whitespace-nowrap">
+                <tr key={mv.id} className="hover:bg-ink-700/30 transition-colors">
+                  <td className="px-4 py-3 text-sm text-paper whitespace-nowrap">
                     {formatDate(mv.operation_date)}
                   </td>
                   <td className="px-4 py-3 text-sm whitespace-nowrap">
                     <span className={`px-2 py-1 rounded-md text-xs font-medium ${
                       mv.movement_type === 'DEPOSIT' || mv.movement_type === 'DIVIDEND' || mv.movement_type === 'INTEREST'
-                        ? 'bg-emerald-500/10 text-emerald-400'
+                        ? 'bg-bull/10 text-bull'
                         : mv.movement_type === 'TAX' || mv.movement_type === 'COMMISSION' || mv.movement_type === 'STAMP_DUTY'
-                        ? 'bg-red-500/10 text-red-400'
-                        : 'bg-slate-700 text-slate-300'
+                        ? 'bg-bear/10 text-bear'
+                        : 'bg-ink-700 text-muted'
                     }`}>
                       {MOVEMENT_TYPE_LABELS[mv.movement_type] || mv.movement_type}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-300 font-medium">
+                  <td className="px-4 py-3 text-sm text-muted font-medium">
                     {mv.ticker || '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-400">
+                  <td className="px-4 py-3 text-sm text-muted">
                     {mv.asset_name || '—'}
                   </td>
                   <td className={`px-4 py-3 text-sm text-right font-medium whitespace-nowrap ${amountColorClass(mv.euro_amount)}`}>
                     {formatAmount(mv.euro_amount)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-400">{mv.currency}</td>
+                  <td className="px-4 py-3 text-sm text-muted">{mv.currency}</td>
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => handleDelete(mv)}
                       disabled={deletingId !== null}
                       title="Elimina movimento"
-                      className="inline-flex items-center justify-center p-1.5 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="inline-flex items-center justify-center p-1.5 rounded-md text-muted hover:text-bear hover:bg-bear/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {deletingId === mv.id ? (
                         <Loader2 size={15} className="animate-spin" />
@@ -391,14 +391,14 @@ export default function Movements() {
               ))}
               {movements.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-muted">
                     Nessun movimento trovato
                   </td>
                 </tr>
               )}
               {loading && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-muted">
                     Caricamento...
                   </td>
                 </tr>
@@ -407,14 +407,14 @@ export default function Movements() {
             {/* Riga totale importo — visibile solo quando ci sono movimenti e filtri attivi */}
             {movements.length > 0 && hasActiveFilters && (
               <tfoot>
-                <tr className="border-t-2 border-slate-600 bg-slate-800/80">
-                  <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-white text-right uppercase tracking-wider">
+                <tr className="border-t-2 border-ink-600 bg-ink-800/80">
+                  <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-paper text-right uppercase tracking-wider">
                     Totale
                   </td>
                   <td className={`px-4 py-3 text-sm text-right font-bold whitespace-nowrap ${amountColorClass(totalAmount)}`}>
                     {formatEUR(totalAmount)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-400">EUR</td>
+                  <td className="px-4 py-3 text-sm text-muted">EUR</td>
                   <td />
                 </tr>
               </tfoot>
@@ -424,15 +424,15 @@ export default function Movements() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
+        <div className="bg-bear/10 border-bear/30 rounded-lg p-4 text-bear text-sm">
           {error}
         </div>
       )}
 
       {/* Legenda tipologie */}
       {!loading && movements.length > 0 && (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-5">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+        <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-5">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">
             Legenda tipologie
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -440,14 +440,14 @@ export default function Movements() {
               <div key={type} className="flex items-start gap-2 text-sm">
                 <span className={`shrink-0 px-2 py-0.5 rounded-md text-xs font-medium ${
                   type === 'DEPOSIT' || type === 'DIVIDEND' || type === 'INTEREST'
-                    ? 'bg-emerald-500/10 text-emerald-400'
+                    ? 'bg-bull/10 text-bull'
                     : type === 'TAX' || type === 'COMMISSION' || type === 'STAMP_DUTY'
-                    ? 'bg-red-500/10 text-red-400'
-                    : 'bg-slate-700 text-slate-300'
+                    ? 'bg-bear/10 text-bear'
+                    : 'bg-ink-700 text-muted'
                 }`}>
                   {MOVEMENT_TYPE_LABELS[type]}
                 </span>
-                <span className="text-slate-400 leading-5">{MOVEMENT_TYPE_LEGEND[type]}</span>
+                <span className="text-muted leading-5">{MOVEMENT_TYPE_LEGEND[type]}</span>
               </div>
             ))}
           </div>

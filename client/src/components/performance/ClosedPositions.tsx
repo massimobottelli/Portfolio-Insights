@@ -56,7 +56,7 @@ export default function ClosedPositions() {
   };
 
   const thClass = (key: ClosedSortKey, align: 'left' | 'right' = 'left') =>
-    `cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors ${align === 'right' ? 'text-right' : 'text-left'} ${closedSortKey === key ? 'text-white' : 'text-slate-400'} hover:text-white`;
+    `cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors ${align === 'right' ? 'text-right' : 'text-left'} ${closedSortKey === key ? 'text-paper' : 'text-muted'} hover:text-paper`;
 
   const closedPositions = (() => {
     const groups = new Map<string, MarketOrderItem[]>();
@@ -84,29 +84,29 @@ export default function ClosedPositions() {
 
   return (
 
-    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-      <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider px-4 lg:px-5 pt-4 lg:pt-5 pb-2">Posizioni chiuse</h3>
+    <div className="bg-ink-800 rounded-xl border border-ink-600 overflow-hidden">
+      <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider px-4 lg:px-5 pt-4 lg:pt-5 pb-2">Posizioni chiuse</h3>
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-700 bg-slate-800/50">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-ink-600 bg-ink-800/50">
               <th className={thClass('ticker')} onClick={() => handleClosedSort('ticker')}>Ticker{closedSortArrow('ticker')}</th>
               <th className={thClass('name')} onClick={() => handleClosedSort('name')}>Nome{closedSortArrow('name')}</th>
               <th className={thClass('pnl', 'right')} onClick={() => handleClosedSort('pnl')}>Gain/Loss EUR{closedSortArrow('pnl')}</th>
               <th className={thClass('orderCount', 'right')} onClick={() => handleClosedSort('orderCount')}>Num Ordini{closedSortArrow('orderCount')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700">
+          <tbody className="divide-y divide-ink-600">
             {closedPositions.map(pos => (
-              <tr key={pos.ticker} className="hover:bg-slate-700/30 transition-colors">
-                <td className="px-4 py-3 text-sm text-slate-300 whitespace-nowrap">{pos.ticker}</td>
+              <tr key={pos.ticker} className="hover:bg-ink-700/30 transition-colors">
+                <td className="px-4 py-3 text-sm text-muted whitespace-nowrap">{pos.ticker}</td>
                 <td className="px-4 py-3 text-sm" onClick={() => navigate(`/orders?symbol=${encodeURIComponent(pos.ticker)}`)} title="Click per vedere gli ordini di questo asset">
-                  <span className="text-slate-300 hover:text-white hover:underline cursor-pointer transition-colors">{pos.name || '\u2014'}</span>
+                  <span className="text-muted hover:text-paper hover:underline cursor-pointer transition-colors">{pos.name || '\u2014'}</span>
                 </td>
-                <td className={`px-4 py-3 text-sm text-right font-bold whitespace-nowrap ${pos.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <td className={`px-4 py-3 text-sm text-right font-bold whitespace-nowrap ${pos.pnl >= 0 ? 'text-bull' : 'text-bear'}`}>
                   {pos.pnl !== 0 && pos.pnl < 0 ? '-' : ''}{formatEUR(Math.abs(pos.pnl), 0)}
                 </td>
-                <td className="px-4 py-3 text-sm text-slate-300 text-right whitespace-nowrap">{pos.orderCount}</td>
+                <td className="px-4 py-3 text-sm text-muted text-right whitespace-nowrap">{pos.orderCount}</td>
               </tr>
             ))}
           </tbody>

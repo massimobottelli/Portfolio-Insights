@@ -178,7 +178,7 @@ function _renderTable(
     return (
       <Fragment key={gi}>
           {/* Riga aggregata per asset type — sfondo più chiaro */}
-          <tr className="bg-slate-700/20 hover:bg-slate-700/30 transition-colors">
+          <tr className="bg-ink-700/20 hover:bg-ink-700/30 transition-colors">
             <td className="py-2.5 px-3 align-middle">
               <span
                 className="inline-block font-medium uppercase tracking-wide"
@@ -198,47 +198,47 @@ function _renderTable(
                 {group.assetType}
               </span>
             </td>
-            <td className="px-3 py-2.5 text-sm text-slate-500 align-middle">
+            <td className="px-3 py-2.5 text-sm text-muted align-middle">
               {'—'}
             </td>
-            <td className="px-3 py-2.5 text-sm text-slate-500 align-middle">
+            <td className="px-3 py-2.5 text-sm text-muted align-middle">
               {'—'}
             </td>
             {/* IRR aggregato per tipo */}
             {group.assets.length === 1 && group.assets[0].irr ? (
               // Unico asset nel gruppo: uso il suo IRR reale (allineato alla sottoriga)
-              <td className={`px-3 py-2.5 text-sm text-right font-medium ${group.assets[0].irr.irr != null ? (group.assets[0].irr.irr >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500"} align-middle`}>
+              <td className={`px-3 py-2.5 text-sm text-right font-medium ${group.assets[0].irr.irr != null ? (group.assets[0].irr.irr >= 0 ? "text-bull" : "text-bear") : "text-muted"} align-middle`}>
                 {group.assets[0].irr.irr != null
                   ? `${(group.assets[0].irr.irr * 100).toFixed(2).replace(".", ",")}%`
                   : DASH}
               </td>
             ) : group.irr ? (
               // Più asset nel gruppo: uso l'IRR aggregato del tipo dall'API
-              <td className={`px-3 py-2.5 text-sm text-right font-medium ${group.irr.irr != null ? (group.irr.irr >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500"} align-middle`}>
+              <td className={`px-3 py-2.5 text-sm text-right font-medium ${group.irr.irr != null ? (group.irr.irr >= 0 ? "text-bull" : "text-bear") : "text-muted"} align-middle`}>
                 {group.irr.irr != null
                   ? `${(group.irr.irr * 100).toFixed(2).replace(".", ",")}%`
                   : DASH}
               </td>
             ) : (
-              <td className="px-3 py-2.5 text-sm text-right text-slate-500 align-middle">
+              <td className="px-3 py-2.5 text-sm text-right text-muted align-middle">
                 {DASH}
               </td>
             )}
             {/* Anni investiti per tipo */}
             {group.assets.length === 1 && group.assets[0].irr ? (
-              <td className="px-3 py-2.5 text-sm text-right text-slate-300 align-middle">
+              <td className="px-3 py-2.5 text-sm text-right text-muted align-middle">
                 {group.assets[0].irr.years != null
                   ? `${group.assets[0].irr.years.toFixed(1)}`
                   : DASH}
               </td>
             ) : group.irr ? (
-              <td className="px-3 py-2.5 text-sm text-right text-slate-300 align-middle">
+              <td className="px-3 py-2.5 text-sm text-right text-muted align-middle">
                 {group.irr.years != null
                   ? `${group.irr.years.toFixed(1)}`
                   : DASH}
               </td>
             ) : (
-              <td className="px-3 py-2.5 text-sm text-right text-slate-500 align-middle">
+              <td className="px-3 py-2.5 text-sm text-right text-muted align-middle">
                 {DASH}
               </td>
             )}
@@ -257,36 +257,36 @@ function _renderTable(
         {group.assets.map((asset) => (
           <tr
             key={asset.asset_id}
-            className="bg-slate-800/30 hover:bg-slate-700/30 transition-colors"
+            className="bg-ink-800/30 hover:bg-ink-700/30 transition-colors"
           >
             <td className="py-1.5 px-3 text-sm text-transparent select-none align-middle">
               &nbsp;
             </td>
-            <td className="py-1.5 px-3 pl-6 text-sm text-slate-400 align-middle">
+            <td className="py-1.5 px-3 pl-6 text-sm text-muted align-middle">
               {asset.ticker}
             </td>
             <td className="py-1.5 px-3 text-sm min-w-[150px]" onClick={() => navigate(`/asset/${asset.asset_id}`, { state: { from: '/performance' } })}>
               <span
-                className="text-slate-500 hover:text-white hover:underline cursor-pointer transition-colors inline-block align-middle max-w-full"
+                className="text-muted hover:text-paper hover:underline cursor-pointer transition-colors inline-block align-middle max-w-full"
                 title={asset.name}
               >
                 {asset.name}
               </span>
             </td>
             {asset.irr && (
-              <td className={`px-3 py-1.5 text-sm text-right ${asset.irr.irr != null ? (asset.irr.irr >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-600"} align-middle`}>
+              <td className={`px-3 py-1.5 text-sm text-right ${asset.irr.irr != null ? (asset.irr.irr >= 0 ? "text-bull" : "text-bear") : "text-muted"} align-middle`}>
                 {asset.irr.irr != null
                   ? `${(asset.irr.irr * 100).toFixed(2).replace(".", ",")}%`
                   : DASH}
               </td>
             )}
             {!asset.irr && (
-              <td className="px-3 py-1.5 text-sm text-right text-slate-600 align-middle">
+              <td className="px-3 py-1.5 text-sm text-right text-muted align-middle">
                 {'—'}
               </td>
             )}
             {/* Anni investiti per singolo asset */}
-            <td className="px-3 py-1.5 text-sm text-right text-slate-300 align-middle">
+            <td className="px-3 py-1.5 text-sm text-right text-muted align-middle">
               {asset.irr?.years != null
                 ? `${asset.irr.years.toFixed(1)}`
                 : DASH}
@@ -308,7 +308,7 @@ function _renderTable(
         {!isLastGroup && (
           <tr>
             <td colSpan={7} className="py-0.5 px-3">
-              <div className="border-t border-slate-700/30 mx-2" />
+              <div className="border-t border-ink-600/30 mx-2" />
             </td>
           </tr>
         )}
@@ -316,54 +316,54 @@ function _renderTable(
     );
   });
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+    <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-6">
       <div className="mb-4">
-        <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider">
+        <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider">
           Internal Rate of Return (IRR) 
         </h3>
-        <p className="text-slate-400 text-xs mt-1">
+        <p className="text-muted text-xs mt-1">
           Rendimento annualizzato money-weighted per classe asset e posizione individuale
         </p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-700">
-              <th className="text-left py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider min-w-[100px] align-middle">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-ink-600">
+              <th className="text-left py-2 px-3 text-muted font-medium uppercase text-xs tracking-wider min-w-[100px] align-middle">
                 Tipo
               </th>
-              <th className="text-left py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider min-w-[90px] align-middle">
+              <th className="text-left py-2 px-3 text-muted font-medium uppercase text-xs tracking-wider min-w-[90px] align-middle">
                 Ticker
               </th>
-              <th className="text-left py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider min-w-[150px] align-middle">
+              <th className="text-left py-2 px-3 text-muted font-medium uppercase text-xs tracking-wider min-w-[150px] align-middle">
                 Nome
               </th>
-              <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle">
+              <th className="text-right py-2 px-3 text-muted font-medium uppercase text-xs tracking-wider align-middle">
                 IRR
               </th>
-              <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle whitespace-nowrap">
+              <th className="text-right py-2 px-3 text-muted font-medium uppercase text-xs tracking-wider align-middle whitespace-nowrap">
                 Anni investiti
               </th>
-              <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle">
+              <th className="text-right py-2 px-3 text-muted font-medium uppercase text-xs tracking-wider align-middle">
                 Gain/Loss %
               </th>
-              <th className="text-right py-2 px-3 text-slate-400 font-medium uppercase text-xs tracking-wider align-middle">
+              <th className="text-right py-2 px-3 text-muted font-medium uppercase text-xs tracking-wider align-middle">
                 Gain/Loss €
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700/50">
+          <tbody className="divide-y divide-ink-600/50">
             {renderGroups}
-            <tr className="border-t-2 border-slate-600 bg-slate-700/40 font-bold">
-              <td className="py-3 px-3 text-sm text-white uppercase tracking-wider align-middle">
+            <tr className="border-t-2 border-ink-600 bg-ink-700/40 font-bold">
+              <td className="py-3 px-3 text-sm text-paper uppercase tracking-wider align-middle">
                 Totale
               </td>
-              <td className="px-3 py-3 text-sm text-right text-white align-middle"></td>
-              <td className="px-3 py-3 text-sm text-right text-white align-middle"></td>
-              <td className="px-3 py-3 text-sm text-right text-slate-500 align-middle">
+              <td className="px-3 py-3 text-sm text-right text-paper align-middle"></td>
+              <td className="px-3 py-3 text-sm text-right text-paper align-middle"></td>
+              <td className="px-3 py-3 text-sm text-right text-muted align-middle">
                 { '—' }
               </td>
-              <td className="px-3 py-3 text-sm text-right text-slate-500 align-middle">
+              <td className="px-3 py-3 text-sm text-right text-muted align-middle">
                 { '—' }
               </td>
               <td

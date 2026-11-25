@@ -24,9 +24,9 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 const divergenceColor = (value: number) => {
-  if (value > 0) return 'text-emerald-400';
-  if (value < 0) return 'text-red-400';
-  return 'text-slate-300';
+  if (value > 0) return 'text-bull';
+  if (value < 0) return 'text-bear';
+  return 'text-muted';
 };
 
 export default function Allocation() {
@@ -208,7 +208,7 @@ export default function Allocation() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-blue-400" size={32} />
+        <Loader2 className="animate-spin text-gold-400" size={32} />
       </div>
     );
   }
@@ -216,21 +216,21 @@ export default function Allocation() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Allocazione Portfolio</h1>
-        <p className="text-sm text-slate-400 mt-1">
+        <h1 className="text-2xl font-bold text-paper" style={{ fontFamily: 'var(--font-display)' }}>Allocazione Portfolio</h1>
+        <p className="text-sm text-muted mt-1">
           Definisci l'allocazione target e verifica i ribilanciamenti necessari
         </p>
       </div>
 
       {/* Banner asset non classificati */}
       {current && current.unknownAssets > 0 && (
-        <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-900/20">
-          <AlertTriangle className="text-amber-400 mt-0.5" size={20} />
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-gold-400/30 bg-gold-500/15">
+          <AlertTriangle className="text-gold-400 mt-0.5" size={20} />
           <div>
-            <p className="text-sm font-medium text-amber-300">
+            <p className="text-sm font-medium text-gold-400">
               {current.unknownAssets} asset non classificati
             </p>
-            <p className="text-xs text-amber-200/70 mt-1">
+            <p className="text-xs text-gold-400/70 mt-1">
               Vai alla pagina Portfolio per assegnare un tipo a questi asset.
             </p>
           </div>
@@ -238,8 +238,8 @@ export default function Allocation() {
       )}
 
       {/* Editor target */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Target Allocation</h2>
+      <div className="bg-ink-800 rounded-xl border border-ink-600 p-6">
+        <h2 className="text-lg font-semibold text-paper mb-4">Target Allocation</h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Colonna sinistra: input percentuali */}
@@ -247,7 +247,7 @@ export default function Allocation() {
             <div className="space-y-3">
               {TARGETABLE_TYPES.map(type => (
                 <div key={type} className="flex items-center justify-between gap-3">
-                  <label className="text-sm font-medium text-slate-300">{type}</label>
+                  <label className="text-sm font-medium text-muted">{type}</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
@@ -256,9 +256,9 @@ export default function Allocation() {
                       step="0.1"
                       value={targetInputs[type] || ''}
                       onChange={e => handleInputChange(type, e.target.value)}
-                      className="w-24 px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-white text-sm focus:outline-none focus:border-blue-500"
+                      className="w-24 px-3 py-2 rounded-lg bg-ink-700/60 border border-ink-600 text-paper text-sm focus:outline-none focus:border-gold-400 [color-scheme:dark]"
                     />
-                    <span className="text-sm text-slate-400">%</span>
+                    <span className="text-sm text-muted">%</span>
                   </div>
                 </div>
               ))}
@@ -267,20 +267,20 @@ export default function Allocation() {
 
             {/* Somma e validazione */}
             <div className="mt-4 flex items-center gap-2">
-              <span className="text-sm text-slate-400">Somma:</span>
-              <span className={`text-sm font-semibold ${sumIsValid ? 'text-emerald-400' : 'text-red-400'}`}>
+              <span className="text-sm text-muted">Somma:</span>
+              <span className={`text-sm font-semibold ${sumIsValid ? 'text-bull' : 'text-bear'}`}>
                 {targetSum.toFixed(1)}%
               </span>
               {sumIsValid ? (
-                <span className="text-emerald-400 text-sm">✅</span>
+                <span className="text-bull text-sm">✅</span>
               ) : (
-                <span className="text-red-400 text-sm">❌ Deve essere 100%</span>
+                <span className="text-bear text-sm">❌ Deve essere 100%</span>
               )}
             </div>
 
             {/* Soglia di tolleranza */}
             <div className="mt-4 flex items-center gap-3">
-              <label className="text-sm font-medium text-slate-300">Soglia di tolleranza:</label>
+              <label className="text-sm font-medium text-muted">Soglia di tolleranza:</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -288,9 +288,9 @@ export default function Allocation() {
                   step="0.5"
                   value={toleranceInput}
                   onChange={e => setToleranceInput(e.target.value)}
-                  className="w-24 px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-white text-sm focus:outline-none focus:border-blue-500"
+                  className="w-24 px-3 py-2 rounded-lg bg-ink-700/60 border border-ink-600 text-paper text-sm focus:outline-none focus:border-gold-400 [color-scheme:dark]"
                 />
-                <span className="text-sm text-slate-400">%</span>
+                <span className="text-sm text-muted">%</span>
               </div>
             </div>
 
@@ -316,14 +316,19 @@ export default function Allocation() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value) => `${Number(value).toFixed(1)}%`}
-                    contentStyle={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      color: '#0f172a',
-                    }}
-                  />
+                  content={({ active, payload }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+                    const item = payload[0].payload;
+                    return (
+                      <div className="bg-ink-800/95 backdrop-blur border border-gold-400/30 rounded-lg px-4 py-3 shadow-lg">
+                        <p className="font-semibold text-paper text-sm">{item.name}</p>
+                        <p className="text-muted text-sm mt-1">
+                          Target: {item.value.toFixed(1)}%
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -349,7 +354,7 @@ export default function Allocation() {
                       }}>
                       {d.name}
                     </span>
-                    <span className="text-xs text-slate-400">{Math.round(d.value)}%</span>
+                    <span className="text-xs text-muted">{Math.round(d.value)}%</span>
                   </div>
                 );
               })}
@@ -358,26 +363,26 @@ export default function Allocation() {
         </div>
 
         {error && (
-          <div className="mt-4 p-3 rounded-lg bg-red-900/20 border border-red-500/30 text-sm text-red-300">
+          <div className="mt-4 p-3 rounded-lg bg-bear/15 border border-bear/30 text-sm text-bear">
             {error}
           </div>
         )}
         {saveMessage && (
-          <div className="mt-4 p-3 rounded-lg bg-emerald-900/20 border border-emerald-500/30 text-sm text-emerald-300">
+          <div className="mt-4 p-3 rounded-lg bg-bull/15 border border-bull/30 text-sm text-bull">
             {saveMessage}
           </div>
         )}
       </div>
 
       {/* Tabella attuale vs target */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="p-4 border-b border-slate-700">
-          <h2 className="text-lg font-semibold text-white">Allocazione attuale vs target</h2>
+      <div className="bg-ink-800 rounded-xl border border-ink-600 overflow-hidden">
+        <div className="p-4 border-b border-ink-600">
+          <h2 className="text-lg font-semibold text-paper">Allocazione attuale vs target</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700">
+            <thead className="sticky top-0 z-10">
+              <tr className="text-left text-xs uppercase tracking-wider text-muted border-b border-ink-600">
                 <th className="px-4 py-3">Categoria</th>
                 <th className="px-4 py-3 text-right">Attuale</th>
                 <th className="px-4 py-3 text-right">Target</th>
@@ -386,7 +391,7 @@ export default function Allocation() {
                 <th className="px-4 py-3 text-center">Azione</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700">
+            <tbody className="divide-y divide-ink-600">
               {TARGETABLE_TYPES.map(type => {
                 const currentPercent = currentMap[type] || 0;
                 const targetPercent = targetMap[type] || 0;
@@ -397,7 +402,7 @@ export default function Allocation() {
 
                 const style = getAssetTypeStyle(type);
                 return (
-                  <tr key={type} className="hover:bg-slate-700/30 transition-colors">
+                  <tr key={type} className="hover:bg-ink-700/30 transition-colors">
                     <td className="px-4 py-3">
                       <span className="inline-block border font-medium uppercase tracking-wide"
                         style={{
@@ -415,14 +420,14 @@ export default function Allocation() {
                         {type}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-300">
+                    <td className="px-4 py-3 text-right text-muted">
                       {new Intl.NumberFormat('it-IT', {
                           style: 'percent',
                           signDisplay: 'auto',
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2
                         }).format(currentPercent / 100)}</td>
-                    <td className="px-4 py-3 text-right text-slate-300">
+                    <td className="px-4 py-3 text-right text-muted">
                       {new Intl.NumberFormat('it-IT', {
                           style: 'percent',
                           signDisplay: 'auto',
@@ -438,16 +443,16 @@ export default function Allocation() {
                     <td className="px-4 py-3 text-center">
                       {isOver && divergence !== 0 ? (
                         divergence < 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-900/30 text-emerald-300 border border-emerald-700/50 text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-bull/15 text-bull border border-bull/30 text-xs font-medium">
                             <TrendingUp size={14} /> COMPRA
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-900/30 text-red-300 border border-red-700/50 text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-bear/15 text-bear border border-bear/30 text-xs font-medium">
                             <TrendingDown size={14} /> VENDI
                           </span>
                         )
                       ) : (
-                        <span className="inline-flex items-center text-slate-500">
+                        <span className="inline-flex items-center text-muted">
                           <Minus size={14} />
                         </span>
                       )}
@@ -462,29 +467,29 @@ export default function Allocation() {
 
       {/* Suggerimenti ribilanciamento */}
       {rebalance && rebalance.suggestions.length > 0 && (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Suggerimenti ribilanciamento</h2>
+        <div className="bg-ink-800 rounded-xl border border-ink-600 p-6">
+          <h2 className="text-lg font-semibold text-paper mb-4">Suggerimenti ribilanciamento</h2>
           <div className="space-y-3">
             {rebalance.suggestions.map((s: RebalanceSuggestion) => (
               <div
                 key={s.assetType}
                 className={`flex items-center justify-between p-4 rounded-lg border ${
                   s.action === 'BUY'
-                    ? 'bg-emerald-900/20 border-emerald-700/50'
-                    : 'bg-red-900/20 border-red-700/50'
+                    ? 'bg-bull/15 border-bull/30'
+                    : 'bg-bear/15 border-bear/30'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   {s.action === 'BUY' ? (
-                    <TrendingUp className="text-emerald-400" size={20} />
+                    <TrendingUp className="text-bull" size={20} />
                   ) : (
-                    <TrendingDown className="text-red-400" size={20} />
+                    <TrendingDown className="text-bear" size={20} />
                   )}
                   <div>
-                    <p className={`text-sm font-semibold ${s.action === 'BUY' ? 'text-emerald-300' : 'text-red-300'}`}>
+                    <p className={`text-sm font-semibold ${s.action === 'BUY' ? 'text-bull' : 'text-bear'}`}>
                       {s.action === 'BUY' ? 'COMPRA' : 'VENDI'} {formatEUR(s.amount, 0)} di {s.assetType}
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-muted mt-0.5">
                       Deviazione {formatPercent(s.divergencePercent)} {s.action === 'BUY' ? 'sotto' : 'oltre'} target
                     </p>
                   </div>
@@ -497,10 +502,10 @@ export default function Allocation() {
 
       {/* Totale portafoglio (posizioni + liquidità) */}
       {current && (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-          <p className="text-sm text-slate-400">
+        <div className="bg-ink-800 rounded-xl border border-ink-600 p-4">
+          <p className="text-sm text-muted">
             Valore totale portafoglio:{' '}
-            <span className="font-semibold text-white">{formatEUR(current.totalValue)}</span>
+            <span className="font-semibold text-paper">{formatEUR(current.totalValue)}</span>
           </p>
         </div>
       )}

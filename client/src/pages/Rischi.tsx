@@ -92,7 +92,7 @@ export default function Rischi() {
   if (loading && !analytics) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400 text-lg">Caricamento...</div>
+        <div className="text-muted text-lg">Caricamento...</div>
       </div>
     );
   }
@@ -100,7 +100,7 @@ export default function Rischi() {
   if (error && !analytics) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-red-400 text-lg">{error}</div>
+        <div className="text-bear text-lg">{error}</div>
       </div>
     );
   }
@@ -108,7 +108,7 @@ export default function Rischi() {
   if (!analytics) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400 text-lg">Dati non disponibili</div>
+        <div className="text-muted text-lg">Dati non disponibili</div>
       </div>
     );
   }
@@ -118,13 +118,13 @@ export default function Rischi() {
   return (
     <div className="space-y-4 lg:space-y-6">
       {/* Titolo pagina */}
-      <h1 className="text-2xl font-bold text-white">Rischi</h1>
+      <h1 className="text-2xl font-bold text-paper" style={{ fontFamily: 'var(--font-display)' }}>Rischi</h1>
 
       {/* Top bar: last update date */}
       <div className="flex justify-end">
         {baseDate && (
-          <p className="text-slate-400 text-xs lg:text-sm flex items-center gap-1">
-            <Calendar size={14} className="text-slate-400" />
+          <p className="text-muted text-xs lg:text-sm flex items-center gap-1">
+            <Calendar size={14} className="text-muted" />
             Ultimo aggiornamento: {new Date(baseDate).toLocaleDateString('it-IT')}
           </p>
         )}
@@ -133,28 +133,28 @@ export default function Rischi() {
       {/* Errore durante un refetch con dati già visibili: banner inline,
           la pagina non viene sostituita (preserva posizione di scroll). */}
       {error && hasData && (
-        <div className="bg-red-900/40 border border-red-700 rounded-lg px-4 py-2">
-          <p className="text-red-400 text-sm">{error}</p>
+        <div className="bg-bear/15 border-bear/30 rounded-lg px-4 py-2">
+          <p className="text-bear text-sm">{error}</p>
         </div>
       )}
 
       {/* Fallimento della persistenza del tasso risk-free: banner inline non bloccante
           (il ricalcolo dello Sharpe usa comunque il valore corrente). */}
       {persistError && (
-        <div className="bg-amber-900/40 border border-amber-700 rounded-lg px-4 py-2">
-          <p className="text-amber-400 text-sm">{persistError}</p>
+        <div className="bg-gold-500/20 border-gold-400/30 rounded-lg px-4 py-2">
+          <p className="text-gold-400 text-sm">{persistError}</p>
         </div>
       )}
 
       {!hasData ? (
         <div className="flex items-center justify-center h-32">
-          <p className="text-slate-400">Nessun dato disponibile per il calcolo delle metriche di rischio</p>
+          <p className="text-muted">Nessun dato disponibile per il calcolo delle metriche di rischio</p>
         </div>
       ) : (
         <>
           {/* Risk Metrics */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
-            <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
+          <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-6">
+            <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider mb-3">
               Rischio
             </h3>
             {riskFreeRate !== null && (
@@ -168,8 +168,8 @@ export default function Rischi() {
           </div>
 
           {/* Drawdown Analysis */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
-            <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
+          <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-6">
+            <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider mb-3">
               Drawdown
             </h3>
             <DrawdownAnalysis
@@ -184,8 +184,8 @@ export default function Rischi() {
           </div>
 
           {/* Drawdown Chart */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
-            <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
+          <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-6">
+            <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider mb-3">
               Andamento Drawdown
             </h3>
             <DrawdownChart cumulativeSeries={analytics.cumulativeSeries} />

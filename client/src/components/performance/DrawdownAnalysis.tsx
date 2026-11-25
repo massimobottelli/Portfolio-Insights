@@ -61,20 +61,20 @@ export default function DrawdownAnalysis({
     if (maximum === 0) {
       statusText = 'Assente';
       statusIcon = '✓';
-      statusColor = 'text-emerald-400';
+      statusColor = 'text-bull';
     } else {
       statusText = 'N/D';
       statusIcon = '?';
-      statusColor = 'text-slate-400';
+      statusColor = 'text-muted';
     }
   } else if (isRecovered) {
     statusText = 'Recuperato';
     statusIcon = '✓';
-    statusColor = 'text-emerald-400';
+    statusColor = 'text-bull';
   } else {
     statusText = 'In corso';
     statusIcon = '⏳';
-    statusColor = 'text-amber-400';
+    statusColor = 'text-gold-400';
   }
 
   // Layout a griglia 2 righe × 2 colonne:
@@ -83,34 +83,34 @@ export default function DrawdownAnalysis({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {/* R1 C1 — Max Drawdown */}
-      <div className="bg-slate-900 rounded-lg border border-slate-700 p-3 flex flex-col justify-center">
-        <p className="uppercase text-slate-400 text-xs font-semibold tracking-wider mb-2">
+      <div className="bg-ink-900 rounded-lg border border-ink-600 p-3 flex flex-col justify-center">
+        <p className="uppercase text-muted text-xs font-semibold tracking-wider mb-2">
           Max Drawdown
         </p>
-        <p className={`font-bold text-2xl ${maximum !== null && maximum < -0.1 ? 'text-red-500' : maximum !== null && maximum < 0 ? 'text-red-400' : 'text-slate-300'}`}>
+        <p className={`font-bold text-2xl ${maximum !== null && maximum < -0.1 ? 'text-bear' : maximum !== null && maximum < 0 ? 'text-bear' : 'text-muted'}`}>
           {maximum !== null ? percentFmt.format(maximum) : 'N/D'}
         </p>
-        <p className="text-slate-500 mt-1 text-xs">Caduta massima dal picco</p>
+        <p className="text-muted mt-1 text-xs">Caduta massima dal picco</p>
       </div>
 
       {/* R1 C2 — Date chiave e stato del drawdown */}
-      <div className="bg-slate-900 rounded-lg border border-slate-700 p-3">
+      <div className="bg-ink-900 rounded-lg border border-ink-600 p-3">
         <table className="w-full text-sm">
           <tbody>
-            <tr className="border-b border-slate-800">
-              <td className="py-1.5 text-slate-400 uppercase text-xs tracking-wider">Data inizio drawdown</td>
-              <td className="py-1.5 text-white font-medium text-right">{formatDate(peakDate)}</td>
+            <tr className="border-b border-ink-600">
+              <td className="py-1.5 text-muted uppercase text-xs tracking-wider">Data inizio drawdown</td>
+              <td className="py-1.5 text-paper font-medium text-right">{formatDate(peakDate)}</td>
             </tr>
-            <tr className="border-b border-slate-800">
-              <td className="py-1.5 text-slate-400 uppercase text-xs tracking-wider">Data di minimo</td>
-              <td className="py-1.5 text-white font-medium text-right">{formatDate(troughDate)}</td>
+            <tr className="border-b border-ink-600">
+              <td className="py-1.5 text-muted uppercase text-xs tracking-wider">Data di minimo</td>
+              <td className="py-1.5 text-paper font-medium text-right">{formatDate(troughDate)}</td>
             </tr>
-            <tr className="border-b border-slate-800">
-              <td className="py-1.5 text-slate-400 uppercase text-xs tracking-wider">Data di recupero</td>
-              <td className="py-1.5 text-white font-medium text-right">{formatDate(recoveryDate)}</td>
+            <tr className="border-b border-ink-600">
+              <td className="py-1.5 text-muted uppercase text-xs tracking-wider">Data di recupero</td>
+              <td className="py-1.5 text-paper font-medium text-right">{formatDate(recoveryDate)}</td>
             </tr>
             <tr>
-              <td className="py-1.5 text-slate-400 uppercase text-xs tracking-wider">Stato</td>
+              <td className="py-1.5 text-muted uppercase text-xs tracking-wider">Stato</td>
               <td className={`py-1.5 font-medium text-right ${statusColor}`}>
                 <span className="mr-1">{statusIcon}</span>
                 {statusText}
@@ -121,25 +121,25 @@ export default function DrawdownAnalysis({
       </div>
 
       {/* R2 C1 — Durata Drawdown */}
-      <div className="bg-slate-900 rounded-lg border border-slate-700 p-3 flex flex-col justify-center">
-        <p className="uppercase text-slate-400 text-xs font-semibold tracking-wider mb-2">
+      <div className="bg-ink-900 rounded-lg border border-ink-600 p-3 flex flex-col justify-center">
+        <p className="uppercase text-muted text-xs font-semibold tracking-wider mb-2">
           Durata Drawdown
         </p>
-        <p className="font-bold text-2xl text-slate-300">
+        <p className="font-bold text-2xl text-muted">
           {durationDays !== null ? `${durationDays} giorni` : isRecovered ? 'N/D' : 'In corso'}
         </p>
-        <p className="text-slate-500 mt-1 text-xs">Dal massimo al recupero</p>
+        <p className="text-muted mt-1 text-xs">Dal massimo al recupero</p>
       </div>
 
       {/* R2 C2 — Tempo Recupero */}
-      <div className="bg-slate-900 rounded-lg border border-slate-700 p-3 flex flex-col justify-center">
-        <p className="uppercase text-slate-400 text-xs font-semibold tracking-wider mb-2">
+      <div className="bg-ink-900 rounded-lg border border-ink-600 p-3 flex flex-col justify-center">
+        <p className="uppercase text-muted text-xs font-semibold tracking-wider mb-2">
           Tempo Recupero
         </p>
-        <p className="font-bold text-2xl text-slate-300">
+        <p className="font-bold text-2xl text-muted">
           {recoveryDays !== null ? `${recoveryDays} giorni` : isRecovered ? 'N/D' : 'In corso'}
         </p>
-        <p className="text-slate-500 mt-1 text-xs">Dal minimo al recupero</p>
+        <p className="text-muted mt-1 text-xs">Dal minimo al recupero</p>
       </div>
     </div>
   );

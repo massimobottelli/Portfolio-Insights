@@ -99,19 +99,20 @@ export default function About() {
     <div className="max-w-4xl space-y-8">
       {/* Introduzione */}
       <div>
-        <h2 className="text-2xl font-bold text-white">
-          <span className="text-blue-400">Portfolio</span>
-          <span className="text-green-400">Insights</span>
+        <h2 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
+          <span className="text-gold-400">Portfolio</span>
+          <span className="text-gold-400 text-lg">|</span>
+          <span className="text-gold-400">Insights</span>
         </h2>
-        <blockquote className="mt-3 border-l-4 border-blue-500/60 pl-4 text-slate-400 text-sm italic">
+        <blockquote className="mt-3 border-l-4 border-gold-400/60 pl-4 text-muted text-sm italic">
           Applicazione web self-hostable per l'analisi avanzata del portafoglio
           di investimenti Directa.
         </blockquote>
-        <p className="mt-4 text-slate-300 text-sm leading-relaxed">
+        <p className="mt-4 text-muted text-sm leading-relaxed">
           Portfolio Insights è un'applicazione web{' '}
-          <strong className="text-white font-semibold">self-hostable</strong> che
+          <strong className="text-paper font-semibold">self-hostable</strong> che
           analizza un portafoglio di investimenti esportato dal broker{' '}
-          <strong className="text-white font-semibold">Directa</strong>. Si concentra
+          <strong className="text-paper font-semibold">Directa</strong>. Si concentra
           su investimenti a lungo termine (Obbligazioni, Azioni, Fondi, Commodities)
           e fornisce analisi avanzate sulla composizione del portafoglio,
           l'evoluzione storica, le performance di investimento e il profilo di rischio.
@@ -120,24 +121,24 @@ export default function About() {
 
       {/* Funzionalità */}
       <div className="space-y-4">
-        <h3 className="flex items-center gap-2.5 text-xl font-bold text-white">
-          <Sparkles size={20} className="text-blue-400 shrink-0" />
+        <h3 className="flex items-center gap-2.5 text-xl font-bold text-paper">
+          <Sparkles size={20} className="text-gold-400 shrink-0" />
           Funzionalità
         </h3>
         <div className="grid gap-4 md:grid-cols-2">
           {FEATURE_SECTIONS.map(({ icon: Icon, title, items }) => (
             <div
               key={title}
-              className="bg-slate-800 rounded-xl border border-slate-700 p-6"
+              className="bg-ink-800 rounded-xl border border-ink-600 p-6"
             >
-              <h4 className="flex items-center gap-2.5 text-lg font-semibold text-white mb-3">
-                <Icon size={20} className="text-blue-400 shrink-0" />
+              <h4 className="flex items-center gap-2.5 text-lg font-semibold text-paper mb-3">
+                <Icon size={20} className="text-gold-400 shrink-0" />
                 {title}
               </h4>
-              <ul className="space-y-2 [&_strong]:text-white [&_strong]:font-semibold">
+              <ul className="space-y-2 [&_strong]:text-paper [&_strong]:font-semibold">
                 {items.map((item, i) => (
-                  <li key={i} className="flex gap-2 text-slate-400 text-sm leading-relaxed">
-                    <span className="text-blue-400" aria-hidden="true">•</span>
+                  <li key={i} className="flex gap-2 text-muted text-sm leading-relaxed">
+                    <span className="text-gold-400" aria-hidden="true">•</span>
                     <span>{item}</span>
                   </li>
                 ))}
@@ -148,47 +149,47 @@ export default function About() {
       </div>
 
       {/* Come Usare — box a piena larghezza (contenuto dal README.md) */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 [&_strong]:text-white [&_strong]:font-semibold">
-        <h3 className="flex items-center gap-2.5 text-xl font-bold text-white mb-6">
-          <BookOpen size={22} className="text-blue-400 shrink-0" />
+      <div className="bg-ink-800 rounded-xl border border-ink-600 p-6 [&_strong]:text-paper [&_strong]:font-semibold">
+        <h3 className="flex items-center gap-2.5 text-xl font-bold text-paper mb-6">
+          <BookOpen size={22} className="text-gold-400 shrink-0" />
           Come Usare Portfolio Insights
         </h3>
 
         <div className="space-y-8">
           {/* Passo 1: download report */}
           <div>
-            <h4 className="flex items-center gap-2.5 font-semibold text-white mb-3">
-              <span className="w-6 h-6 shrink-0 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-400">1</span>
-              <FileDown size={16} className="text-slate-400" />
+            <h4 className="flex items-center gap-2.5 font-semibold text-paper mb-3">
+              <span className="w-6 h-6 shrink-0 rounded-full bg-gold-500/80/20 border border-gold-400/30 flex items-center justify-center text-xs font-bold text-gold-400">1</span>
+              <FileDown size={16} className="text-muted" />
               Scarica i report da Directa
             </h4>
-            <p className="text-slate-400 text-sm mb-3">
+            <p className="text-muted text-sm mb-3">
               Accedi all'area personale Directa e scarica i seguenti report in formato CSV:
             </p>
-            <div className="overflow-x-auto rounded-lg border border-slate-700">
+            <div className="overflow-x-auto rounded-lg border border-ink-600">
               <table className="w-full text-sm">
-                <thead className="bg-slate-700/50">
+                <thead className="bg-ink-700/50">
                   <tr>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-300 uppercase tracking-wide">Report</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-300 uppercase tracking-wide">Percorso Directa</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-300 uppercase tracking-wide">Nome file tipico</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted uppercase tracking-wide">Report</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted uppercase tracking-wide">Percorso Directa</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted uppercase tracking-wide">Nome file tipico</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700">
-                  <tr className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-2.5 font-medium text-white">Movimenti</td>
-                    <td className="px-4 py-2.5 text-slate-400">Conto → Movimenti</td>
-                    <td className="px-4 py-2.5 text-slate-400 font-mono text-xs">Movimenti_*.csv</td>
+                <tbody className="divide-y divide-ink-600">
+                  <tr className="hover:bg-ink-700/30 transition-colors">
+                    <td className="px-4 py-2.5 font-medium text-paper">Movimenti</td>
+                    <td className="px-4 py-2.5 text-muted">Conto → Movimenti</td>
+                    <td className="px-4 py-2.5 text-muted font-mono text-xs">Movimenti_*.csv</td>
                   </tr>
-                  <tr className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-2.5 font-medium text-white">Patrimonio Totale</td>
-                    <td className="px-4 py-2.5 text-slate-400">Conto → Patrimonio → Rendimento</td>
-                    <td className="px-4 py-2.5 text-slate-400 font-mono text-xs">PatrimonioTotale_*.csv</td>
+                  <tr className="hover:bg-ink-700/30 transition-colors">
+                    <td className="px-4 py-2.5 font-medium text-paper">Patrimonio Totale</td>
+                    <td className="px-4 py-2.5 text-muted">Conto → Patrimonio → Rendimento</td>
+                    <td className="px-4 py-2.5 text-muted font-mono text-xs">PatrimonioTotale_*.csv</td>
                   </tr>
-                  <tr className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-2.5 font-medium text-white">Portafoglio Corrente</td>
-                    <td className="px-4 py-2.5 text-slate-400">Investimenti</td>
-                    <td className="px-4 py-2.5 text-slate-400 font-mono text-xs">P_TOTALE_*.csv</td>
+                  <tr className="hover:bg-ink-700/30 transition-colors">
+                    <td className="px-4 py-2.5 font-medium text-paper">Portafoglio Corrente</td>
+                    <td className="px-4 py-2.5 text-muted">Investimenti</td>
+                    <td className="px-4 py-2.5 text-muted font-mono text-xs">P_TOTALE_*.csv</td>
                   </tr>
                 </tbody>
               </table>
@@ -197,12 +198,12 @@ export default function About() {
 
           {/* Passo 2: importazione */}
           <div>
-            <h4 className="flex items-center gap-2.5 font-semibold text-white mb-3">
-              <span className="w-6 h-6 shrink-0 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-400">2</span>
-              <Upload size={16} className="text-slate-400" />
+            <h4 className="flex items-center gap-2.5 font-semibold text-paper mb-3">
+              <span className="w-6 h-6 shrink-0 rounded-full bg-gold-500/80/20 border border-gold-400/30 flex items-center justify-center text-xs font-bold text-gold-400">2</span>
+              <Upload size={16} className="text-muted" />
               Importa i file
             </h4>
-            <ol className="list-decimal list-inside space-y-1.5 text-slate-400 text-sm leading-relaxed">
+            <ol className="list-decimal list-inside space-y-1.5 text-muted text-sm leading-relaxed">
               <li>Vai su <strong>Import</strong> nell'applicazione</li>
               <li>Carica i file CSV uno alla volta (trascina o clicca per selezionare)</li>
               <li>L'ordine consigliato: prima <strong>Movimenti</strong>, poi <strong>Patrimonio Totale</strong>, infine <strong>Portafoglio Corrente</strong></li>
@@ -211,12 +212,12 @@ export default function About() {
 
           {/* Passo 3: esplorazione */}
           <div>
-            <h4 className="flex items-center gap-2.5 font-semibold text-white mb-3">
-              <span className="w-6 h-6 shrink-0 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-400">3</span>
-              <Compass size={16} className="text-slate-400" />
+            <h4 className="flex items-center gap-2.5 font-semibold text-paper mb-3">
+              <span className="w-6 h-6 shrink-0 rounded-full bg-gold-500/80/20 border border-gold-400/30 flex items-center justify-center text-xs font-bold text-gold-400">3</span>
+              <Compass size={16} className="text-muted" />
               Esplora i dati
             </h4>
-            <ul className="space-y-1.5 text-slate-400 text-sm leading-relaxed">
+            <ul className="space-y-1.5 text-muted text-sm leading-relaxed">
               <li><strong>Dashboard</strong>: panoramica con KPI e grafico storico</li>
               <li><strong>Portfolio</strong>: dettaglio delle posizioni, classifica gli asset manualmente</li>
               <li><strong>Allocazione</strong>: definisci i target per categoria e verifica le divergenze</li>
@@ -228,12 +229,12 @@ export default function About() {
       </div>
 
       {/* Repository GitHub — link in fondo alla pagina */}
-      <div className="pt-6 border-t border-slate-700 flex justify-center">
+      <div className="pt-6 border-t border-ink-600 flex justify-center">
         <a
           href="https://github.com/massimobottelli/Portfolio-Insights"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors"
+          className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-medium text-muted hover:text-paper hover:bg-ink-700/50 transition-colors"
           title="Repository GitHub"
         >
           <GithubIcon size={18} />

@@ -109,7 +109,7 @@ export default function Performance() {
   if (loading && !analytics) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400 text-lg">Caricamento...</div>
+        <div className="text-muted text-lg">Caricamento...</div>
       </div>
     );
   }
@@ -117,7 +117,7 @@ export default function Performance() {
   if (error && !analytics) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-red-400 text-lg">{error}</div>
+        <div className="text-bear text-lg">{error}</div>
       </div>
     );
   }
@@ -125,7 +125,7 @@ export default function Performance() {
   if (!analytics) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400 text-lg">Dati non disponibili</div>
+        <div className="text-muted text-lg">Dati non disponibili</div>
       </div>
     );
   }
@@ -136,13 +136,13 @@ export default function Performance() {
   return (
     <div className="space-y-4 lg:space-y-6">
       {/* Titolo pagina */}
-      <h1 className="text-2xl font-bold text-white">Performance</h1>
+      <h1 className="text-2xl font-bold text-paper" style={{ fontFamily: 'var(--font-display)' }}>Performance</h1>
 
       {/* Top bar: last update date */}
       <div className="flex justify-end">
         {baseDate && (
-          <p className="text-slate-400 text-xs lg:text-sm flex items-center gap-1">
-            <Calendar size={14} className="text-slate-400" />
+          <p className="text-muted text-xs lg:text-sm flex items-center gap-1">
+            <Calendar size={14} className="text-muted" />
             Ultimo aggiornamento: {new Date(baseDate).toLocaleDateString('it-IT')}
           </p>
         )}
@@ -151,25 +151,25 @@ export default function Performance() {
       {/* Errore durante un refetch con dati già visibili: banner inline,
           la pagina non viene sostituita (preserva posizione di scroll). */}
       {error && hasData && (
-        <div className="bg-red-900/40 border border-red-700 rounded-lg px-4 py-2">
-          <p className="text-red-400 text-sm">{error}</p>
+        <div className="bg-bear/20 border border-bear/30 rounded-lg px-4 py-2">
+          <p className="text-bear text-sm">{error}</p>
         </div>
       )}
 
       {!hasData ? (
         <div className="flex items-center justify-center h-32">
-          <p className="text-slate-500 text-lg">Nessun dato disponibile</p>
+          <p className="text-muted text-lg">Nessun dato disponibile</p>
         </div>
       ) : (
         <>
           {/* Box CAGR — stesso stile del box "Valore Portafoglio" della Dashboard */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+          <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-6">
             {/* CAGR — Compound Annual Growth Rate */}
-            <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider ">CAGR</h3>
-            <p className={`font-bold text-4xl lg:text-6xl ${performance.cagr !== null && performance.cagr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider ">CAGR</h3>
+            <p className={`font-bold num text-4xl lg:text-6xl ${performance.cagr !== null && performance.cagr >= 0 ? 'text-bull' : 'text-bear'}`}>
               {formatPercent(performance.cagr)}
             </p>
-            <p className="text-slate-300 mt-2 text-base lg:text-lg font-medium">
+            <p className="text-muted mt-2 text-base lg:text-lg font-medium">
               Rendimento annuo composto time-weighted
               {metadata.periodLessThanOneYear && <> <span className="font-normal">(Periodo inferiore a 1 anno, CAGR stimato)</span></>}
             </p>
@@ -184,24 +184,24 @@ export default function Performance() {
           <AssetComparisonChart portfolioSeries={analytics.cumulativeSeries} />
 
           {/* Monthly Returns Bar Chart */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
-            <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-4">
+          <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-6">
+            <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider mb-4">
               Rendimenti Mensili
             </h3>
             <MonthlyReturnsChart monthlyReturns={analytics.monthlyReturns} />
           </div>
 
           {/* Monthly Returns Heatmap */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
-            <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
+          <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-6">
+            <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider mb-3">
               Heatmap Rendimenti Mensili
             </h3>
             <MonthlyReturnsHeatmap monthlyReturns={analytics.monthlyReturns} />
           </div>
 
           {/* Performance Mesi / Anni */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
-            <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
+          <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-6">
+            <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider mb-3">
               Performance Mesi / Anni
             </h3>
             <PeriodStatistics

@@ -31,7 +31,7 @@ const ASSET_COLORS = [
   '#8b5cf6', // Violet 500
 ];
 
-const PORTFOLIO_COLOR = '#10b981'; // Emerald 500
+const PORTFOLIO_COLOR = 'var(--bull)'; // Emerald 500
 
 interface AssetComparisonChartProps {
   portfolioSeries?: Array<{ date: string; value: number }>;
@@ -271,8 +271,8 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
 
   if (loading && assets.length === 0) {
     return (
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 flex items-center justify-center h-64">
-        <div className="flex items-center gap-3 text-slate-400">
+      <div className="bg-ink-800 rounded-xl border border-ink-600 p-6 flex items-center justify-center h-64">
+        <div className="flex items-center gap-3 text-muted">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span>Caricamento confronto quote...</span>
         </div>
@@ -282,11 +282,11 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
 
   if (error && assets.length === 0) {
     return (
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-        <p className="text-red-400 text-sm">{error}</p>
+      <div className="bg-ink-800 rounded-xl border border-ink-600 p-6">
+        <p className="text-bear text-sm">{error}</p>
         <button
           onClick={loadComparisonData}
-          className="mt-3 px-3 py-1.5 text-xs font-medium rounded bg-slate-700 hover:bg-slate-600 text-white cursor-pointer"
+          className="mt-3 px-3 py-1.5 text-xs font-medium rounded bg-ink-700 hover:bg-ink-600 text-paper cursor-pointer"
         >
           Riprova
         </button>
@@ -299,28 +299,28 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
   }
 
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+    <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-6">
       {/* 1. Header con titolo e selettore timeframe */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
-          <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider">
+          <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider">
             Confronto Rendimenti Asset
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             Rendimento normalizzato a base 0% dalla data del primo acquisto (o dall'inizio del periodo selezionato)
           </p>
         </div>
 
         {/* Filtro temporale (1M, 3M, 6M, 1Y, YTD, All) */}
-        <div className="flex items-center gap-1 bg-slate-900/60 p-1 rounded-lg border border-slate-700/80 self-start sm:self-auto">
+        <div className="flex items-center gap-1 bg-ink-900/60 p-1 rounded-lg border border-ink-600/80 self-start sm:self-auto">
           {TIME_RANGE_OPTIONS.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setRange(key)}
               className={`px-2.5 py-1 text-xs font-medium rounded transition-colors cursor-pointer ${
                 range === key
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                  ? 'bg-bull text-paper shadow-sm'
+                  : 'text-muted hover:text-paper hover:bg-ink-700/50'
               }`}
             >
               {label}
@@ -330,19 +330,19 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
       </div>
 
       {/* 2. Barra controlli: Selettori Asset e Benchmark Portafoglio */}
-      <div className="mb-4 space-y-2.5 pt-2 border-t border-slate-700/60">
+      <div className="mb-4 space-y-2.5 pt-2 border-t border-ink-600/60">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-slate-400 font-medium">Strumenti:</span>
+            <span className="text-muted font-medium">Strumenti:</span>
             <button
               onClick={selectAll}
-              className="text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-700/60 hover:bg-slate-700 cursor-pointer transition-colors"
+              className="text-muted hover:text-paper px-2 py-0.5 rounded bg-ink-700/60 hover:bg-ink-700 cursor-pointer transition-colors"
             >
               Tutti
             </button>
             <button
               onClick={deselectAll}
-              className="text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-700/60 hover:bg-slate-700 cursor-pointer transition-colors"
+              className="text-muted hover:text-paper px-2 py-0.5 rounded bg-ink-700/60 hover:bg-ink-700 cursor-pointer transition-colors"
             >
               Nessuno
             </button>
@@ -354,8 +354,8 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
               onClick={() => setShowPortfolio((prev) => !prev)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-colors cursor-pointer font-medium ${
                 showPortfolio
-                  ? 'bg-emerald-950/60 border-emerald-500/80 text-emerald-300'
-                  : 'bg-slate-900/40 border-slate-700 text-slate-500 hover:text-slate-400'
+                  ? 'bg-bull/30 border-bull/60 text-bull'
+                  : 'bg-ink-900/40 border-ink-600 text-muted hover:text-muted'
               }`}
             >
               <span
@@ -365,7 +365,7 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
               <span>Portafoglio (TWR)</span>
               <span
                 className={`font-semibold ml-0.5 ${
-                  preparedPortfolio.periodReturn >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  preparedPortfolio.periodReturn >= 0 ? 'text-bull' : 'text-bear'
                 }`}
               >
                 {preparedPortfolio.periodReturn >= 0 ? '+' : ''}
@@ -388,8 +388,8 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
                 onClick={() => toggleAsset(asset.id)}
                 className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-slate-900/80 border-slate-600 text-white shadow-sm'
-                    : 'bg-slate-900/30 border-slate-800 text-slate-500 opacity-60 hover:opacity-90'
+                    ? 'bg-ink-900/80 border-ink-600 text-paper shadow-sm'
+                    : 'bg-ink-900/30 border-ink-600 text-muted opacity-60 hover:opacity-90'
                 }`}
                 title={`${asset.name} (${asset.ticker})`}
               >
@@ -397,16 +397,16 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
                   className="w-2 h-2 rounded-full flex-shrink-0 transition-transform group-hover:scale-125"
                   style={{ backgroundColor: color }}
                 />
-                <span className={isSelected ? 'text-slate-200' : 'text-slate-500'}>
+                <span className={isSelected ? 'text-paper' : 'text-muted'}>
                   {asset.ticker}
                 </span>
                 <span
                   className={`font-semibold ${
                     isSelected
                       ? isPositive
-                        ? 'text-emerald-400'
-                        : 'text-red-400'
-                      : 'text-slate-500'
+                        ? 'text-bull'
+                        : 'text-bear'
+                      : 'text-muted'
                   }`}
                 >
                   {isPositive ? '+' : ''}
@@ -420,7 +420,7 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
 
       {/* 3. Grafico multi-linea Recharts */}
       {chartData.length === 0 ? (
-        <div className="h-64 flex items-center justify-center text-slate-500 text-sm">
+        <div className="h-64 flex items-center justify-center text-muted text-sm">
           Nessuno strumento selezionato per il confronto.
         </div>
       ) : (
@@ -435,17 +435,17 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
                 bottom: 0,
               }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <ReferenceLine y={0} stroke="#64748b" strokeDasharray="2 2" strokeWidth={1} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-600)" />
+              <ReferenceLine y={0} stroke="var(--muted)" strokeDasharray="2 2" strokeWidth={1} />
               <XAxis
                 dataKey="date"
                 ticks={monthTicks}
-                tick={{ fill: '#94a3b8', fontSize: isMobile ? 10 : 12 }}
+                tick={{ fill: 'var(--muted)', fontSize: isMobile ? 10 : 12 }}
                 tickFormatter={formatTick}
               />
               <YAxis
                 width={isMobile ? 45 : 60}
-                tick={{ fill: '#94a3b8', fontSize: isMobile ? 9 : 12 }}
+                tick={{ fill: 'var(--muted)', fontSize: isMobile ? 9 : 12 }}
                 tickFormatter={(val: number) => (val >= 0 ? `+${val.toFixed(0)}%` : `${val.toFixed(0)}%`)}
                 domain={['auto', 'auto']}
               />
@@ -466,8 +466,8 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
                   });
 
                   return (
-                    <div className="bg-slate-900/95 border border-slate-700 shadow-2xl rounded-lg p-3 text-xs max-w-xs backdrop-blur-sm">
-                      <p className="text-slate-400 font-medium mb-2 border-b border-slate-800 pb-1 capitalize">
+                    <div className="bg-ink-900/95 border border-ink-600 shadow-2xl rounded-lg p-3 text-xs max-w-xs backdrop-blur-sm">
+                      <p className="text-muted font-medium mb-2 border-b border-ink-600 pb-1 capitalize">
                         {dateFormatted}
                       </p>
                       <div className="space-y-1.5 max-h-56 overflow-y-auto">
@@ -488,7 +488,7 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
                                 />
                                 <span
                                   className={`truncate ${
-                                    isPort ? 'font-semibold text-emerald-300' : 'text-slate-300'
+                                    isPort ? 'font-semibold text-bull' : 'text-muted'
                                   }`}
                                 >
                                   {item.name}
@@ -496,7 +496,7 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
                               </div>
                               <span
                                 className={`font-mono font-semibold flex-shrink-0 ${
-                                  isPos ? 'text-emerald-400' : 'text-red-400'
+                                  isPos ? 'text-bull' : 'text-bear'
                                 }`}
                               >
                                 {isPos ? '+' : ''}
@@ -551,7 +551,7 @@ export default function AssetComparisonChart({ portfolioSeries }: AssetCompariso
       )}
 
       {/* 4. Nota informativa a piè di grafico */}
-      <p className="text-[11px] text-slate-500 mt-3">
+      <p className="text-[11px] text-muted mt-3">
         Nota: le obbligazioni (BOND) e gli strumenti senza serie di prezzi di chiusura sono esclusi
         dal confronto. La serie di ciascun asset parte dalla data del primo acquisto (o dall'inizio del periodo selezionato se successivo), con rendimento normalizzato a base 0%.
       </p>

@@ -83,30 +83,30 @@ export default function RiskMetrics({
       {/* KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Volatilità Annualizzata */}
-        <div className="flex-1 bg-slate-900 rounded-lg border border-slate-700 p-3">
-          <p className="uppercase text-slate-400 text-xs font-semibold tracking-wider mb-2">
+        <div className="flex-1 bg-ink-900 rounded-lg border border-ink-600 p-3">
+          <p className="uppercase text-muted text-xs font-semibold tracking-wider mb-2">
             Volatilità Annua
           </p>
-          <p className={`font-bold text-2xl ${annualizedVolatility !== null && annualizedVolatility > 0 ? 'text-amber-400' : 'text-slate-300'}`}>
+          <p className={`font-bold text-2xl ${annualizedVolatility !== null && annualizedVolatility > 0 ? 'text-gold-400' : 'text-muted'}`}>
             {annualizedVolatility !== null ? percentFmt.format(annualizedVolatility) : 'N/D'}
           </p>
-          <p className="text-slate-500 mt-1 text-xs">Deviazione standard annualizzata</p>
+          <p className="text-muted mt-1 text-xs">Deviazione standard annualizzata</p>
         </div>
 
         {/* Rapporto Sharpe */}
-        <div className="flex-1 bg-slate-900 rounded-lg border border-slate-700 p-3">
-          <p className="uppercase text-slate-400 text-xs font-semibold tracking-wider mb-2">
+        <div className="flex-1 bg-ink-900 rounded-lg border border-ink-600 p-3">
+          <p className="uppercase text-muted text-xs font-semibold tracking-wider mb-2">
             Rapporto Sharpe
           </p>
-          <p className={`font-bold text-2xl ${sharpeRatio !== null ? (sharpeRatio >= 1 ? 'text-emerald-400' : sharpeRatio >= 0 ? 'text-amber-400' : 'text-red-400') : 'text-slate-300'}`}>
+          <p className={`font-bold text-2xl ${sharpeRatio !== null ? (sharpeRatio >= 1 ? 'text-bull' : sharpeRatio >= 0 ? 'text-gold-400' : 'text-bear') : 'text-muted'}`}>
             {sharpeRatio !== null ? decimalFmt.format(sharpeRatio) : 'N/D'}
           </p>
-          <p className="text-slate-500 mt-1 text-xs">Excess return / volatilità</p>
+          <p className="text-muted mt-1 text-xs">Excess return / volatilità</p>
         </div>
 
         {/* Tasso Risk-Free */}
-        <div className="flex-1 bg-slate-900 rounded-lg border border-slate-700 p-3">
-          <p className="uppercase text-slate-400 text-xs font-semibold tracking-wider mb-2">
+        <div className="flex-1 bg-ink-900 rounded-lg border border-ink-600 p-3">
+          <p className="uppercase text-muted text-xs font-semibold tracking-wider mb-2">
             Tasso Risk-Free
           </p>
           <div className="flex flex-col justify-center">
@@ -119,22 +119,22 @@ export default function RiskMetrics({
                 max="100"
                 value={rfInput}
                 onChange={(e) => handleRfChange(e.target.value)}
-                className="w-32 [color-scheme:dark] bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white text-lg font-bold text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-32 [color-scheme:dark] bg-ink-700/60 border border-ink-600 rounded px-2 py-1 text-paper text-lg font-bold text-center focus:outline-none focus:border-gold-400 focus:ring-2 focus:ring-gold-400/50"
                 placeholder="2,50"
               />
-              <span className="text-slate-400 text-sm font-medium">%</span>
+              <span className="text-muted text-sm font-medium">%</span>
               <button
                 type="button"
                 onClick={handleRecalculate}
                 disabled={error !== null}
-                className="ml-auto bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="ml-auto bg-gold-500/80 hover:bg-gold-400 disabled:bg-ink-700 disabled:text-muted disabled:cursor-not-allowed text-paper rounded px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-gold-400/50"
               >
                 Ricalcola Sharpe
               </button>
             </div>
-            {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+            {error && <p className="text-bear text-xs mt-1">{error}</p>}
           </div>
-          <p className="text-slate-500 mt-1 text-xs">Tasso annuale privo di rischio</p>
+          <p className="text-muted mt-1 text-xs">Tasso annuale privo di rischio</p>
         </div>
       </div>
     </div>

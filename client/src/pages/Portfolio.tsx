@@ -120,42 +120,41 @@ function AssetTypeDropdown({
   const isUnknown = currentType === 'UNKNOWN';
 
   return (
-    <div className="relative">
+    <div className="relative w-28">
       {saving && (
-        <Loader2 size={12} className="absolute -left-4 top-1/2 -translate-y-1/2 text-blue-400 animate-spin" />
+        <Loader2 size={12} className="absolute -left-4 top-1/2 -translate-y-1/2 text-gold-400 animate-spin" />
       )}
       <select
         value={currentType}
         onChange={handleChange}
-        className="border cursor-pointer appearance-none transition-colors hover:border-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full border cursor-pointer appearance-none transition-colors hover:border-gold-400/50 focus:outline-none focus:ring-2 focus:ring-gold-400/50"
         style={{
           borderRadius: '6px',
-          padding: '3px 32px 3px 10px',
+          padding: '3px 28px 3px 10px',
           lineHeight: 1.2,
           fontSize: '11px',
           fontWeight: 500,
           letterSpacing: '0.4px',
           textTransform: 'uppercase',
-          backgroundColor: isUnknown ? '#451a0340' : style.bg,
-          borderColor: isUnknown ? '#b4530980' : style.border,
+          backgroundColor: isUnknown ? '#1e253040' : style.bg,
+          borderColor: isUnknown ? '#d4a24a80' : style.border,
           borderWidth: '1px',
-          color: isUnknown ? '#fbbf24' : style.text,
-          paddingRight: '1.25rem',
+          color: isUnknown ? '#d4a24a' : style.text,
         }}
       >
         {ASSET_TYPES.map(type => (
-          <option key={type} value={type} className="bg-slate-800 text-slate-200">
+          <option key={type} value={type} className="bg-ink-800 text-paper">
             {type}
           </option>
         ))}
       </select>
       <svg
-        className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none"
+        className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
         width="10"
         height="10"
         viewBox="0 0 10 10"
         fill="none"
-        style={{ color: isUnknown ? '#fbbf24' : style.text }}
+        style={{ color: isUnknown ? '#d4a24a' : style.text }}
       >
         <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -285,7 +284,7 @@ export default function Portfolio() {
   const thClass = (key: SortKey, align: 'left' | 'right' = 'left') =>
     `cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors ${
       align === 'right' ? 'text-right' : 'text-left'
-    } ${sortKey === key ? 'text-white' : 'text-slate-400'} hover:text-white`;
+    } ${sortKey === key ? 'text-paper' : 'text-muted'} hover:text-paper`;
 
   // Totali complessivi per la riga di riepilogo.
   // Il totale "attuale" include la liquidità disponibile (available_cash),
@@ -355,20 +354,20 @@ export default function Portfolio() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
-        <h2 className="text-2xl font-bold text-white">Portfolio</h2>
+        <h2 className="text-2xl font-bold text-paper" style={{ fontFamily: 'var(--font-display)' }}>Portfolio</h2>
         {priceDate && (
-          <p className="text-slate-400 text-sm flex items-center gap-1">
-            <Calendar size={14} className="text-slate-400" />
+          <p className="text-muted text-sm flex items-center gap-1">
+            <Calendar size={14} className="text-muted" />
             {formatDate(priceDate)}
           </p>
         )}
       </div>
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+      <div className="bg-ink-800 rounded-xl border border-ink-600 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700 bg-slate-800/50">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-ink-600 bg-ink-800/50">
                 <th className={thClass('ticker')} onClick={() => handleSort('ticker')}>
                   Ticker{sortArrow('ticker')}
                 </th>
@@ -401,7 +400,7 @@ export default function Portfolio() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700">
+            <tbody className="divide-y divide-ink-600">
                {sortedPositions.map((pos) => {
                  // Usa i campi già calcolati in visiblePositions (memoizzati):
                  // ricalcolare qui per ogni riga era lavoro ridondante ad ogni render.
@@ -411,27 +410,27 @@ export default function Portfolio() {
                  return (
                   <tr
                     key={pos.asset_id}
-                    className="hover:bg-slate-700/30 transition-colors cursor-pointer">
-                    <td className="px-4 py-3 text-sm font-medium text-white">{pos.ticker}</td>
-                    <td className="px-4 py-3 text-sm text-slate-400 font-mono">{pos.isin}</td>
+                    className="hover:bg-ink-700/30 transition-colors cursor-pointer">
+                    <td className="px-4 py-3 text-sm font-medium text-paper">{pos.ticker}</td>
+                    <td className="px-4 py-3 text-sm text-muted font-mono">{pos.isin}</td>
                     <td className="px-4 py-3 text-sm" onClick={() => navigate(`/asset/${pos.asset_id}`, { state: { from: '/portfolio' } })} >
                       <span
-                        className="text-slate-300 hover:text-white hover:underline cursor-pointer transition-colors"
+                        className="text-muted hover:text-paper hover:underline cursor-pointer transition-colors"
                         title="Click per Scheda Asset"
                       >
                         {pos.name}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-white font-medium">
+                    <td className="px-4 py-3 text-sm text-right text-paper font-medium">
                       {pos.quantity.toLocaleString('it-IT')}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-white font-medium">
+                    <td className="px-4 py-3 text-sm text-right text-paper font-medium">
                       {formatPrice(pos.current_price)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-300">
+                    <td className="px-4 py-3 text-sm text-right text-muted">
                       {formatPrice(pos.average_price)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-white font-medium">
+                    <td className="px-4 py-3 text-sm text-right text-paper font-medium">
                       {formatCurrency(totalValue, pos.currency)}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainEur)}`}>
@@ -452,7 +451,7 @@ export default function Portfolio() {
               })}
               {sortedPositions.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={10} className="px-4 py-8 text-center text-muted">
                     Nessuna posizione attiva
                   </td>
                 </tr>
@@ -466,44 +465,44 @@ export default function Portfolio() {
       {assetTypeSummary.length > 0 && (
         <>
           <div className="flex justify-between items-start">
-            <h2 className="text-2xl font-bold text-white">Asset Class</h2>
+            <h2 className="text-2xl font-bold text-paper" style={{ fontFamily: 'var(--font-display)' }}>Asset Class</h2>
           </div>
-          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+          <div className="bg-ink-800 rounded-xl border border-ink-600 overflow-hidden">
             <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700 bg-slate-800/50">
-                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-slate-400 hover:text-white text-left"
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-ink-600 bg-ink-800/50">
+                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-muted hover:text-paper text-left"
                       onClick={() => handleSummarySort('assetType')}>
                     Tipo Asset{summarySortArrow('assetType')}
                   </th>
-                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-slate-400 hover:text-white text-right"
+                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-muted hover:text-paper text-right"
                       onClick={() => handleSummarySort('carico')}>
                     Valore Carico{summarySortArrow('carico')}
                   </th>
-                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-slate-400 hover:text-white text-right"
+                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-muted hover:text-paper text-right"
                       onClick={() => handleSummarySort('attuale')}>
                     Valore Attuale{summarySortArrow('attuale')}
                   </th>
-                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-slate-400 hover:text-white text-right"
+                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-muted hover:text-paper text-right"
                       onClick={() => handleSummarySort('gain')}>
                     Gain/Loss €{summarySortArrow('gain')}
                   </th>
-                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-slate-400 hover:text-white text-right"
+                  <th className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors text-muted hover:text-paper text-right"
                       onClick={() => handleSummarySort('gainPercent')}>
                     Gain/Loss %{summarySortArrow('gainPercent')}
                   </th>
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-right">
                     N. Asset
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700">
+              <tbody className="divide-y divide-ink-600">
                 {sortedSummary.map(({ assetType, carico, attuale, gain, gainPercent, count }) => {
                   const style = getAssetTypeStyle(assetType);
                   const isUnknown = assetType === 'UNKNOWN';
                   return (
-                  <tr key={assetType} className="hover:bg-slate-700/30 transition-colors">
+                  <tr key={assetType} className="hover:bg-ink-700/30 transition-colors">
                     <td className="px-4 py-3 text-sm">
                       <span className="inline-block border font-medium uppercase tracking-wide"
                         style={{
@@ -513,30 +512,30 @@ export default function Portfolio() {
                           fontSize: '11px',
                           fontWeight: 500,
                           letterSpacing: '0.4px',
-                          backgroundColor: isUnknown ? '#451a0340' : style.bg,
-                          borderColor: isUnknown ? '#b4530980' : style.border,
+                          backgroundColor: isUnknown ? '#1e253040' : style.bg,
+                          borderColor: isUnknown ? '#d4a24a80' : style.border,
                           borderWidth: '1px',
-                          color: isUnknown ? '#fbbf24' : style.text,
+                          color: isUnknown ? '#d4a24a' : style.text,
                         }}>
                         {assetType}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatEUR(carico)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatEUR(attuale)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-paper font-medium">{formatEUR(carico)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-paper font-medium">{formatEUR(attuale)}</td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gain)}`}>
                       {formatEUR(gain)}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainPercent)}`}>
                       {formatPercent(gainPercent)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-400">{count}</td>
+                    <td className="px-4 py-3 text-sm text-right text-muted">{count}</td>
                   </tr>
                   );
                 })}
                 {/* Riga Liquidità: la liquidità disponibile fa parte del portafoglio
                     e viene inclusa nel totale per coerenza con la Dashboard. */}
                 {availableCash !== null && availableCash > 0 && (
-                  <tr className="bg-slate-800/40">
+                  <tr className="bg-ink-800/40">
                     <td className="px-4 py-3 text-sm">
                       <span className="inline-block border font-medium uppercase tracking-wide"
                         style={{
@@ -554,27 +553,27 @@ export default function Portfolio() {
                         LIQUIDITÀ
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-400">—</td>
-                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatEUR(availableCash)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-300">—</td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-300">—</td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-400">—</td>
+                    <td className="px-4 py-3 text-sm text-right text-muted">—</td>
+                    <td className="px-4 py-3 text-sm text-right text-paper font-medium">{formatEUR(availableCash)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-muted">—</td>
+                    <td className="px-4 py-3 text-sm text-right text-muted">—</td>
+                    <td className="px-4 py-3 text-sm text-right text-muted">—</td>
                   </tr>
                 )}
               </tbody>
               {/* Riga totali complessivi */}
               <tfoot>
-                <tr className="border-t-2 border-slate-600 bg-slate-800/80">
-                  <td className="px-4 py-3 text-sm font-semibold text-white uppercase tracking-wider">Totale</td>
-                  <td className="px-4 py-3 text-sm text-right font-bold text-white">{formatEUR(totals.carico)}</td>
-                  <td className="px-4 py-3 text-sm text-right font-bold text-white">{formatEUR(totals.attuale)}</td>
+                <tr className="border-t-2 border-ink-600 bg-ink-800/80">
+                  <td className="px-4 py-3 text-sm font-semibold text-paper uppercase tracking-wider">Totale</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-paper">{formatEUR(totals.carico)}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-paper">{formatEUR(totals.attuale)}</td>
                   <td className={`px-4 py-3 text-sm text-right font-bold ${gainColorClass(totals.gain)}`}>
                     {formatEUR(totals.gain)}
                   </td>
                   <td className={`px-4 py-3 text-sm text-right font-bold ${gainColorClass(totals.gainPercent)}`}>
                     {formatPercent(totals.gainPercent)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right font-bold text-white">{totals.count}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-paper">{totals.count}</td>
                 </tr>
               </tfoot>
             </table>

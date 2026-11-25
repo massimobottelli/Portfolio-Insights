@@ -71,8 +71,8 @@ export default function DrawdownChart({ cumulativeSeries }: DrawdownChartProps) 
   if (drawdownData.length === 0) {
     return (
       <div className="mt-4">
-        <div className="bg-slate-900 rounded-lg border border-slate-700 p-6 text-center">
-          <p className="text-slate-500">Nessun dato disponibile per il grafico del drawdown</p>
+        <div className="bg-ink-900 rounded-lg border border-ink-600 p-6 text-center">
+          <p className="text-muted">Nessun dato disponibile per il grafico del drawdown</p>
         </div>
       </div>
     );
@@ -86,15 +86,15 @@ export default function DrawdownChart({ cumulativeSeries }: DrawdownChartProps) 
     const drawdownPct = (item.drawdown * 100).toFixed(2);
 
     return (
-      <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
-        <p className="text-slate-300 text-sm">
+      <div className="bg-ink-700 border border-ink-600 rounded-lg px-4 py-3 shadow-lg">
+        <p className="text-muted text-sm">
           {new Date(item.date).toLocaleDateString('it-IT', {
             day: '2-digit',
             month: 'long',
             year: 'numeric',
           })}
         </p>
-        <p className="font-semibold text-red-400 text-sm mt-1">
+        <p className="font-semibold text-bear text-sm mt-1">
           Drawdown: {drawdownPct}%
         </p>
       </div>
@@ -119,19 +119,19 @@ export default function DrawdownChart({ cumulativeSeries }: DrawdownChartProps) 
         >
           <defs>
             <linearGradient id="drawdownGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--bear)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="var(--bear)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-600)" />
           <XAxis
             dataKey="date"
-            tick={{ fill: '#94a3b8', fontSize: 12 }}
+            tick={{ fill: 'var(--muted)', fontSize: 12 }}
             tickFormatter={formatTickDate}
           />
           <YAxis
             yAxisId="left"
-            tick={{ fill: '#94a3b8', fontSize: 12 }}
+            tick={{ fill: 'var(--muted)', fontSize: 12 }}
             tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
             domain={yDomain}
           />
@@ -140,7 +140,7 @@ export default function DrawdownChart({ cumulativeSeries }: DrawdownChartProps) 
             yAxisId="left"
             type="monotone"
             dataKey="drawdown"
-            stroke="#ef4444"
+            stroke="var(--bear)"
             strokeWidth={2}
             fill="url(#drawdownGradient)"
           />

@@ -21,13 +21,13 @@ interface MonthlyReturnsHeatmapProps {
 }
 
 /** Gradient endpoints: darker/muted at extremes, lighter/brighter around zero (dark theme). */
-const BRIGHT_POSITIVE = '#059669'; // emerald-600 — bright, used near zero (inverted: center=light)
-const DARK_POSITIVE = '#064e3b';   // emerald-900 — dark, used at extreme positive
-const BRIGHT_NEGATIVE = '#dc2626'; // red-600 — bright, used near zero
-const DARK_NEGATIVE = '#7f1d1d';   // red-900 — dark, used at extreme negative
-const NEUTRAL_ZERO = '#94a3b8';    // slate-400 — light neutral for exactly 0%
-const TEXT_DARK = '#1e293b';       // slate-800
-const TEXT_LIGHT = '#ffffff';
+const BRIGHT_POSITIVE = '#2fbf8f';  // bull — bright, used near zero
+const DARK_POSITIVE = '#1a7a5a';    // bull più scuro — dark, at extreme positive
+const BRIGHT_NEGATIVE = '#e0564f';  // bear — bright, used near zero
+const DARK_NEGATIVE = '#8a3025';    // bear più scuro — dark, at extreme negative
+const NEUTRAL_ZERO = '#8b93a3';     // muted — light neutral for exactly 0%
+const TEXT_DARK = '#1e2530';        // ink-700
+const TEXT_LIGHT = '#e8e6e1';       // paper
 
 /** Luminance crossover at which white text becomes more readable than dark text */
 const TEXT_LUMINANCE_CUTOFF = 0.225;
@@ -83,16 +83,16 @@ function getCellStyle(
 function MonthTooltip({ year, month, returnVal }: { year: number; month: number; returnVal: number | null }) {
   if (returnVal === null) {
     return (
-      <div className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 shadow-lg text-sm">
-        <p className="text-white font-semibold">{MONTH_ABBR[month - 1]} {year}</p>
-        <p className="text-slate-300 mt-1">Nessun dato</p>
+      <div className="bg-ink-800/95 border border-gold-400/30 rounded-lg px-3 py-2 shadow-lg text-sm">
+        <p className="text-paper font-semibold">{MONTH_ABBR[month - 1]} {year}</p>
+        <p className="text-muted mt-1">Nessun dato</p>
       </div>
     );
   }
-  const color = returnVal >= 0 ? '#10b981' : '#ef4444';
+  const color = returnVal >= 0 ? '#2fbf8f' : '#e0564f';
   return (
-    <div className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 shadow-lg text-sm">
-      <p className="text-white font-semibold">{MONTH_ABBR[month - 1]} {year}</p>
+    <div className="bg-ink-800/95 border border-gold-400/30 rounded-lg px-3 py-2 shadow-lg text-sm">
+      <p className="text-paper font-semibold">{MONTH_ABBR[month - 1]} {year}</p>
       <p className="mt-1" style={{ color }}>
         Rendimento: {formatReturn(returnVal)}
       </p>
@@ -127,7 +127,7 @@ export default function MonthlyReturnsHeatmap({ monthlyReturns }: MonthlyReturns
   if (sortedYears.length === 0) {
     return (
       <div className="flex items-center justify-center h-48">
-        <p className="text-slate-500 text-sm">Nessun dato mensile disponibile</p>
+        <p className="text-muted text-sm">Nessun dato mensile disponibile</p>
       </div>
     );
   }
@@ -143,7 +143,7 @@ export default function MonthlyReturnsHeatmap({ monthlyReturns }: MonthlyReturns
         >
           <div className="w-12" /> {/* Year label placeholder */}
           {MONTH_ABBR.map((m) => (
-            <div key={m} className="text-center text-xs text-slate-400 font-medium">
+            <div key={m} className="text-center text-xs text-muted font-medium">
               {m}
             </div>
           ))}
@@ -165,7 +165,7 @@ export default function MonthlyReturnsHeatmap({ monthlyReturns }: MonthlyReturns
               style={{ gridTemplateColumns: '3rem repeat(12, 1fr)' }}
             >
               {/* Year label */}
-              <div className="text-sm font-semibold text-slate-300 w-12 text-right pr-1">
+              <div className="text-sm font-semibold text-muted w-12 text-right pr-1">
                 {year}
               </div>
 
@@ -179,14 +179,14 @@ export default function MonthlyReturnsHeatmap({ monthlyReturns }: MonthlyReturns
                   <div
                     key={monthNum}
                     className={`relative flex items-center justify-center rounded-md cursor-pointer h-9 text-xs font-medium transition-opacity ${
-                      hasData ? '' : 'bg-slate-800 text-slate-600'
+                      hasData ? '' : 'bg-ink-800 text-muted'
                     }`}
                     style={hasData ? getCellStyle(returnValue!, maxAbsReturn) : undefined}
                   >
                     {hasData ? (
                       formatReturn(returnValue!, 1)
                     ) : (
-                      <span className="text-slate-600">—</span>
+                      <span className="text-muted">—</span>
                     )}
 
                     {/* Hover tooltip using state */}

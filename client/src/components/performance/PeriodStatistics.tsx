@@ -51,8 +51,8 @@ function formatMonthYear(year: number | null, month: number | null): string {
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between items-center text-sm">
-      <span className="text-slate-400">{label}</span>
-      <span className="text-white font-medium">{value}</span>
+      <span className="text-muted">{label}</span>
+      <span className="text-paper font-medium">{value}</span>
     </div>
   );
 }
@@ -63,8 +63,8 @@ export default function PeriodStatistics({ months, years, bestWorst }: PeriodSta
       {/* Row 1: Positive/Negative counts for months and years */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Mesi Positivi / Negativi */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-          <h4 className="uppercase text-slate-300 text-sm font-semibold tracking-wider mb-3">
+        <div className="bg-ink-800 rounded-xl border border-ink-600 p-4">
+          <h4 className="uppercase text-muted text-sm font-semibold tracking-wider mb-3">
             Mesi Positivi / Negativi
           </h4>
           <div className="space-y-2">
@@ -75,8 +75,8 @@ export default function PeriodStatistics({ months, years, bestWorst }: PeriodSta
         </div>
 
         {/* Anni Positivi / Negativi */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-          <h4 className="uppercase text-slate-300 text-sm font-semibold tracking-wider mb-3">
+        <div className="bg-ink-800 rounded-xl border border-ink-600 p-4">
+          <h4 className="uppercase text-muted text-sm font-semibold tracking-wider mb-3">
             Anni Positivi / Negativi
           </h4>
           <div className="space-y-2">
@@ -90,47 +90,47 @@ export default function PeriodStatistics({ months, years, bestWorst }: PeriodSta
       {/* Row 2: Best/Worst Month and Year */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Mese Migliore / Peggiore */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-          <h4 className="uppercase text-slate-300 text-sm font-semibold tracking-wider mb-3">
+        <div className="bg-ink-800 rounded-xl border border-ink-600 p-4">
+          <h4 className="uppercase text-muted text-sm font-semibold tracking-wider mb-3">
             Mese Migliore / Peggiore
           </h4>
           <div className="space-y-2">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">Mese migliore</span>
-              <span className="text-white font-bold text-sm">
+              <span className="text-muted">Mese migliore</span>
+              <span className="text-paper font-bold text-sm">
                 {formatMonthYear(bestWorst.month.year, bestWorst.month.month)}
               </span>
-              <span className="text-emerald-400 font-medium">{formatReturn(bestWorst.month.return)}</span>
+              <span className="text-bull font-medium">{formatReturn(bestWorst.month.return)}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">Mese peggiore</span>
-              <span className="text-white font-bold text-sm">
+              <span className="text-muted">Mese peggiore</span>
+              <span className="text-paper font-bold text-sm">
                 {formatMonthYear(bestWorst.worst.year, bestWorst.worst.month)}
               </span>
-              <span className="text-red-400 font-medium">{formatReturn(bestWorst.worst.return)}</span>
+              <span className="text-bear font-medium">{formatReturn(bestWorst.worst.return)}</span>
             </div>
           </div>
         </div>
 
         {/* Anno Migliore / Peggiore */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-          <h4 className="uppercase text-slate-300 text-sm font-semibold tracking-wider mb-3">
+        <div className="bg-ink-800 rounded-xl border border-ink-600 p-4">
+          <h4 className="uppercase text-muted text-sm font-semibold tracking-wider mb-3">
             Anno Migliore / Peggiore
           </h4>
           <div className="space-y-2">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">Anno migliore</span>
-              <span className="text-white font-bold text-sm">
+              <span className="text-muted">Anno migliore</span>
+              <span className="text-paper font-bold text-sm">
                 {bestWorst.year.year ?? 'N/D'}
               </span>
-              <span className="text-emerald-400 font-medium">{formatReturn(bestWorst.year.return)}</span>
+              <span className="text-bull font-medium">{formatReturn(bestWorst.year.return)}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">Anno peggiore</span>
-              <span className="text-white font-bold text-sm">
+              <span className="text-muted">Anno peggiore</span>
+              <span className="text-paper font-bold text-sm">
                 {bestWorst.worstYear.year ?? 'N/D'}
               </span>
-              <span className="text-red-400 font-medium">{formatReturn(bestWorst.worstYear.return)}</span>
+              <span className="text-bear font-medium">{formatReturn(bestWorst.worstYear.return)}</span>
             </div>
           </div>
         </div>
