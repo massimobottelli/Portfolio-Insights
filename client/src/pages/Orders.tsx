@@ -84,7 +84,7 @@ export default function Orders() {
 
   const thClass = (key: SortKey, align: 'left' | 'right' = 'left') =>
     `cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider transition-colors ${align === 'right' ? 'text-right' : 'text-left'} ${sortKey === key ? 'text-paper' : 'text-muted'} hover:text-paper`;
-  const inputClass = 'bg-white border border-ink-600 rounded-lg px-3 py-2 text-sm text-ink-900 placeholder-muted focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-transparent transition-colors [color-scheme:dark]';
+  const inputClass = 'bg-ink-700/60 border border-ink-600 rounded-lg px-3 py-2 text-sm text-paper placeholder-muted focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-transparent transition-colors [color-scheme:dark]';
   /** Calcola il totale: acquisti negativi, vendite positive */
   const totalAmount = orders.reduce((sum, ord) => sum + (ord.type === 'BUY' ? -(Math.abs(ord.euro_amount ?? 0)) : (ord.euro_amount ?? 0)), 0);
   const hasActiveFilters = Boolean(startDate || endDate || typeFilter || symbolFilter || debouncedSearch);

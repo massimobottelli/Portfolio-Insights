@@ -170,7 +170,7 @@ export default function Movements() {
 
   // Classe input condivisa per tutti i filtri
   const inputClass =
-    'bg-white border border-ink-600 rounded-lg px-3 py-2 text-sm text-ink-900 placeholder-muted focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-transparent transition-colors [color-scheme:dark]';
+    'bg-ink-700/60 border border-ink-600 rounded-lg px-3 py-2 text-sm text-paper placeholder-muted focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-transparent transition-colors [color-scheme:dark]';
 
   // Calcola il totale importo dei movimenti filtrati
   const totalAmount = movements.reduce((sum, mv) => sum + (mv.euro_amount ?? 0), 0);

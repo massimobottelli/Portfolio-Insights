@@ -119,7 +119,7 @@ export default function RiskMetrics({
                 max="100"
                 value={rfInput}
                 onChange={(e) => handleRfChange(e.target.value)}
-                className="w-32 [color-scheme:dark] bg-white border border-ink-600 rounded px-2 py-1 text-ink-900 text-lg font-bold text-center focus:outline-none focus:border-gold-400 focus:ring-2 focus:ring-gold-400/50"
+                className="w-32 [color-scheme:dark] bg-ink-700/60 border border-ink-600 rounded px-2 py-1 text-paper text-lg font-bold text-center focus:outline-none focus:border-gold-400 focus:ring-2 focus:ring-gold-400/50"
                 placeholder="2,50"
               />
               <span className="text-muted text-sm font-medium">%</span>

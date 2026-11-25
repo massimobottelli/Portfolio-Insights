@@ -69,7 +69,7 @@ export default function Login() {
                   onChange={e => setTokenInput(e.target.value)}
                   placeholder="Inserisci il token..."
                   autoFocus
-                  className="w-full bg-white border border-ink-600 rounded-lg pl-10 pr-3 py-2.5 text-sm text-ink-900 placeholder-muted focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-transparent transition-colors"
+                  className="w-full bg-ink-700/60 border border-ink-600 rounded-lg pl-10 pr-3 py-2.5 text-sm text-paper placeholder-muted focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-transparent transition-colors"
                 />
               </div>
             </div>

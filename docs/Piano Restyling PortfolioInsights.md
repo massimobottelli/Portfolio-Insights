@@ -20,7 +20,7 @@ Per un tool **self-hosted di analisi investimenti** c'è un'occasione chiara: le
 
 ---
 
-## 🎨 Direzione proposta: *"Ledger Elettorale"* — dark editorial-finanziario
+## 🎨 Direzione proposta: *"Editorial Ledger"* — dark editorial-finanziario
 
 Un'estetica da **registro patrimoniale di lusso**: inchiostro scuro caldo (non slate freddo), un display serif per i titoli, **cifre tabulari monospace per tutti i numeri**, accento oro/ambra + verde smeraldo solo per i segnali P&L, hairline rules al posto di bordi spessi, texture di grana sottile.
 

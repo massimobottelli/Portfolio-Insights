@@ -256,7 +256,7 @@ export default function Allocation() {
                       step="0.1"
                       value={targetInputs[type] || ''}
                       onChange={e => handleInputChange(type, e.target.value)}
-                      className="w-24 px-3 py-2 rounded-lg bg-white border border-ink-600 text-ink-900 text-sm focus:outline-none focus:border-gold-400 [color-scheme:dark]"
+                      className="w-24 px-3 py-2 rounded-lg bg-ink-700/60 border border-ink-600 text-paper text-sm focus:outline-none focus:border-gold-400 [color-scheme:dark]"
                     />
                     <span className="text-sm text-muted">%</span>
                   </div>
@@ -288,7 +288,7 @@ export default function Allocation() {
                   step="0.5"
                   value={toleranceInput}
                   onChange={e => setToleranceInput(e.target.value)}
-                  className="w-24 px-3 py-2 rounded-lg bg-white border border-ink-600 text-ink-900 text-sm focus:outline-none focus:border-gold-400 [color-scheme:dark]"
+                  className="w-24 px-3 py-2 rounded-lg bg-ink-700/60 border border-ink-600 text-paper text-sm focus:outline-none focus:border-gold-400 [color-scheme:dark]"
                 />
                 <span className="text-sm text-muted">%</span>
               </div>
