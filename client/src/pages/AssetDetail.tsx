@@ -28,6 +28,7 @@ import {
   formatCurrency,
   formatEUR,
   gainColorClass,
+  getAssetTypeStyle,
 } from '../lib/format';
 
 /**
@@ -35,23 +36,24 @@ import {
  */
 // I tipi ETF/ETC/ETN sono decommissionati (migrati a UNKNOWN): rami rimossi.
 const AssetTypeBadge = ({ assetType }: { assetType: string }) => {
-  const bgColor =
-    assetType === 'UNKNOWN'
-      ? 'bg-amber-900/30 text-amber-300 border-amber-700/50'
-      : assetType === 'STOCK'
-      ? 'bg-emerald-900/30 text-emerald-300 border-emerald-700/50'
-      : assetType === 'BOND'
-      ? 'bg-amber-900/30 text-amber-300 border-amber-700/50'
-      : assetType === 'FUND'
-      ? 'bg-cyan-900/30 text-cyan-300 border-cyan-700/50'
-      : assetType === 'COMMODITY'
-      ? 'bg-orange-900/30 text-orange-300 border-orange-700/50'
-      : assetType === 'CASH'
-      ? 'bg-green-900/30 text-green-300 border-green-700/50'
-      : 'bg-slate-700 text-slate-200 border-slate-600';
-
+  const style = getAssetTypeStyle(assetType);
+  const isUnknown = assetType === 'UNKNOWN';
   return (
-    <span className={`inline-block px-2 py-1 rounded-md text-xs font-medium border ${bgColor}`}>
+    <span
+      className="inline-block border font-medium uppercase tracking-wide"
+      style={{
+        borderRadius: '6px',
+        padding: '2px 8px',
+        lineHeight: 1.2,
+        fontSize: '11px',
+        fontWeight: 500,
+        letterSpacing: '0.4px',
+        backgroundColor: isUnknown ? '#1e253040' : style.bg,
+        borderColor: isUnknown ? '#d4a24a80' : style.border,
+        borderWidth: '1px',
+        color: isUnknown ? '#d4a24a' : style.text,
+      }}
+    >
       {assetType}
     </span>
   );
@@ -60,7 +62,7 @@ const AssetTypeBadge = ({ assetType }: { assetType: string }) => {
 /**
  * Card KPI per la sezione "Situazione Corrente".
  */
-function KpiCard({ label, value, sublabel, sublabel2, valueClass = 'text-white', sublabelClass = 'text-slate-300' }: {
+function KpiCard({ label, value, sublabel, sublabel2, valueClass = 'text-paper', sublabelClass = 'text-muted' }: {
   label: string;
   value: string;
   sublabel?: string | null;
@@ -69,13 +71,13 @@ function KpiCard({ label, value, sublabel, sublabel2, valueClass = 'text-white',
   sublabelClass?: string;
 }) {
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 p-3 sm:p-4">
-      <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{label}</p>
+    <div className="bg-ink-800 rounded-xl border border-ink-600 p-3 sm:p-4">
+      <p className="text-xs font-medium uppercase tracking-wider text-muted">{label}</p>
       {/* Tipografia responsive: con 2 card per riga su mobile il valore a 24px traboccherebbe */}
       <p className={`mt-1 text-lg sm:text-xl lg:text-2xl font-bold break-words ${valueClass}`}>{value}</p>
       {sublabel && <p className={`mt-1 text-sm lg:text-base ${sublabelClass}`}>{sublabel}</p>}
       {/* Secondo sublabel sempre neutro: non eredita verde/rosso del primo */}
-      {sublabel2 && <p className="mt-0.5 text-xs lg:text-sm text-slate-400">{sublabel2}</p>}
+      {sublabel2 && <p className="mt-0.5 text-xs lg:text-sm text-muted">{sublabel2}</p>}
     </div>
   );
 }
@@ -275,7 +277,7 @@ export default function AssetDetail() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400 text-lg">Caricamento...</div>
+        <div className="text-muted text-lg">Caricamento...</div>
       </div>
     );
   }
@@ -283,11 +285,11 @@ export default function AssetDetail() {
   if (error || !data) {
     return (
       <div className="space-y-4">
-        <Link to={back.to} className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
+        <Link to={back.to} className="inline-flex items-center gap-1 text-muted hover:text-paper transition-colors">
           <ArrowLeft size={16} /> {back.label}
         </Link>
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-8 text-center">
-          <p className="text-slate-400">{error || 'Asset non trovato'}</p>
+        <div className="bg-ink-800 rounded-xl border border-ink-600 p-8 text-center">
+          <p className="text-muted">{error || 'Asset non trovato'}</p>
         </div>
       </div>
     );
@@ -301,7 +303,7 @@ export default function AssetDetail() {
   return (
     <div className="space-y-6">
       {/* Back link — dinamico in base alla pagina di provenienza */}
-      <Link to={back.to} className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
+      <Link to={back.to} className="inline-flex items-center gap-1 text-muted hover:text-paper transition-colors">
         <ArrowLeft size={16} /> {back.label}
       </Link>
 
@@ -309,13 +311,13 @@ export default function AssetDetail() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="text-2xl font-bold text-white">{asset.name}</h2>
-            <span className="px-2 py-1 rounded-md text-xs font-medium bg-slate-700 text-slate-200 border border-slate-600">
+            <h2 className="text-2xl font-bold text-paper" style={{ fontFamily: 'var(--font-display)' }}>{asset.name}</h2>
+            <span className="px-2 py-1 rounded-md text-xs font-medium bg-ink-700 text-paper border border-ink-600">
               {asset.ticker}
             </span>
             <AssetTypeBadge assetType={asset.assetType} />
           </div>
-          <div className="mt-2 flex items-center gap-4 text-sm text-slate-400">
+          <div className="mt-2 flex items-center gap-4 text-sm text-muted">
             <span className="font-mono">{asset.isin}</span>
             <span>Valuta: {asset.currency}</span>
           </div>
@@ -359,13 +361,13 @@ export default function AssetDetail() {
 
           valueClass={
             position.bookValueEUR && position.currentValueEUR && position.currentValueEUR >= position.bookValueEUR
-              ? 'text-emerald-400'
-              : 'text-white'
+              ? 'text-bull'
+              : 'text-paper'
           }
           sublabelClass={
             position.bookValueEUR && position.currentValueEUR && position.currentValueEUR >= position.bookValueEUR
-              ? 'text-emerald-400'
-              : 'text-slate-300'
+              ? 'text-bull'
+              : 'text-muted'
           }
         />
 
@@ -384,16 +386,16 @@ export default function AssetDetail() {
             label="IRR (Money-Weighted)"
             value={`${(data.irr.irr * 100).toFixed(2)}%`}
             sublabel={`${data.irr.years.toFixed(1)} anni investiti`}
-            valueClass={data.irr.irr >= 0 ? 'text-emerald-400' : 'text-red-400'}
-            sublabelClass="text-slate-300"
+            valueClass={data.irr.irr >= 0 ? 'text-bull' : 'text-bear'}
+            sublabelClass="text-muted"
           />
         ) : (
           <KpiCard
             label="IRR (Money-Weighted)"
             value="N/D"
             sublabel="Dati insufficienti"
-            valueClass="text-slate-400"
-            sublabelClass="text-slate-400"
+            valueClass="text-muted"
+            sublabelClass="text-muted"
           />
         )}
       </div>
@@ -404,20 +406,20 @@ export default function AssetDetail() {
           ... IRR) e prima di Cronologia Ordini; stile identico al grafico
           Andamento Portafoglio. */}
       {priceHistory !== null && filteredPriceData.length > 0 && (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+        <div className="bg-ink-800 rounded-xl border border-ink-600 p-4 lg:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
-              <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider">
+              <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider">
                 Storico Quotazioni
               </h3>
               {priceRefreshing && !priceError && (
-                <p className="text-sm text-slate-400 mt-1">Aggiornamento quotazioni da EODHD…</p>
+                <p className="text-sm text-muted mt-1">Aggiornamento quotazioni da EODHD…</p>
               )}
               {/* Variazione del periodo selezionato (hidden per "All") */}
               {pricePeriodChange !== null && (
                 <p
                   className={`text-sm lg:text-base font-bold mt-1 ${
-                    pricePeriodChange >= 0 ? 'text-emerald-400' : 'text-red-400'
+                    pricePeriodChange >= 0 ? 'text-bull' : 'text-bear'
                   }`}
                 >
                   Variazione {priceTimeRange.toUpperCase()}:{' '}
@@ -434,8 +436,8 @@ export default function AssetDetail() {
                   onClick={() => setPriceTimeRange(key)}
                   className={`px-2 py-1 text-xs rounded transition-colors cursor-pointer select-none ${
                     priceTimeRange === key
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200'
+                      ? 'bg-bull text-paper'
+                      : 'bg-ink-700 text-muted hover:bg-ink-600 hover:text-paper'
                   }`}
                 >
                   {label}
@@ -445,12 +447,12 @@ export default function AssetDetail() {
           </div>
           {/* Banner errore refresh (non critico): il grafico resta con gli ultimi dati disponibili */}
           {priceError && (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-700/50 bg-amber-900/30 px-3 py-2">
-              <p className="text-sm text-amber-300">{priceError}</p>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold-400/30 bg-gold-500/15 px-3 py-2">
+              <p className="text-sm text-gold-400">{priceError}</p>
               <button
                 onClick={() => id && refreshPriceHistory(id)}
                 disabled={priceRefreshing}
-                className="px-3 py-1 text-xs font-medium rounded bg-amber-700/40 text-amber-100 hover:bg-amber-700/60 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                className="px-3 py-1 text-xs font-medium rounded bg-gold-500/40 text-gold-400 hover:bg-gold-400/60 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
               >
                 {priceRefreshing ? 'Aggiornamento…' : 'Riprova'}
               </button>
@@ -471,12 +473,12 @@ export default function AssetDetail() {
               <XAxis
                 dataKey="date"
                 ticks={priceMonthTicks}
-                tick={{ fill: '#94a3b8', fontSize: isMobile ? 10 : 12 }}
+                tick={{ fill: 'var(--muted)', fontSize: isMobile ? 10 : 12 }}
                 tickFormatter={formatMonthTick}
               />
               <YAxis
                 width={isMobile ? 32 : 60}
-                tick={{ fill: '#94a3b8', fontSize: isMobile ? 8 : 12 }}
+                tick={{ fill: 'var(--muted)', fontSize: isMobile ? 8 : 12 }}
                 tickFormatter={(value: number) => formatPrice(value)}
                 domain={['auto', 'auto']}
               />
@@ -485,15 +487,15 @@ export default function AssetDetail() {
                   if (!active || !payload || payload.length === 0) return null;
                   const item = payload[0].payload as DailyPricePoint;
                   return (
-                    <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
-                      <p className="text-slate-300 text-sm">
+                    <div className="bg-ink-700 border border-ink-600 rounded-lg px-4 py-3 shadow-lg">
+                      <p className="text-muted text-sm">
                         {new Date(item.date).toLocaleDateString('it-IT', {
                           day: '2-digit',
                           month: 'long',
                           year: 'numeric',
                         })}
                       </p>
-                      <p className="font-semibold text-emerald-400 text-sm mt-1">
+                      <p className="font-semibold text-bull text-sm mt-1">
                         Chiusura: {formatPrice(item.close)}
                       </p>
                     </div>
@@ -513,39 +515,39 @@ export default function AssetDetail() {
       )}
 
       {/* 3. Cronologia Ordini */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
-          <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Cronologia Ordini</h3>
+      <div className="bg-ink-800 rounded-xl border border-ink-600 overflow-hidden">
+        <div className="px-4 py-3 border-b border-ink-600 bg-ink-800/50">
+          <h3 className="text-sm font-semibold text-paper uppercase tracking-wider">Cronologia Ordini</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700 bg-slate-800/50">
-                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-left">Data</th>
-                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-left">Tipo</th>
-                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Quantità</th>
-                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Prezzo</th>
-                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Importo</th>
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-ink-600 bg-ink-800/50">
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-left">Data</th>
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-left">Tipo</th>
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-right">Quantità</th>
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-right">Prezzo</th>
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-right">Importo</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700">
+            <tbody className="divide-y divide-ink-600">
               {orders.map((order, idx) => (
-                <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
-                  <td className="px-4 py-3 text-sm text-slate-300">{formatDate(order.date)}</td>
+                <tr key={idx} className="hover:bg-ink-700/30 transition-colors">
+                  <td className="px-4 py-3 text-sm text-muted">{formatDate(order.date)}</td>
                   <td className="px-4 py-3 text-sm">
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
                       order.type === 'BUY'
-                        ? 'bg-emerald-900/30 text-emerald-300 border border-emerald-700/50'
-                        : 'bg-red-900/30 text-red-300 border border-red-700/50'
+                        ? 'bg-bull/15 text-bull border border-bull/30'
+                        : 'bg-bear/15 text-bear border border-bear/30'
                     }`}>
                       {order.type}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-white font-medium">
+                  <td className="px-4 py-3 text-sm text-right text-paper font-medium">
                     {order.quantity.toLocaleString('it-IT')}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-slate-300">{formatPrice(order.price)}</td>
-                  <td className="px-4 py-3 text-sm text-right text-white font-medium">
+                  <td className="px-4 py-3 text-sm text-right text-muted">{formatPrice(order.price)}</td>
+                  <td className="px-4 py-3 text-sm text-right text-paper font-medium">
                     {/* Importo con segno invertito: positivo per acquisto, negativo per vendita */}
                     {formatCurrency(order.type === 'BUY' ? Math.abs(order.amount) : -Math.abs(order.amount), order.currency)}
                   </td>
@@ -553,7 +555,7 @@ export default function AssetDetail() {
               ))}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted">
                     Nessun ordine registrato
                   </td>
                 </tr>
@@ -565,30 +567,30 @@ export default function AssetDetail() {
 
       {/* 4. Cedole (per BOND) o Dividend History (per gli altri) */}
       {asset.assetType === 'BOND' ? (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Cedole Incassate</h3>
+        <div className="bg-ink-800 rounded-xl border border-ink-600 overflow-hidden">
+          <div className="px-4 py-3 border-b border-ink-600 bg-ink-800/50">
+            <h3 className="text-sm font-semibold text-paper uppercase tracking-wider">Cedole Incassate</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700 bg-slate-800/50">
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-left">Data</th>
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Importo</th>
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-ink-600 bg-ink-800/50">
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-left">Data</th>
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-right">Importo</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700">
+              <tbody className="divide-y divide-ink-600">
                 {coupons.map((c, idx) => (
-                  <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-3 text-sm text-slate-300">{formatDate(c.date)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-emerald-400 font-medium">
+                  <tr key={idx} className="hover:bg-ink-700/30 transition-colors">
+                    <td className="px-4 py-3 text-sm text-muted">{formatDate(c.date)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-bull font-medium">
                       +{formatCurrency(c.amount, c.currency)}
                     </td>
                   </tr>
                 ))}
                 {coupons.length === 0 && (
                   <tr>
-                    <td colSpan={2} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={2} className="px-4 py-8 text-center text-muted">
                       Nessuna cedola incassata
                     </td>
                   </tr>
@@ -596,9 +598,9 @@ export default function AssetDetail() {
               </tbody>
               {coupons.length > 0 && (
                 <tfoot>
-                  <tr className="border-t-2 border-slate-600 bg-slate-800/80">
-                    <td className="px-4 py-3 text-sm font-semibold text-white uppercase tracking-wider">Totale</td>
-                    <td className="px-4 py-3 text-sm text-right font-bold text-emerald-400">
+                  <tr className="border-t-2 border-ink-600 bg-ink-800/80">
+                    <td className="px-4 py-3 text-sm font-semibold text-paper uppercase tracking-wider">Totale</td>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-bull">
                       +{formatCurrency(couponsTotal, coupons[0].currency)}
                     </td>
                   </tr>
@@ -609,32 +611,32 @@ export default function AssetDetail() {
         </div>
       ) : (
         dividends.length > 0 && (
-          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
-              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">Dividend History</h3>
+          <div className="bg-ink-800 rounded-xl border border-ink-600 overflow-hidden">
+            <div className="px-4 py-3 border-b border-ink-600 bg-ink-800/50">
+              <h3 className="text-sm font-semibold text-paper uppercase tracking-wider">Dividend History</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-700 bg-slate-800/50">
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-left">Data</th>
-                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-slate-400 text-right">Importo</th>
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-ink-600 bg-ink-800/50">
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-left">Data</th>
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted text-right">Importo</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700">
+                <tbody className="divide-y divide-ink-600">
                   {dividends.map((div, idx) => (
-                    <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
-                      <td className="px-4 py-3 text-sm text-slate-300">{formatDate(div.date)}</td>
-                      <td className="px-4 py-3 text-sm text-right text-emerald-400 font-medium">
+                    <tr key={idx} className="hover:bg-ink-700/30 transition-colors">
+                      <td className="px-4 py-3 text-sm text-muted">{formatDate(div.date)}</td>
+                      <td className="px-4 py-3 text-sm text-right text-bull font-medium">
                         +{formatCurrency(div.amount, div.currency)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-slate-600 bg-slate-800/80">
-                    <td className="px-4 py-3 text-sm font-semibold text-white uppercase tracking-wider">Totale</td>
-                    <td className="px-4 py-3 text-sm text-right font-bold text-emerald-400">
+                  <tr className="border-t-2 border-ink-600 bg-ink-800/80">
+                    <td className="px-4 py-3 text-sm font-semibold text-paper uppercase tracking-wider">Totale</td>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-bull">
                       +{formatCurrency(dividendsTotal, dividends[0].currency)}
                     </td>
                   </tr>

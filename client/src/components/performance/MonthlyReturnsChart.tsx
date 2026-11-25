@@ -94,7 +94,7 @@ export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsCh
   if (sortedReturns.length === 0) {
     return (
       <div className="flex items-center justify-center h-48">
-        <p className="text-slate-500 text-sm">Nessun dato mensile disponibile</p>
+        <p className="text-muted text-sm">Nessun dato mensile disponibile</p>
       </div>
     );
   }
@@ -177,8 +177,8 @@ export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsCh
               const y = zeroY - (val / posRange) * (chartAreaHeight * posRange / totalRange);
               elements.push(
                 <g key={`grid-pos-${i}`}>
-                  <line x1={paddingLeft} y1={y} x2={svgWidth - paddingRight} y2={y} stroke="#334155" strokeDasharray="3 3" />
-                  <text x={paddingLeft - 8} y={y + 4} fill="#94a3b8" fontSize="11" textAnchor="end">
+                  <line x1={paddingLeft} y1={y} x2={svgWidth - paddingRight} y2={y} stroke="var(--ink-600)" strokeDasharray="3 3" />
+                  <text x={paddingLeft - 8} y={y + 4} fill="var(--muted)" fontSize="11" textAnchor="end">
                     {formatReturn(val)}
                   </text>
                 </g>
@@ -192,8 +192,8 @@ export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsCh
               if (i > 0 || positiveValues.length === 0) {
                 elements.push(
                   <g key={`grid-neg-${i}`}>
-                    <line x1={paddingLeft} y1={y} x2={svgWidth - paddingRight} y2={y} stroke="#334155" strokeDasharray="3 3" />
-                    <text x={paddingLeft - 8} y={y + 4} fill="#94a3b8" fontSize="11" textAnchor="end">
+                    <line x1={paddingLeft} y1={y} x2={svgWidth - paddingRight} y2={y} stroke="var(--ink-600)" strokeDasharray="3 3" />
+                    <text x={paddingLeft - 8} y={y + 4} fill="var(--muted)" fontSize="11" textAnchor="end">
                       {formatReturn(val)}
                     </text>
                   </g>
@@ -211,7 +211,7 @@ export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsCh
         })()}
 
         {/* Zero line — solid, thicker */}
-        <line x1={paddingLeft} y1={zeroY} x2={svgWidth - paddingRight} y2={zeroY} stroke="#94a3b8" strokeWidth={2} />
+        <line x1={paddingLeft} y1={zeroY} x2={svgWidth - paddingRight} y2={zeroY} stroke="var(--muted)" strokeWidth={2} />
 
         {/* X-axis labels: month-year — HORIZONTAL */}
         {sortedReturns.map((item, index) => {
@@ -225,7 +225,7 @@ export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsCh
               key={`label-${item.year}-${item.month}`}
               x={centerX}
               y={svgHeight - 12}
-              fill="#94a3b8"
+              fill="var(--muted)"
               fontSize="11"
               textAnchor="middle"
             >
@@ -248,7 +248,7 @@ export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsCh
                 y={barY}
                 width={barWidth}
                 height={barHeight}
-                fill={item.return! >= 0 ? '#10b981' : '#ef4444'}
+                fill={item.return! >= 0 ? 'var(--bull)' : 'var(--bear)'}
                 rx={1}
                 cursor="pointer"
                 onMouseEnter={(e) => {
@@ -268,19 +268,19 @@ export default function MonthlyReturnsChart({ monthlyReturns }: MonthlyReturnsCh
       {/* Custom tooltip positioned near bar and mouse */}
       {tooltip && (
         <div
-          className="absolute bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg pointer-events-none z-50"
+          className="absolute bg-ink-700 border border-ink-600 rounded-lg px-4 py-3 shadow-lg pointer-events-none z-50"
           style={{
             left: `${(tooltip.x / svgWidth) * 100}%`,
             top: `${(tooltip.y / svgHeight) * 100}%`,
             transform: 'translate(-50%, -100%)',
           }}
         >
-          <p className="font-semibold text-white text-sm">
+          <p className="font-semibold text-paper text-sm">
             {MONTH_ABBR[tooltip.month - 1]} {tooltip.year}
           </p>
-          <p className="text-slate-300 text-sm mt-1">
+          <p className="text-muted text-sm mt-1">
             Rendimento:{' '}
-            <span style={{ color: tooltip.value >= 0 ? '#10b981' : '#ef4444' }}>
+            <span style={{ color: tooltip.value >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
               {formatReturn(tooltip.value)}
             </span>
           </p>

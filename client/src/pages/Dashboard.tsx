@@ -41,12 +41,12 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
 
   const item = payload[0].payload;
   return (
-    <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
-      <p className="font-semibold text-white text-sm">{item.name}</p>
-      <p className="text-slate-300 text-sm mt-1">
+    <div className="bg-ink-800/95 border border-gold-400/30 rounded-lg px-4 py-3 shadow-lg backdrop-blur">
+      <p className="font-semibold text-paper text-sm">{item.name}</p>
+      <p className="text-muted text-sm mt-1">
         Valore: {formatEUR(item.marketValue)}
       </p>
-      <p className="text-slate-300 text-sm">
+      <p className="text-muted text-sm">
         Peso: {item.allocationPercent.toFixed(2)}%
       </p>
     </div>
@@ -192,7 +192,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400 text-lg">Caricamento...</div>
+        <div className="text-muted text-lg">Caricamento...</div>
       </div>
     );
   }
@@ -200,7 +200,7 @@ export default function Dashboard() {
   if (!dashboard) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-red-400 text-lg">Errore nel caricamento dei dati</div>
+        <div className="text-bear text-lg">Errore nel caricamento dei dati</div>
       </div>
     );
   }
@@ -230,39 +230,62 @@ export default function Dashboard() {
       {/* Ultimo aggiornamento — in alto a destra */}
       <div className="flex justify-end">
         {dashboard.snapshotDate && (
-          <p className="text-slate-400 text-xs lg:text-sm flex items-center gap-1">
-            <Calendar size={14} className="text-slate-400" />
+          <p className="text-muted text-xs lg:text-sm flex items-center gap-1">
+            <Calendar size={14} className="text-muted" />
             {new Date(dashboard.snapshotDate).toLocaleDateString('it-IT')}
           </p>
         )}
       </div>
 
-      {/* Box VALORE PORTAFOGLIO — full-width */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
+      {/* Box VALORE PORTAFOGLIO — full-width (hero registro) */}
+      <div className="bg-ink-800 rounded-xl border border-ink-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] card-lift p-4 lg:p-6 reveal reveal-1 relative overflow-hidden">
+        {/* Watermark sparkline */}
+        {chartData.length > 1 && (
+          <svg
+            viewBox={`0 0 ${chartData.length} 100`}
+            preserveAspectRatio="none"
+            className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.04]"
+            aria-hidden="true"
+          >
+            <polyline
+              fill="none"
+              stroke="var(--gold-400)"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+              points={(() => {
+                const values = chartData.map(d => d.portfolio_value);
+                const mn = Math.min(...values);
+                const mx = Math.max(...values);
+                const range = mx - mn || 1;
+                return values.map((v, i) => `${i},${100 - ((v - mn) / range) * 100}`).join(' ');
+              })()}
+            />
+          </svg>
+        )}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
-            <p className="uppercase text-slate-300 text-sm lg:text-base tracking-wider mb-2">
+            <p className="uppercase text-muted text-sm lg:text-base tracking-wider mb-2">
               Valore Portafoglio
             </p>
-            <p className="text-white font-bold text-4xl lg:text-6xl">
+            <p className="num font-bold text-5xl lg:text-7xl text-paper">
               {formatEUR(dashboard.portfolioValue)}
             </p>
-            <p className={`text-lg lg:text-2xl font-bold mt-2 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+            <p className={`text-lg lg:text-2xl font-bold mt-2 ${isPositive ? 'text-bull' : 'text-bear'}`}>
               {isPositive ? '+' : ''}{formatEUR(dashboard.totalProfitLoss)}
             </p>
           </div>
           {/* Variazione del periodo selezionato */}
           {periodStats && (
             <div className="sm:text-right">
-              <p className="uppercase text-slate-400 text-xs lg:text-sm tracking-wider mb-1">
+              <p className="uppercase text-muted text-xs lg:text-sm tracking-wider mb-1">
                 Variazione {timeRange.toUpperCase()}
               </p>
-              <p className={`text-lg lg:text-2xl font-bold ${periodStats.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              <p className={`text-lg lg:text-2xl font-bold ${periodStats.change >= 0 ? 'text-bull' : 'text-bear'}`}>
                 {periodStats.change >= 0 ? '+' : ''}{formatEUR(periodStats.change)}&nbsp;
                 <span>({periodStats.changePct >= 0 ? '+' : ''}{periodStats.changePct.toFixed(2)}%)</span>
               </p>
               {periodStats.twrPeriod !== null && (
-                <p className={`text-sm lg:text-base mt-1 ${periodStats.twrPeriod >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                <p className={`text-sm lg:text-base mt-1 ${periodStats.twrPeriod >= 0 ? 'text-gold-400' : 'text-bear'}`}>
                   TWR: {periodStats.twrPeriod >= 0 ? '+' : ''}{periodStats.twrPeriod.toFixed(2)}%
                 </p>
               )}
@@ -272,8 +295,8 @@ export default function Dashboard() {
       </div>
 
       {/* Box ANDAMENTO PORTAFOGLIO — full-width */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
-        <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-3">
+      <div className="bg-ink-800 rounded-xl border border-ink-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] card-lift p-4 lg:p-6 reveal reveal-2">
+        <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider mb-3">
           Andamento Portafoglio
         </h3>
         {/* Header con legenda a sinistra e bottoni time range a destra */}
@@ -281,24 +304,24 @@ export default function Dashboard() {
           {/* Legenda */}
           <div className="flex items-center gap-4">
             {[
-              { key: 'portfolio', label: 'Portfolio', dashClass: '', color: '#10b981' },
-              { key: 'deposits', label: 'Investito', dashClass: 'dashed', color: '#3b82f6' },
-              { key: 'twr', label: 'TWR', dashClass: '', color: '#f59e0b' },
+              { key: 'portfolio', label: 'Portfolio', dashClass: '', color: 'var(--bull)' },
+              { key: 'deposits', label: 'Investito', dashClass: 'dashed', color: 'var(--gold-400)' },
+              { key: 'twr', label: 'TWR', dashClass: '', color: 'var(--muted)' },
             ].map(({ key, label, dashClass, color }) => (
               <button
                 key={key}
                 onClick={() => toggleSeries(key)}
                 className={`flex items-center gap-1.5 text-xs transition-all cursor-pointer select-none ${
-                  isHidden(key) ? 'opacity-40 line-through' : 'text-slate-300 hover:text-white'
+                  isHidden(key) ? 'opacity-40 line-through' : 'text-muted hover:text-paper'
                 }`}
                 title={isHidden(key) ? `Mostra ${label}` : `Nascondi ${label}`}
               >
                 <div
                   className="w-3 h-0.5"
                   style={{
-                    backgroundColor: isHidden(key) ? '#475569' : color,
+                    backgroundColor: isHidden(key) ? 'var(--ink-600)' : color,
                     ...(dashClass === 'dashed' && !isHidden(key)
-                      ? { backgroundImage: 'linear-gradient(90deg, #60a5fa 50%, transparent 50%)', backgroundSize: '6px 2px', backgroundRepeat: 'repeat-x' }
+                      ? { backgroundImage: 'linear-gradient(90deg, var(--gold-400) 50%, transparent 50%)', backgroundSize: '6px 2px', backgroundRepeat: 'repeat-x' }
                       : {}),
                   }}
                 />
@@ -306,7 +329,7 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
-          {/* Bottoni time range — allineati all'asse Y destro */}
+          {/* Bottoni time range */}
           <div className="flex items-center gap-1 sm:pr-[80px] pr-[28px]">
             {TIME_RANGE_OPTIONS.map(({ key, label }) => (
               <button
@@ -314,8 +337,8 @@ export default function Dashboard() {
                 onClick={() => setTimeRange(key)}
                 className={`px-2 py-1 text-xs rounded transition-colors cursor-pointer select-none ${
                   timeRange === key
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200'
+                    ? 'bg-gold-500/80 text-paper'
+                    : 'bg-ink-700 text-muted hover:bg-ink-600 hover:text-paper'
                 }`}
               >
                 {label}
@@ -328,33 +351,33 @@ export default function Dashboard() {
             <ComposedChart data={filteredChartData} margin={{ top: 10, right: isMobile ? 4 : 20, left: isMobile ? 0 : 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--bull)" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="var(--bull)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="depositsGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--gold-400)" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="var(--gold-400)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-600)" />
               <XAxis
                 dataKey="snapshot_date"
                 ticks={timeRange === 'all' ? quarterTicks : monthTicks}
-                tick={{ fill: '#94a3b8', fontSize: isMobile ? 10 : 12 }}
+                tick={{ fill: 'var(--muted)', fontSize: isMobile ? 10 : 12, fontFamily: 'var(--font-num)' }}
                 tickFormatter={timeRange === 'all' ? formatQuarter : formatMonth}
               />
               <YAxis
                 yAxisId="left"
                 width={isMobile ? 32 : 60}
-                tick={{ fill: '#94a3b8', fontSize: isMobile ? 8 : 12 }}
-                tickFormatter={(value) => `€ ${(value / 1000).toFixed(0)}k`}
+                tick={{ fill: 'var(--muted)', fontSize: isMobile ? 8 : 12, fontFamily: 'var(--font-num)' }}
+                tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
                 domain={['auto', 'auto']}
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
                 width={isMobile ? 24 : 60}
-                tick={{ fill: '#94a3b8', fontSize: isMobile ? 8 : 12 }}
+                tick={{ fill: 'var(--muted)', fontSize: isMobile ? 8 : 12, fontFamily: 'var(--font-num)' }}
                 tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
                 domain={['auto', 'auto']}
               />
@@ -365,22 +388,22 @@ export default function Dashboard() {
                   const formatPct = (v: number | null) =>
                     v !== null ? `${(v * 100).toFixed(2)}%` : 'N/D';
                   return (
-                    <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
-                      <p className="text-slate-300 text-sm">
+                    <div className="bg-ink-800/95 backdrop-blur border border-gold-400/30 rounded-lg px-4 py-3 shadow-lg">
+                      <p className="text-muted text-sm">
                         {new Date(item.snapshot_date).toLocaleDateString('it-IT', {
                           day: '2-digit', month: 'long', year: 'numeric'
                         })}
                       </p>
-                      <p className="font-semibold text-emerald-400 text-sm mt-1">
+                      <p className="font-semibold text-bull text-sm mt-1">
                         Portfolio: {formatEUR(item.portfolio_value)}
                       </p>
-                      <p className="text-slate-300 text-xs mt-1">
+                      <p className="text-muted text-xs mt-1">
                         Liquidità: {formatEUR(item.available_cash)}
                       </p>
-                      <p className="text-blue-400 text-xs mt-1">
+                      <p className="text-gold-400 text-xs mt-1">
                         Investito: {formatEUR(item.cumulative_deposits)}
                       </p>
-                      <p className={`text-xs mt-1 ${item.twr !== null && item.twr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <p className={`text-xs mt-1 ${item.twr !== null && item.twr >= 0 ? 'text-bull' : 'text-bear'}`}>
                         TWR: {formatPct(item.twr)}
                       </p>
                     </div>
@@ -392,7 +415,7 @@ export default function Dashboard() {
                   yAxisId="left"
                   type="monotone"
                   dataKey="portfolio_value"
-                  stroke="#10b981"
+                  stroke="var(--bull)"
                   strokeWidth={2}
                   fill="url(#portfolioGradient)"
                 />
@@ -402,7 +425,7 @@ export default function Dashboard() {
                   yAxisId="left"
                   type="stepBefore"
                   dataKey="cumulative_deposits"
-                  stroke="#3b82f6"
+                  stroke="var(--gold-400)"
                   strokeWidth={2}
                   strokeDasharray="6 3"
                   fill="url(#depositsGradient)"
@@ -414,7 +437,7 @@ export default function Dashboard() {
                   yAxisId="right"
                   type="monotone"
                   dataKey="twr"
-                  stroke="#f59e0b"
+                  stroke="var(--muted)"
                   strokeWidth={1}
                   dot={false}
                   connectNulls={false}
@@ -423,15 +446,15 @@ export default function Dashboard() {
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-slate-500 text-center py-8">Nessun dato storico disponibile</p>
+          <p className="text-muted text-center py-8">Nessun dato storico disponibile</p>
         )}
       </div>
 
       {/* Due colonne: sinistra = allocazione, destra = 4 KPI verticali */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         {/* Allocazione Portafoglio — PieChart */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 lg:p-6">
-          <h3 className="uppercase text-white text-sm lg:text-base font-semibold tracking-wider mb-4">
+        <div className="bg-ink-800 rounded-xl border border-ink-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] card-lift p-4 lg:p-6 reveal reveal-3">
+          <h3 className="uppercase text-paper text-sm lg:text-base font-semibold tracking-wider mb-4">
             Allocazione Portafoglio
           </h3>
           {allocation.length > 0 ? (
@@ -463,14 +486,14 @@ export default function Dashboard() {
                       className="w-3 h-3 rounded-full flex-shrink-0"
                       style={{ backgroundColor: allocationColors[index] }}
                     />
-                    <span className="text-slate-300 truncate">{item.ticker}</span>
-                    <span className="text-slate-500 ml-auto">{item.allocationPercent.toFixed(1)}%</span>
+                    <span className="text-muted truncate">{item.ticker}</span>
+                    <span className="text-muted ml-auto">{item.allocationPercent.toFixed(1)}%</span>
                   </div>
                 ))}
               </div>
             </div>
           ) : (
-            <p className="text-slate-500 text-center py-8">Nessun dato di allocazione disponibile</p>
+            <p className="text-muted text-center py-8">Nessun dato di allocazione disponibile</p>
           )}
         </div>
 
@@ -480,28 +503,32 @@ export default function Dashboard() {
             title="Gain / Loss"
             value={`${isPositive ? '+' : ''}${formatEUR(dashboard.totalProfitLoss)}`}
             sub={`(${dashboard.totalProfitLossPercent}%)`}
-            color={isPositive ? 'text-emerald-400' : 'text-red-400'}
-            icon={<TrendingUp size={isMobile ? 24 : 32} className={isPositive ? 'text-emerald-400' : 'text-red-400'} />}
+            color={isPositive ? 'text-bull' : 'text-bear'}
+            icon={<TrendingUp size={isMobile ? 24 : 32} className={isPositive ? 'text-bull' : 'text-bear'} />}
+            reveal="reveal-4"
           />
           {twr && (
             <KpiCard
               title="TWR"
               value={formatPercent(twr.twrTotal)}
-              color={twr.twrTotal >= 0 ? 'text-amber-400' : 'text-red-400'}
-              icon={<BarChart3 size={isMobile ? 24 : 32} className={twr.twrTotal >= 0 ? 'text-amber-400' : 'text-red-400'} />}
+              color={twr.twrTotal >= 0 ? 'text-gold-400' : 'text-bear'}
+              icon={<BarChart3 size={isMobile ? 24 : 32} className={twr.twrTotal >= 0 ? 'text-gold-400' : 'text-bear'} />}
+              reveal="reveal-5"
             />
           )}
           <KpiCard
             title="Capitale Investito"
             value={formatEUR(dashboard.investedCapital)}
-            color="text-blue-400"
-            icon={<Wallet size={isMobile ? 24 : 32} className="text-blue-400" />}
+            color="text-gold-400"
+            icon={<Wallet size={isMobile ? 24 : 32} className="text-gold-400" />}
+            reveal="reveal-6"
           />
           <KpiCard
             title="Liquidità"
             value={formatEUR(dashboard.availableCash)}
-            color="text-blue-400"
-            icon={<CoinsIcon size={isMobile ? 24 : 32} className="text-blue-400" />}
+            color="text-gold-400"
+            icon={<CoinsIcon size={isMobile ? 24 : 32} className="text-gold-400" />}
+            reveal="reveal-6"
           />
         </div>
       </div>
@@ -509,13 +536,13 @@ export default function Dashboard() {
   );
 }
 
-function KpiCard({ title, value, color, icon, sub }: { title: string; value: string; color: string; icon?: React.ReactNode; sub?: string }) {
+function KpiCard({ title, value, color, icon, sub, reveal }: { title: string; value: string; color: string; icon?: React.ReactNode; sub?: string; reveal?: string }) {
   return (
-    <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700 p-3 lg:p-5 flex items-center justify-between">
+    <div className={`flex-1 bg-ink-800 rounded-xl border border-ink-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] card-lift p-3 lg:p-5 flex items-center justify-between ${reveal || ''}`}>
       <div>
-        <p className="uppercase text-slate-400 text-sm lg:text-base font-semibold tracking-wider mb-2">{title}</p>
-        <p className={`font-bold text-2xl lg:text-4xl ${color}`}>{value}</p>
-        {sub && <p className={`font-bold mt-1 text-base lg:text-2xl ${color}`}>{sub}</p>}
+        <p className="uppercase text-muted text-sm lg:text-base font-semibold tracking-wider mb-2">{title}</p>
+        <p className={`num font-bold text-2xl lg:text-4xl ${color}`}>{value}</p>
+        {sub && <p className={`num font-bold mt-1 text-base lg:text-2xl ${color}`}>{sub}</p>}
       </div>
       {icon}
     </div>

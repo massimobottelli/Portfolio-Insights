@@ -65,35 +65,37 @@ export default function Layout() {
       {/* Sidebar — su mobile: overlay fisso; su desktop: statico */}
       <aside
         className={`
-          bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300
+          bg-ink-800 border-r border-ink-600 flex flex-col transition-all duration-300
           ${showFull ? 'w-64' : 'w-16'}
           /* Mobile: fisso, nascosto di default, overlay quando mobileOpen */
           fixed lg:static inset-y-0 left-0 z-50
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        {/* Header con titolo e toggle — clicca sul logo o sulla freccia per toggle */}
-        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+        {/* Header con brand monogramma e toggle */}
+        <div className="p-4 border-b border-ink-600 flex items-center justify-between">
           <button
             onClick={() => setCollapsed(prev => !prev)}
             className="hidden lg:block"
             title={collapsed ? 'Espandi sidebar' : 'Comprimi sidebar'}
           >
             {showFull ? (
-              <h1 className="text-xl font-bold text-white">
-                <span className="text-blue-400">Portfolio</span>
-                <span className="text-green-400">Insights</span>
+              <h1 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
+                <span className="text-paper">Portfolio</span>
+                <span className="text-gold-400 font-light text-sm ml-0.5 mr-0.5">|</span>
+                <span className="text-paper">Insights</span>
               </h1>
             ) : (
-              <h1 className="text-xl font-bold text-white">
-                <span className="text-blue-400">P</span>
-                <span className="text-green-400">I</span>
+              <h1 className="text-xl font-bold text-paper" style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.05em' }}>
+                <span className="text-paper">P</span>
+                <span className="text-gold-400 text-xs">|</span>
+                <span className="text-paper">I</span>
               </h1>
             )}
           </button>
           <button
             onClick={() => setCollapsed(prev => !prev)}
-            className="text-slate-400 hover:text-white transition-colors text-lg p-1 rounded-md hover:bg-slate-700/50 hidden lg:block"
+            className="text-muted hover:text-paper transition-colors text-lg p-1 rounded-md hover:bg-ink-700/50 hidden lg:block"
             title={collapsed ? 'Espandi sidebar' : 'Comprimi sidebar'}
           >
             {collapsed ? '»' : '«'}
@@ -110,12 +112,12 @@ export default function Layout() {
                 to={item.to}
                 onClick={handleNavClick}
                 className={({ isActive }) =>
-                  `flex items-center rounded-lg text-sm font-medium transition-colors ${
+                  `flex items-center text-sm font-medium transition-all duration-200 ${
                     showFull ? 'gap-3 px-4 py-3' : 'justify-center px-2 py-3'
                   } ${
                     isActive
-                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
+                      ? 'bg-ink-700/30 text-paper border-l-2 border-l-gold-400/60'
+                      : 'text-muted hover:text-paper hover:bg-ink-700/50 hover:translate-x-0.5'
                   }`
                 }
                 title={!showFull ? item.label : undefined}
@@ -129,10 +131,10 @@ export default function Layout() {
 
         {/* Footer — nascosto quando sidebar chiusa su desktop */}
         {showFull && (
-          <div className="p-4 border-t border-slate-700 space-y-2">
+          <div className="p-4 border-t border-ink-600 space-y-2">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted hover:text-bear hover:bg-bear/10 transition-colors"
             >
               <LogOut size={18} />
               <span>Esci</span>
@@ -141,7 +143,7 @@ export default function Layout() {
               href="https://github.com/massimobottelli/Portfolio-Insights"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-1 rounded-lg text-xs text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
+              className="flex items-center gap-2 px-4 py-1 rounded-lg text-xs text-muted hover:text-paper hover:bg-ink-700/50 transition-colors"
               title="Repository GitHub"
             >
               <GithubIcon size={14} />
@@ -154,17 +156,18 @@ export default function Layout() {
       {/* Main content */}
       <main className="flex-1 overflow-auto">
         {/* Pulsante hamburger per mobile */}
-        <div className="lg:hidden flex items-center p-4 border-b border-slate-700 bg-slate-800">
+        <div className="lg:hidden flex items-center p-4 border-b border-ink-600 bg-ink-800">
           <button
             onClick={() => setMobileOpen(true)}
-            className="text-slate-400 hover:text-white transition-colors text-2xl p-1"
+            className="text-muted hover:text-paper transition-colors text-2xl p-1"
             title="Apri menu"
           >
             ☰
           </button>
-          <h1 className="text-lg font-bold text-white ml-3">
-            <span className="text-blue-400">Portfolio</span>
-            <span className="text-green-400">Insights</span>
+          <h1 className="text-lg font-bold text-paper ml-3">
+            <span className="text-paper">Portfolio</span>
+            <span className="text-gold-400">|</span>
+            <span className="text-paper">Insights</span>
           </h1>
         </div>
         <div className="p-4 lg:p-8">

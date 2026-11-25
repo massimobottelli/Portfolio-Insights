@@ -35,22 +35,22 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
-          <div className="bg-slate-800 rounded-xl border border-red-800/50 p-8 max-w-md text-center">
-            <h1 className="text-xl font-bold text-red-400 mb-2">Si è verificato un errore</h1>
-            <p className="text-slate-400 text-sm mb-4">
+        <div className="min-h-screen flex items-center justify-center bg-ink-900 p-4">
+          <div className="bg-ink-800 rounded-xl border border-bear/20 p-8 max-w-md text-center">
+            <h1 className="text-xl font-bold text-bear mb-2">Si è verificato un errore</h1>
+            <p className="text-muted text-sm mb-4">
               Un errore imprevisto ha interrotto il rendering della pagina.
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={this.handleReset}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 bg-gold-500/80 hover:bg-gold-400 text-paper rounded-lg text-sm font-medium transition-colors"
               >
                 Riprova
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 bg-ink-700 hover:bg-ink-600 text-paper rounded-lg text-sm font-medium transition-colors"
               >
                 Ricarica
               </button>

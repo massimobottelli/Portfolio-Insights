@@ -22,7 +22,7 @@ const About = lazy(() => import('./pages/About'));
 function PageLoader() {
   return (
     <div className="flex items-center justify-center h-64">
-      <div className="text-slate-400 text-lg">Caricamento...</div>
+      <div className="text-muted text-lg">Caricamento...</div>
     </div>
   );
 }

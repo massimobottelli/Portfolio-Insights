@@ -370,41 +370,41 @@ export default function ImportPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-white">Importa Dati</h2>
-        <p className="text-slate-400 text-sm mt-1">
+        <h2 className="text-2xl font-bold text-paper" style={{ fontFamily: 'var(--font-display)' }}>Importa Dati</h2>
+        <p className="text-muted text-sm mt-1">
           Scarica i report CSV da Directa e caricali nei box corrispondenti
         </p>
       </div>
 
       {/* Progress Bar */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
+      <div className="bg-ink-800 rounded-xl border border-ink-600 p-5">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-slate-300">Progresso importazione</span>
+          <span className="text-sm font-medium text-muted">Progresso importazione</span>
           <span className={`text-sm font-bold ${
             loadedCount === 3
-              ? 'text-emerald-400'
+              ? 'text-bull'
               : loadedCount > 0
-                ? 'text-blue-400'
-                : 'text-slate-500'
+                ? 'text-gold-400'
+                : 'text-muted'
           }`}>
             {loadedCount} di 3 report caricati
           </span>
         </div>
-        <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+        <div className="w-full bg-ink-700 rounded-full h-3 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ease-out ${
               loadedCount === 3
-                ? 'bg-emerald-500'
+                ? 'bg-bull'
                 : loadedCount === 2
-                  ? 'bg-blue-500'
+                  ? 'bg-gold-400'
                   : loadedCount === 1
-                    ? 'bg-blue-600'
-                    : 'bg-slate-600'
+                    ? 'bg-gold-500/80'
+                    : 'bg-ink-600'
             }`}
             style={{ width: `${(loadedCount / 3) * 100}%` }}
           />
         </div>
-        <div className="flex justify-between mt-2 text-xs text-slate-500">
+        <div className="flex justify-between mt-2 text-xs text-muted">
           <span>Movimenti</span>
           <span>Portafoglio</span>
           <span>Patrimonio</span>
@@ -415,8 +415,8 @@ export default function ImportPage() {
       {result && (
         <div className={`p-4 rounded-xl border text-sm ${
           result.success
-            ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800/50'
-            : 'bg-red-900/30 text-red-400 border-red-800/50'
+            ? 'bg-bull/15 text-bull border-bull/30'
+            : 'bg-bear/15 text-bear border-bear/30'
         }`}>
           <div className="flex items-center gap-2">
             {result.success ? (
@@ -442,7 +442,7 @@ export default function ImportPage() {
           description="Ordini di acquisto/vendita, commissioni, dividendi, bolli, ritenute fiscali e conferimenti."
           fileName="Movimenti*.csv"
           icon={
-            <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-5 h-5 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           }
@@ -467,7 +467,7 @@ export default function ImportPage() {
           description="Situazione attuale degli strumenti finanziari in portafoglio: ISIN, ticker, nome, quantità e valore."
           fileName="P_TOTALE*.csv"
           icon={
-            <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-5 h-5 text-bull" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z" />
             </svg>
           }
@@ -492,7 +492,7 @@ export default function ImportPage() {
           description="Snapshot giornalieri del valore totale del portafoglio: liquidità, valore portafoglio e patrimonio complessivo."
           fileName="PatrimonioTotale*.csv"
           icon={
-            <svg className="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-5 h-5 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
             </svg>
           }
@@ -512,52 +512,52 @@ export default function ImportPage() {
       </div>
 
       {/* Database Management Section */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 mt-8">
-        <h3 className="text-lg font-semibold text-white mb-2">Gestione Database</h3>
-        <p className="text-sm text-slate-400 mb-6">
+      <div className="bg-ink-800 rounded-xl border border-ink-600 p-6 mt-8">
+        <h3 className="text-lg font-semibold text-paper mb-2">Gestione Database</h3>
+        <p className="text-sm text-muted mb-6">
           Esporta, importa o cancella i dati del database.
         </p>
 
         <div className="grid gap-4 md:grid-cols-3">
           {/* Export Database */}
-          <div className="bg-slate-900/50 rounded-lg border border-slate-700 p-4">
+          <div className="bg-ink-900/50 rounded-lg border border-ink-600 p-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="shrink-0 w-10 h-10 rounded-lg bg-blue-900/40 flex items-center justify-center">
-                <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="shrink-0 w-10 h-10 rounded-lg bg-gold-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                 </svg>
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-white">Esporta Database</h4>
-                <p className="text-xs text-slate-500">Scarica backup JSON</p>
+                <h4 className="text-sm font-semibold text-paper">Esporta Database</h4>
+                <p className="text-xs text-muted">Scarica backup JSON</p>
               </div>
             </div>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-xs text-muted mb-4">
               Esporta tutti i dati in un file JSON per backup o migrazione.
             </p>
             <button
               onClick={handleExportDatabase}
               disabled={exporting}
-              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 text-white rounded-lg transition-colors text-sm font-medium"
+              className="w-full px-4 py-2 bg-gold-500/80 hover:bg-gold-400 disabled:bg-ink-700 disabled:opacity-50 text-paper rounded-lg transition-colors text-sm font-medium"
             >
               {exporting ? 'Esportazione...' : 'Esporta'}
             </button>
           </div>
 
           {/* Import Database */}
-          <div className="bg-slate-900/50 rounded-lg border border-slate-700 p-4">
+          <div className="bg-ink-900/50 rounded-lg border border-ink-600 p-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="shrink-0 w-10 h-10 rounded-lg bg-emerald-900/40 flex items-center justify-center">
-                <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="shrink-0 w-10 h-10 rounded-lg bg-bull/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-bull" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                 </svg>
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-white">Importa Database</h4>
-                <p className="text-xs text-slate-500">Ripristina da backup</p>
+                <h4 className="text-sm font-semibold text-paper">Importa Database</h4>
+                <p className="text-xs text-muted">Ripristina da backup</p>
               </div>
             </div>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-xs text-muted mb-4">
               Carica un file JSON di backup. Sovrascrive tutti i dati esistenti.
             </p>
             <input
@@ -570,43 +570,43 @@ export default function ImportPage() {
             <button
               onClick={() => databaseImportInputRef.current?.click()}
               disabled={importing}
-              className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 disabled:opacity-50 text-white rounded-lg transition-colors text-sm font-medium"
+              className="w-full px-4 py-2 bg-bull hover:bg-bull/80 disabled:bg-ink-700 disabled:opacity-50 text-paper rounded-lg transition-colors text-sm font-medium"
             >
               {importing ? 'Ripristino...' : 'Importa'}
             </button>
           </div>
 
           {/* Clear Database */}
-          <div className="bg-slate-900/50 rounded-lg border border-red-900/30 p-4">
+          <div className="bg-ink-900/50 rounded-lg border border-red-900/30 p-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="shrink-0 w-10 h-10 rounded-lg bg-red-900/40 flex items-center justify-center">
-                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="shrink-0 w-10 h-10 rounded-lg bg-bear/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-bear" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                 </svg>
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-white">Cancella Database</h4>
-                <p className="text-xs text-slate-500">Svuota tutti i dati</p>
+                <h4 className="text-sm font-semibold text-paper">Cancella Database</h4>
+                <p className="text-xs text-muted">Svuota tutti i dati</p>
               </div>
             </div>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-xs text-muted mb-4">
               Cancella tutti i dati: asset, ordini, movimenti, snapshot e sessioni.
             </p>
             {showConfirm ? (
               <div className="space-y-2">
-                <p className="text-xs text-red-400 font-medium">Sicuro? Irreversibile.</p>
+                <p className="text-xs text-bear font-medium">Sicuro? Irreversibile.</p>
                 <div className="flex gap-2">
                   <button
                     onClick={handleClearDatabase}
                     disabled={clearing}
-                    className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white rounded-lg transition-colors text-xs font-medium"
+                    className="flex-1 px-3 py-2 bg-bear hover:bg-bear/80 disabled:bg-ink-700 text-paper rounded-lg transition-colors text-xs font-medium"
                   >
                     {clearing ? '...' : 'Sì, cancella'}
                   </button>
                   <button
                     onClick={() => setShowConfirm(false)}
                     disabled={clearing}
-                    className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-xs font-medium"
+                    className="flex-1 px-3 py-2 bg-ink-700 hover:bg-ink-600 text-paper rounded-lg transition-colors text-xs font-medium"
                   >
                     Annulla
                   </button>
@@ -616,7 +616,7 @@ export default function ImportPage() {
               <button
                 onClick={() => setShowConfirm(true)}
                 disabled={clearing}
-                className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:opacity-50 text-white rounded-lg transition-colors text-sm font-medium"
+                className="w-full px-4 py-2 bg-bear hover:bg-bear/80 disabled:bg-ink-700 disabled:opacity-50 text-paper rounded-lg transition-colors text-sm font-medium"
               >
                 {clearing ? 'Cancellazione...' : 'Cancella'}
               </button>
@@ -626,36 +626,36 @@ export default function ImportPage() {
 
         {/* Import Preview / Confirmation */}
         {showImportConfirm && importPreview && (
-          <div className="mt-4 p-4 bg-emerald-900/20 border border-emerald-800/50 rounded-lg">
-            <h4 className="text-sm font-semibold text-emerald-400 mb-3">Anteprima Backup</h4>
+          <div className="mt-4 p-4 bg-bull/15 border border-bull/30 rounded-lg">
+            <h4 className="text-sm font-semibold text-bull mb-3">Anteprima Backup</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               {Object.entries(importPreview.counts).map(([key, count]) => (
                 <div key={key} className="text-center">
-                  <div className="text-lg font-bold text-white">{count}</div>
-                  <div className="text-xs text-slate-400">{formatTableName(key)}</div>
+                  <div className="text-lg font-bold text-paper">{count}</div>
+                  <div className="text-xs text-muted">{formatTableName(key)}</div>
                 </div>
               ))}
             </div>
-            <div className="text-xs text-slate-400 mb-4">
+            <div className="text-xs text-muted mb-4">
               Data export: {new Date(importPreview.exportDate).toLocaleString('it-IT')}
             </div>
             <div className="flex gap-3">
               <button
                 onClick={handleRestoreDatabase}
                 disabled={importing}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white rounded-lg transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-bull hover:bg-bull/80 disabled:bg-ink-700 text-paper rounded-lg transition-colors text-sm font-medium"
               >
                 {importing ? 'Ripristino in corso...' : 'Conferma e ripristina'}
               </button>
               <button
                 onClick={() => { setShowImportConfirm(false); setImportPreview(null); }}
                 disabled={importing}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-ink-700 hover:bg-ink-600 text-paper rounded-lg transition-colors text-sm font-medium"
               >
                 Annulla
               </button>
             </div>
-            <p className="mt-3 text-xs text-red-400">
+            <p className="mt-3 text-xs text-bear">
               ⚠️ Questa operazione sovrascriverà tutti i dati esistenti nel database.
             </p>
           </div>
@@ -663,33 +663,33 @@ export default function ImportPage() {
       </div>
 
       {/* Import Sessions History */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-700">
-          <h3 className="text-lg font-semibold text-white">Storico Import</h3>
+      <div className="bg-ink-800 rounded-xl border border-ink-600 overflow-hidden">
+        <div className="px-4 py-3 border-b border-ink-600">
+          <h3 className="text-lg font-semibold text-paper">Storico Import</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700 bg-slate-800/50">
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">File</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Data</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Record</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Stato</th>
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-ink-600 bg-ink-800/50">
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">File</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">Data</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">Record</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider">Stato</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700">
+            <tbody className="divide-y divide-ink-600">
               {sessions.map((session) => (
-                <tr key={session.id} className="hover:bg-slate-700/30">
-                  <td className="px-4 py-3 text-sm text-slate-300">{session.filename}</td>
-                  <td className="px-4 py-3 text-sm text-slate-400">
+                <tr key={session.id} className="hover:bg-ink-700/30">
+                  <td className="px-4 py-3 text-sm text-muted">{session.filename}</td>
+                  <td className="px-4 py-3 text-sm text-muted">
                     {new Date(session.import_date).toLocaleString('it-IT')}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-slate-300">{session.records_imported}</td>
+                  <td className="px-4 py-3 text-sm text-right text-muted">{session.records_imported}</td>
                   <td className="px-4 py-3 text-sm">
                     <span className={`px-2 py-1 rounded-md text-xs font-medium ${
                       session.status === 'SUCCESS'
-                        ? 'bg-emerald-900/50 text-emerald-400'
-                        : 'bg-red-900/50 text-red-400'
+                        ? 'bg-bull/30 text-bull'
+                        : 'bg-bear/30 text-bear'
                     }`}>
                       {session.status === 'SUCCESS' ? 'Completato' : 'Fallito'}
                     </span>
@@ -698,7 +698,7 @@ export default function ImportPage() {
               ))}
               {sessions.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={4} className="px-4 py-8 text-center text-muted">
                     Nessuna importazione effettuata
                   </td>
                 </tr>
@@ -744,58 +744,58 @@ function ReportUploadBox({
   // Colori in base al tipo di report
   const colors = {
     blue: {
-      bg: 'bg-blue-900/40',
-      text: 'text-blue-400',
+      bg: 'bg-gold-500/20',
+      text: 'text-gold-400',
       border: state.success
-        ? 'border-emerald-500'
+        ? 'border-bull'
         : state.error
-          ? 'border-red-500'
-          : 'border-slate-700',
-      hoverBorder: 'hover:border-blue-500',
-      button: 'bg-blue-600 hover:bg-blue-700',
-      checkBg: 'bg-emerald-900/60',
-      checkIcon: 'text-emerald-400',
+          ? 'border-bear'
+          : 'border-ink-600',
+      hoverBorder: 'hover:border-gold-400',
+      button: 'bg-gold-500/80 hover:bg-gold-400',
+      checkBg: 'bg-bull/30',
+      checkIcon: 'text-bull',
     },
     emerald: {
-      bg: 'bg-emerald-900/40',
-      text: 'text-emerald-400',
+      bg: 'bg-bull/20',
+      text: 'text-bull',
       border: state.success
-        ? 'border-emerald-500'
+        ? 'border-bull'
         : state.error
-          ? 'border-red-500'
-          : 'border-slate-700',
-      hoverBorder: 'hover:border-emerald-500',
-      button: 'bg-emerald-600 hover:bg-emerald-700',
-      checkBg: 'bg-emerald-900/60',
-      checkIcon: 'text-emerald-400',
+          ? 'border-bear'
+          : 'border-ink-600',
+      hoverBorder: 'hover:border-bull',
+      button: 'bg-bull hover:bg-bull/80',
+      checkBg: 'bg-bull/30',
+      checkIcon: 'text-bull',
     },
     violet: {
-      bg: 'bg-violet-900/40',
-      text: 'text-violet-400',
+      bg: 'bg-gold-500/20',
+      text: 'text-gold-400',
       border: state.success
-        ? 'border-emerald-500'
+        ? 'border-bull'
         : state.error
-          ? 'border-red-500'
-          : 'border-slate-700',
-      hoverBorder: 'hover:border-violet-500',
-      button: 'bg-violet-600 hover:bg-violet-700',
-      checkBg: 'bg-emerald-900/60',
-      checkIcon: 'text-emerald-400',
+          ? 'border-bear'
+          : 'border-ink-600',
+      hoverBorder: 'hover:border-gold-400',
+      button: 'bg-gold-500/80 hover:bg-gold-400',
+      checkBg: 'bg-bull/30',
+      checkIcon: 'text-bull',
     },
   };
 
   const c = colors[color];
 
   return (
-    <div className={`bg-slate-800/60 rounded-xl border-2 ${c.border} p-5 transition-all duration-300 ${state.loading ? 'opacity-70' : ''}`}>
+    <div className={`bg-ink-800/60 rounded-xl border-2 ${c.border} p-5 transition-all duration-300 ${state.loading ? 'opacity-70' : ''}`}>
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <div className={`shrink-0 w-10 h-10 rounded-lg ${c.bg} flex items-center justify-center`}>
           {icon}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold text-white truncate">{title}</h3>
-          <p className="text-xs text-slate-500">{subtitle}</p>
+          <h3 className="text-base font-semibold text-paper truncate">{title}</h3>
+          <p className="text-xs text-muted">{subtitle}</p>
         </div>
         {/* Check mark when successful */}
         {state.success && (
@@ -808,22 +808,22 @@ function ReportUploadBox({
       </div>
 
       {/* Description */}
-      <p className="text-sm text-slate-400 mb-3">{description}</p>
+      <p className="text-sm text-muted mb-3">{description}</p>
 
       {/* File name badge */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs font-mono bg-slate-700/50 px-2 py-0.5 rounded text-slate-300">{fileName}</span>
-        <span className="text-xs bg-slate-700/50 px-1.5 py-0.5 rounded text-slate-400">CSV</span>
+        <span className="text-xs font-mono bg-ink-700/50 px-2 py-0.5 rounded text-muted">{fileName}</span>
+        <span className="text-xs bg-ink-700/50 px-1.5 py-0.5 rounded text-muted">CSV</span>
       </div>
 
       {/* Upload Area or Success State */}
       {state.loading ? (
-        <div className="flex items-center gap-2 text-slate-400 text-sm">
+        <div className="flex items-center gap-2 text-muted text-sm">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
           <span>Elaborazione in corso...</span>
         </div>
       ) : state.success && state.file ? (
-        <div className="flex items-center gap-2 text-emerald-400 text-sm bg-emerald-900/20 rounded-lg p-3 border border-emerald-800/30">
+        <div className="flex items-center gap-2 text-bull text-sm bg-bull/15 rounded-lg p-3 border border-bull/20">
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -832,7 +832,7 @@ function ReportUploadBox({
       ) : state.error && !state.file ? (
         /* Error state with retry - show both error and upload zone */
         <>
-          <div className="flex items-start gap-2 text-red-400 text-sm bg-red-900/20 rounded-lg p-3 border border-red-800/30 mb-3">
+          <div className="flex items-start gap-2 text-bear text-sm bg-bear/15 rounded-lg p-3 border border-bear/20 mb-3">
             <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -858,12 +858,12 @@ function ReportUploadBox({
                 inputRef.current.click();
               }
             }}
-            className={`border-2 border-dashed border-slate-600 rounded-lg p-4 text-center cursor-pointer transition-all ${c.hoverBorder} hover:bg-slate-700/20`}
+            className={`border-2 border-dashed border-ink-600 rounded-lg p-4 text-center cursor-pointer transition-all ${c.hoverBorder} hover:bg-ink-700/20`}
           >
-            <svg className="w-6 h-6 mx-auto mb-2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-6 h-6 mx-auto mb-2 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
-            <p className="text-xs text-slate-400 mb-3">Trascina il file qui o clicca</p>
+            <p className="text-xs text-muted mb-3">Trascina il file qui o clicca</p>
             <input
               type="file"
               accept=".csv,.txt"
@@ -878,7 +878,7 @@ function ReportUploadBox({
                   inputRef.current.click();
                 }
               }}
-              className={`inline-block px-4 py-2 ${c.button} text-white rounded-md cursor-pointer transition-colors text-sm font-medium`}
+              className={`inline-block px-4 py-2 ${c.button} text-paper rounded-md cursor-pointer transition-colors text-sm font-medium`}
             >
               Riprova
             </span>
@@ -901,12 +901,12 @@ function ReportUploadBox({
               inputRef.current.click();
             }
           }}
-          className={`border-2 border-dashed border-slate-600 rounded-lg p-4 text-center cursor-pointer transition-all ${c.hoverBorder} hover:bg-slate-700/20`}
+          className={`border-2 border-dashed border-ink-600 rounded-lg p-4 text-center cursor-pointer transition-all ${c.hoverBorder} hover:bg-ink-700/20`}
         >
-          <svg className="w-6 h-6 mx-auto mb-2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg className="w-6 h-6 mx-auto mb-2 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
           </svg>
-          <p className="text-xs text-slate-400 mb-3">Trascina il file qui o clicca</p>
+          <p className="text-xs text-muted mb-3">Trascina il file qui o clicca</p>
           {/* Hidden file input */}
           <input
             type="file"
@@ -923,7 +923,7 @@ function ReportUploadBox({
                 inputRef.current.click();
               }
             }}
-            className={`inline-block px-4 py-2 ${c.button} text-white rounded-md cursor-pointer transition-colors text-sm font-medium`}
+            className={`inline-block px-4 py-2 ${c.button} text-paper rounded-md cursor-pointer transition-colors text-sm font-medium`}
           >
             Seleziona file
           </span>
