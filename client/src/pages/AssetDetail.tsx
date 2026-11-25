@@ -22,10 +22,11 @@ import { TIME_RANGE_OPTIONS, getCutoffDate, type TimeRange } from '../lib/timeRa
 // Helper di formattazione condivisi (erano duplicati verbatim in più pagine)
 import {
   formatPrice,
-  formatAmount,
   formatPercent,
   formatPercentNoSign,
   formatDate,
+  formatCurrency,
+  formatEUR,
   gainColorClass,
 } from '../lib/format';
 
@@ -354,7 +355,7 @@ export default function AssetDetail() {
         {/* 4. Valore di carico vs attuale */}
         <KpiCard
           label="Carico vs Attuale"
-          value={`${formatAmount(position.bookValueEUR)} → ${formatAmount(position.currentValueEUR)}`}
+          value={`${formatEUR(position.bookValueEUR)} → ${formatEUR(position.currentValueEUR)}`}
 
           valueClass={
             position.bookValueEUR && position.currentValueEUR && position.currentValueEUR >= position.bookValueEUR
@@ -368,10 +369,10 @@ export default function AssetDetail() {
           }
         />
 
-        {/* 5. P&L */}
+        {/* 5. Gain/Loss */}
         <KpiCard
-          label="P&L"
-          value={`${formatAmount(position.pnl)} ${asset.currency}`}
+          label="Gain/Loss"
+          value={formatCurrency(position.pnl, asset.currency)}
           sublabel={position.pnlPercent !== null ? formatPercent(position.pnlPercent) : null}
           valueClass={gainColorClass(position.pnl)}
           sublabelClass={gainColorClass(position.pnlPercent)}
@@ -546,7 +547,7 @@ export default function AssetDetail() {
                   <td className="px-4 py-3 text-sm text-right text-slate-300">{formatPrice(order.price)}</td>
                   <td className="px-4 py-3 text-sm text-right text-white font-medium">
                     {/* Importo con segno invertito: positivo per acquisto, negativo per vendita */}
-                    {formatAmount(order.type === 'BUY' ? Math.abs(order.amount) : -Math.abs(order.amount))} {order.currency}
+                    {formatCurrency(order.type === 'BUY' ? Math.abs(order.amount) : -Math.abs(order.amount), order.currency)}
                   </td>
                 </tr>
               ))}
@@ -581,7 +582,7 @@ export default function AssetDetail() {
                   <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
                     <td className="px-4 py-3 text-sm text-slate-300">{formatDate(c.date)}</td>
                     <td className="px-4 py-3 text-sm text-right text-emerald-400 font-medium">
-                      +{formatAmount(c.amount)} {c.currency}
+                      +{formatCurrency(c.amount, c.currency)}
                     </td>
                   </tr>
                 ))}
@@ -598,7 +599,7 @@ export default function AssetDetail() {
                   <tr className="border-t-2 border-slate-600 bg-slate-800/80">
                     <td className="px-4 py-3 text-sm font-semibold text-white uppercase tracking-wider">Totale</td>
                     <td className="px-4 py-3 text-sm text-right font-bold text-emerald-400">
-                      +{formatAmount(couponsTotal)} {coupons[0].currency}
+                      +{formatCurrency(couponsTotal, coupons[0].currency)}
                     </td>
                   </tr>
                 </tfoot>
@@ -625,7 +626,7 @@ export default function AssetDetail() {
                     <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
                       <td className="px-4 py-3 text-sm text-slate-300">{formatDate(div.date)}</td>
                       <td className="px-4 py-3 text-sm text-right text-emerald-400 font-medium">
-                        +{formatAmount(div.amount)} {div.currency}
+                        +{formatCurrency(div.amount, div.currency)}
                       </td>
                     </tr>
                   ))}
@@ -634,7 +635,7 @@ export default function AssetDetail() {
                   <tr className="border-t-2 border-slate-600 bg-slate-800/80">
                     <td className="px-4 py-3 text-sm font-semibold text-white uppercase tracking-wider">Totale</td>
                     <td className="px-4 py-3 text-sm text-right font-bold text-emerald-400">
-                      +{formatAmount(dividendsTotal)} {dividends[0].currency}
+                      +{formatCurrency(dividendsTotal, dividends[0].currency)}
                     </td>
                   </tr>
                 </tfoot>

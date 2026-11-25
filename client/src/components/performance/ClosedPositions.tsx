@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { MarketOrderItem } from '../../types';
 import { apiFetch } from '../../lib/api';
-import { formatAmount } from '../../lib/format';
+import { formatEUR } from '../../lib/format';
 
 type ClosedSortKey = 'ticker' | 'name' | 'pnl' | 'orderCount';
 type SortDirection = 'asc' | 'desc';
@@ -104,7 +104,7 @@ export default function ClosedPositions() {
                   <span className="text-slate-300 hover:text-white hover:underline cursor-pointer transition-colors">{pos.name || '\u2014'}</span>
                 </td>
                 <td className={`px-4 py-3 text-sm text-right font-bold whitespace-nowrap ${pos.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {pos.pnl !== 0 && pos.pnl < 0 ? '-' : ''}{formatAmount(Math.abs(pos.pnl))}€
+                  {pos.pnl !== 0 && pos.pnl < 0 ? '-' : ''}{formatEUR(Math.abs(pos.pnl), 0)}
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-300 text-right whitespace-nowrap">{pos.orderCount}</td>
               </tr>

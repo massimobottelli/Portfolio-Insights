@@ -7,8 +7,8 @@ import { useNavigate } from "react-router-dom";
 import type { PositionItem } from "../../types";
 import type { AssetTypeIRRResponse } from "../../lib/performanceApi";
 import {
-  formatAmount,
   formatPercent,
+  formatEUR,
   gainColorClass,
   getAssetTypeStyle,
 } from "../../lib/format";
@@ -250,7 +250,7 @@ function _renderTable(
             <td
               className={`px-3 py-2.5 text-sm text-right font-medium ${gainColorClass(group.gainEur)} align-middle`}
             >
-              {formatAmount(group.gainEur)}
+              {formatEUR(group.gainEur)}
             </td>
         </tr>
         {/* Sottorighes: singolo asset per tipo */}
@@ -301,7 +301,7 @@ function _renderTable(
             <td
               className={`px-3 py-1.5 text-sm text-right ${gainColorClass(asset.gainEur)} align-middle`}
             >
-              {formatAmount(asset.gainEur)}
+              {formatEUR(asset.gainEur)}
             </td>
           </tr>
         ))}
@@ -374,7 +374,7 @@ function _renderTable(
               <td
                 className={`px-3 py-3 text-sm text-right ${gainColorClass(total.gainEur)} align-middle`}
               >
-                {formatAmount(total.gainEur)}
+                {formatEUR(total.gainEur)}
               </td>
             </tr>
           </tbody>

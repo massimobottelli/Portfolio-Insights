@@ -7,9 +7,10 @@ import { apiFetch } from '../lib/api';
 // Helper di formattazione condivisi (erano duplicati verbatim in più pagine)
 import {
   formatPrice,
-  formatAmount,
   formatPercent,
   formatDate,
+  formatCurrency,
+  formatEUR,
   gainColorClass,
   getAssetTypeStyle,
 } from '../lib/format';
@@ -431,10 +432,10 @@ export default function Portfolio() {
                       {formatPrice(pos.average_price)}
                     </td>
                     <td className="px-4 py-3 text-sm text-right text-white font-medium">
-                      {formatAmount(totalValue)} {pos.currency}
+                      {formatCurrency(totalValue, pos.currency)}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainEur)}`}>
-                      {formatAmount(gainEur)} 
+                      {formatCurrency(gainEur, pos.currency)} 
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainPercent)}`}>
                       {formatPercent(gainPercent)}
@@ -520,10 +521,10 @@ export default function Portfolio() {
                         {assetType}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatAmount(carico)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatAmount(attuale)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatEUR(carico)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatEUR(attuale)}</td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gain)}`}>
-                      {formatAmount(gain)}
+                      {formatEUR(gain)}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${gainColorClass(gainPercent)}`}>
                       {formatPercent(gainPercent)}
@@ -554,7 +555,7 @@ export default function Portfolio() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-right text-slate-400">—</td>
-                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatAmount(availableCash)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-white font-medium">{formatEUR(availableCash)}</td>
                     <td className="px-4 py-3 text-sm text-right text-slate-300">—</td>
                     <td className="px-4 py-3 text-sm text-right text-slate-300">—</td>
                     <td className="px-4 py-3 text-sm text-right text-slate-400">—</td>
@@ -565,10 +566,10 @@ export default function Portfolio() {
               <tfoot>
                 <tr className="border-t-2 border-slate-600 bg-slate-800/80">
                   <td className="px-4 py-3 text-sm font-semibold text-white uppercase tracking-wider">Totale</td>
-                  <td className="px-4 py-3 text-sm text-right font-bold text-white">{formatAmount(totals.carico)}</td>
-                  <td className="px-4 py-3 text-sm text-right font-bold text-white">{formatAmount(totals.attuale)}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-white">{formatEUR(totals.carico)}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-white">{formatEUR(totals.attuale)}</td>
                   <td className={`px-4 py-3 text-sm text-right font-bold ${gainColorClass(totals.gain)}`}>
-                    {formatAmount(totals.gain)}
+                    {formatEUR(totals.gain)}
                   </td>
                   <td className={`px-4 py-3 text-sm text-right font-bold ${gainColorClass(totals.gainPercent)}`}>
                     {formatPercent(totals.gainPercent)}

@@ -29,7 +29,7 @@ const FEATURE_SECTIONS: FeatureSection[] = [
     icon: LayoutDashboard,
     title: 'Dashboard',
     items: [
-      <><strong>KPI principali</strong>: Valore portafoglio, Capitale investito, Liquidità, Profit &amp; Loss</>,
+      <><strong>KPI principali</strong>: Valore portafoglio, Capitale investito, Liquidità, Gain/Loss</>,
       <><strong>TWR</strong> (Time-Weighted Rate of Return): calcolo con sottoperiodi delimitati dai depositi</>,
       <><strong>Grafico storico</strong>: evoluzione del portafoglio con filtri temporali (1M, 3M, 6M, 1Y, YTD, All)</>,
       <><strong>Allocazione</strong>: grafico a torta interattivo con legenda e colori per tipologia di asset</>,

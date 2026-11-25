@@ -4,7 +4,7 @@ import type { CashMovementItem, MovementsResponse } from '../types';
 import { apiFetch } from '../lib/api';
 // Helper condiviso (era duplicato in più pagine); formatDate resta locale
 // perché qui gestisce anche i formati legacy (DD-MM-YYYY, M/D/YY)
-import { formatAmount } from '../lib/format';
+import { formatAmount, formatEUR } from '../lib/format';
 
 type SortKey = 'operation_date' | 'movement_type' | 'ticker' | 'asset_name' | 'euro_amount' | 'currency';
 type SortDirection = 'asc' | 'desc';
@@ -190,7 +190,7 @@ export default function Movements() {
    * Al successo ricarica la lista (incrementando reloadKey).
    */
   const handleDelete = async (mv: CashMovementItem) => {
-    const label = `${MOVEMENT_TYPE_LABELS[mv.movement_type] || mv.movement_type} del ${formatDate(mv.operation_date)} (${formatAmount(mv.euro_amount)} €)`;
+    const label = `${MOVEMENT_TYPE_LABELS[mv.movement_type] || mv.movement_type} del ${formatDate(mv.operation_date)} (${formatEUR(mv.euro_amount)})`;
     if (!window.confirm(`Eliminare definitivamente il movimento "${label}"?`)) {
       return;
     }
@@ -412,8 +412,7 @@ export default function Movements() {
                     Totale
                   </td>
                   <td className={`px-4 py-3 text-sm text-right font-bold whitespace-nowrap ${amountColorClass(totalAmount)}`}>
-                    {formatAmount(totalAmount)}
-                    <span className="text-slate-500 font-normal ml-1">€</span>
+                    {formatEUR(totalAmount)}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-400">EUR</td>
                   <td />

@@ -23,20 +23,53 @@ export const formatAmount = (value: number | null | undefined) => {
 };
 
 /**
- * Formatta una percentuale con segno.
+ * Formatta un importo in euro con simbolo € prima, separatore migliaia punto,
+ * decimali virgola. Arrotonda all'intero di default; solo i valori unitari
+ * (prezzo corrente, prezzo medio carico) usano 2+ decimali con formatPrice.
+ *
+ * @param decimals  numero di cifre decimali (default 0).
+ */
+export const formatEUR = (value: number | null | undefined, decimals = 0): string => {
+  if (value === null || value === undefined) return '—';
+  return `€ ${value.toLocaleString('it-IT', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+};
+
+/**
+ * Formatta un importo nella valuta specificata (valore × quantità aggregato,
+ * non un prezzo unitario). Usa il simbolo della valuta prima dell'importo,
+ * separatore migliaia punto, decimali virgola, nessuna cifra decimale.
+ *
+ * Supporta EUR, USD (€, $). Per altre valute usa il codice ISO come simbolo.
+ *
+ * @param decimals  numero di cifre decimali (default 0).
+ */
+export const formatCurrency = (
+  value: number | null | undefined,
+  currency: string,
+  decimals = 0,
+): string => {
+  if (value === null || value === undefined) return '—';
+  const symbol = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency;
+  return `${symbol} ${value.toLocaleString('it-IT', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+};
+
+/**
+ * Formatta una percentuale con segno (+5,25%).
+ * Usa il separatore decimale italiano (virgola).
  */
 export const formatPercent = (value: number | null | undefined) => {
   if (value === null || value === undefined) return '—';
   const sign = value >= 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)}%`;
+  return `${sign}${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 };
 
 /**
- * Formatta una percentuale senza segno (per allocazioni).
+ * Formatta una percentuale senza segno (5,25%).
+ * Usa il separatore decimale italiano (virgola).
  */
 export const formatPercentNoSign = (value: number | null | undefined) => {
   if (value === null || value === undefined) return '—';
-  return `${value.toFixed(2)}%`;
+  return `${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 };
 
 /**

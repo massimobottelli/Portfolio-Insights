@@ -5,6 +5,7 @@ import type { DashboardData, AllocationItem, SnapshotItem, TWRData } from '../ty
 import { apiFetch } from '../lib/api';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { TIME_RANGE_OPTIONS, getCutoffDate, type TimeRange } from '../lib/timeRange';
+import { formatEUR } from '../lib/format';
 
 // Famiglia di colori per ogni asset type (tinta base).
 // Ogni asset type ha una tinta propria: le sfumature vengono generate all'interno dello stesso gruppo.
@@ -43,7 +44,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
     <div className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 shadow-lg">
       <p className="font-semibold text-white text-sm">{item.name}</p>
       <p className="text-slate-300 text-sm mt-1">
-        Valore: €{item.marketValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+        Valore: {formatEUR(item.marketValue)}
       </p>
       <p className="text-slate-300 text-sm">
         Peso: {item.allocationPercent.toFixed(2)}%
@@ -206,9 +207,6 @@ export default function Dashboard() {
 
   const isPositive = dashboard.totalProfitLoss >= 0;
 
-  const formatEUR = (value: number) =>
-    new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
-
   const formatPercent = (value: number) =>
     `${value >= 0 ? '+' : ''}${(value * 100).toFixed(2)}%`;
 
@@ -349,7 +347,7 @@ export default function Dashboard() {
                 yAxisId="left"
                 width={isMobile ? 32 : 60}
                 tick={{ fill: '#94a3b8', fontSize: isMobile ? 8 : 12 }}
-                tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+                tickFormatter={(value) => `€ ${(value / 1000).toFixed(0)}k`}
                 domain={['auto', 'auto']}
               />
               <YAxis
@@ -364,8 +362,6 @@ export default function Dashboard() {
                 content={({ active, payload }) => {
                   if (!active || !payload || payload.length === 0) return null;
                   const item = payload[0].payload as SnapshotItem & { twr: number | null };
-                  const formatEUR = (v: number) =>
-                    new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
                   const formatPct = (v: number | null) =>
                     v !== null ? `${(v * 100).toFixed(2)}%` : 'N/D';
                   return (
@@ -481,7 +477,7 @@ export default function Dashboard() {
         {/* 4 KPI box in sequenza verticale */}
         <div className="flex flex-col gap-4">
           <KpiCard
-            title="Profit / Loss"
+            title="Gain / Loss"
             value={`${isPositive ? '+' : ''}${formatEUR(dashboard.totalProfitLoss)}`}
             sub={`(${dashboard.totalProfitLossPercent}%)`}
             color={isPositive ? 'text-emerald-400' : 'text-red-400'}

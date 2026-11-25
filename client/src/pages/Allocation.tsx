@@ -10,7 +10,7 @@ import type {
   RebalanceSuggestion
 } from '../types';
 // Helper di formattazione condivisi (erano duplicati verbatim in più pagine)
-import { formatAmount, formatPercent, getAssetTypeStyle } from '../lib/format';
+import { formatEUR, formatPercent, getAssetTypeStyle } from '../lib/format';
 
 const TARGETABLE_TYPES = ['STOCK', 'BOND', 'COMMODITY', 'FUND', 'CASH'];
 
@@ -433,7 +433,7 @@ export default function Allocation() {
                       {formatPercent(divergence)}
                     </td>
                     <td className={`px-4 py-3 text-right ${divergenceColor(divergence)}`}>
-                      {divergence !== 0 ? `€${formatAmount(amount)}` : '-'}
+                      {divergence !== 0 ? formatEUR(amount, 0) : '-'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {isOver && divergence !== 0 ? (
@@ -482,7 +482,7 @@ export default function Allocation() {
                   )}
                   <div>
                     <p className={`text-sm font-semibold ${s.action === 'BUY' ? 'text-emerald-300' : 'text-red-300'}`}>
-                      {s.action === 'BUY' ? 'COMPRA' : 'VENDI'} €{formatAmount(s.amount)} di {s.assetType}
+                      {s.action === 'BUY' ? 'COMPRA' : 'VENDI'} {formatEUR(s.amount, 0)} di {s.assetType}
                     </p>
                     <p className="text-xs text-slate-400 mt-0.5">
                       Deviazione {formatPercent(s.divergencePercent)} {s.action === 'BUY' ? 'sotto' : 'oltre'} target
@@ -500,7 +500,7 @@ export default function Allocation() {
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
           <p className="text-sm text-slate-400">
             Valore totale portafoglio:{' '}
-            <span className="font-semibold text-white">€{formatAmount(current.totalValue)}</span>
+            <span className="font-semibold text-white">{formatEUR(current.totalValue)}</span>
           </p>
         </div>
       )}
